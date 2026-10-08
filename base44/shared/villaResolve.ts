@@ -138,12 +138,22 @@ export function resolveVillaCode(raw, index, phaseIdHint) {
  * code always wins, and an unstated phase is never assumed.
  */
 export function phaseHintFromText(text, phases = []) {
-  const hay = looseKey(text);
-  if (!hay) return '';
+  const raw = cleanText(text);
+  if (!raw) return '';
+  const hay = looseKey(raw);
   const hits = phases.filter((phase) => {
-    const code = looseKey(phase.code);
-    const name = looseKey(phase.name);
-    return (code.length >= 1 && new RegExp(`${code}(\\d|$)`, 'i').test(hay)) || (name.length > 3 && hay.includes(name));
+    const code = cleanText(phase.code);
+    const name = cleanText(phase.name);
+    // A phase code counts only where it is written as a word of its own: the
+    // letter A must not be found inside "villa5". A longer code may also appear
+    // joined to its number, e.g. "B05".
+    const bare = code.replace(/[^A-Za-z0-9]/g, '');
+    const codeHit = bare
+      ? new RegExp(`(^|[^A-Za-z0-9])${bare}(?![A-Za-z0-9])`, 'i').test(raw) ||
+        (bare.length > 1 && new RegExp(`${looseKey(bare)}\\d`, 'i').test(hay))
+      : false;
+    const nameHit = looseKey(name).length > 3 && hay.includes(looseKey(name));
+    return codeHit || nameHit;
   });
   return hits.length === 1 ? hits[0].id : '';
 }
@@ -186,16 +196,17 @@ export function resolveVillaReferences(text, index, options = {}) {
     add(location, 'code', location.villa_code);
   });
 
-  // 2. "Villa 10", "Villa No. 10", "Plot 14A", "plot 8" — with any following
-  //    list of numbers belonging to the same phrase ("Villas 5, 6 and 7").
-  const pattern = /(villa|plot|unit|house)\s*(?:no\.?|number|#)?\s*[-#]?\s*(\d{1,3})\s*([a-z])?/gi;
+  // 2. "Villa 10", "Villa No. 10", "Plot 14A", "plot 8", "Plots 15 and 16",
+  //    "Villas 7, 8 and 9" — with any following list of numbers belonging to the
+  //    same phrase ("Villas 5, 6 and 7").
+  const pattern = /(villas?|plots?|units?|houses?)\s*(?:no\.?|number|nos\.?|#)?\s*[-#]?\s*(\d{1,3})([a-z])?/gi;
   let match = pattern.exec(raw);
   while (match) {
     const keyword = match[1];
     const numbers = [match[2]];
     const letters = [match[3] || ''];
     const tail = raw.slice(match.index + match[0].length);
-    const trailing = tail.match(/^\s*((?:(?:,|and|&|\+|\/)\s*(?:villa|plot|unit|house)?\s*(?:no\.?|number|#)?\s*[-#]?\s*\d{1,3}[a-z]?\s*)+)/i);
+    const trailing = tail.match(/^\s*((?:(?:,|and|&|\+|\/)\s*(?:villas?|plots?|units?|houses?)?\s*(?:no\.?|number|nos\.?|#)?\s*[-#]?\s*\d{1,3}[a-z]?\s*)+)/i);
     if (trailing) {
       const more = trailing[1].match(/(\d{1,3})\s*([a-z])?/gi) || [];
       more.forEach((chunk) => {

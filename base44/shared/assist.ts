@@ -361,7 +361,12 @@ export function buildProposal({ text, data, scope, asOf, options = {} }) {
         truncated: rows.length > limit,
       },
       actions: [],
-      questions: rows.length ? [] : ['No record in this scope matches that question. Widen the phase, or check the name.'],
+      questions: [
+        // Anything the words left open about the villa comes first: an unclear
+        // reference is never hidden behind a "nothing matched" answer.
+        ...questions,
+        ...(rows.length ? [] : ['No record in this scope matches that question. Widen the phase, or check the name.']),
+      ],
       notes: [],
       villas: resolved.resolved.map((item) => ({ id: item.location.id, code: item.location.villa_code, via: item.via })),
       data_date: asOf,
