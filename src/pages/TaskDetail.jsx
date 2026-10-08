@@ -240,6 +240,13 @@ export default function TaskDetail() {
               { label: 'Latest update', value: task.latest_update },
               { label: 'Remarks', value: task.remarks },
               { label: 'Attachment reference', value: task.attachment_ref },
+              { label: 'Source reference', value: task.source_reference },
+              {
+                label: 'Imported from',
+                value: task.import_source_file
+                  ? `${task.import_source_file}${task.import_row_number ? ` · row ${task.import_row_number}` : ''}`
+                  : '',
+              },
               { label: 'Created', value: formatDateTime(task.created_date), mono: true },
               { label: 'Last updated', value: formatDateTime(task.updated_date), mono: true },
             ]}

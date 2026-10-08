@@ -64,11 +64,12 @@ export const EXPORT_ENTITIES = [
       'supplied_by', 'selection_status', 'procurement_status', 'expected_delivery_date',
       'owner_access_required', 'access_status', 'blocker_category', 'blocker_description',
       'blocker_responsible_party', 'blocked_since', 'remarks', 'latest_update', 'attachment_ref',
+      'source_reference', 'import_batch_id', 'import_source_file', 'import_row_number',
       'execution_completed_by_id', 'execution_completed_by_name', 'approved_by_id', 'approved_by_name', 'approved_at',
       'created_by_name', 'updated_by_name', 'archived', 'is_demo', 'member_ids',
       'created_date', 'updated_date', 'created_by_id',
     ],
-    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted.',
+    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted. import_batch_id / import_source_file / import_row_number / source_reference record the CSV row a task came from, and are written only by the import operation.',
   },
   {
     name: 'DailyUpdate',
@@ -97,6 +98,12 @@ export const EXPORT_ENTITIES = [
     label: 'Task reference ledger',
     fields: ['id', 'external_id', 'prefix', 'sequence', 'task_ref', 'project_id', 'phase_id', 'location_id', 'task_id', 'claim_id', 'allocated_at', 'allocated_by_id', 'allocated_by_name', 'source', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
     note: 'Append-only: one row per reference ever issued, never deleted, so a number stays consumed after its task is deleted. Import it after tasks and set each prefix counter from max(sequence). A row with an empty task_id is a claim that was not used — a simultaneous writer won that number.',
+  },
+  {
+    name: 'ImportBatch',
+    label: 'CSV import batches',
+    fields: ['id', 'batch_ref', 'project_id', 'phase_id', 'source_file', 'source_checksum', 'row_count', 'created_count', 'skipped_count', 'linked_count', 'failed_count', 'attention_count', 'status', 'imported_by_id', 'imported_by_name', 'imported_at', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'report is a nested list carried in full by the JSON bundle; a CSV holds it as JSON text. source_checksum is the fingerprint that recognises a repeated file. Tasks point back through import_batch_id, so import_batches must be loaded before tasks.',
   },
   {
     name: 'TaskHistory',
@@ -134,6 +141,7 @@ export const RELATIONSHIPS = [
   'Task.contractor_id → Contractor.id; Task.baseline_version_id → BaselineVersion.id',
   'TaskHistory.task_id → Task.id; BaselineVersion.phase_id → Phase.id',
   'RefAllocation.task_id → Task.id (empty while a claim is unused, or after its task is deleted); RefAllocation.task_ref matches Task.task_ref — one ledger row per reference, including references whose task no longer exists',
+  'ImportBatch.project_id → Project.id; Task.import_batch_id → ImportBatch.id — the batch, source file and row number behind an imported task',
   'DailyUpdate.task_id → Task.id, .project_id → Project.id, .location_id → Location.id (empty for site-wide work); DailyUpdate.reported_by_id → User.id',
   'TaskDependency.predecessor_task_id / successor_task_id → Task.id',
 ];

@@ -22,6 +22,7 @@ platform-specific, and how the data maps across.
 | TaskDependency | Structure only, logic is a later step | Project |
 | TaskHistory | Append-only change trail | Project |
 | RefAllocation | Append-only ledger of every task reference ever issued — the counter behind `task_ref` | Project |
+| ImportBatch | One CSV work import: the file, who ran it, what it created and every row's outcome | Project |
 | DailyUpdate | One site report per save: progress, work done, manpower, plan, blocker, photos | Project |
 | BaselineVersion | Frozen baseline snapshots per phase | Project |
 | User | Built-in profile (id, email, full_name, role) | Platform |
@@ -67,8 +68,8 @@ and are copied separately (see G7). Inspections are not built yet.
 | --- | --- | --- |
 | `@/api/base44Client` SDK (entities, functions, auth) | every page | Supabase JS client + REST |
 | RLS via `rls` blocks in `base44/entities/*.jsonc` | all project data | Postgres RLS policies (see E) |
-| Backend functions `taskWrite`, `dailyUpdate`, `saveRecord`, `villaWorkCreate`, `baselineAction`, `nextTaskRef`, `getMyAccess`, `dataExport` | `base44/functions/` | Supabase Edge Functions |
-| Shared server modules `access.ts`, `history.ts`, `taskWriteRules.ts`, `taskRef.ts`, `records.ts` | `base44/shared/` | plain TypeScript modules, portable as-is |
+| Backend functions `taskWrite`, `dailyUpdate`, `saveRecord`, `villaWorkCreate`, `baselineAction`, `nextTaskRef`, `getMyAccess`, `dataExport`, `workImport` | `base44/functions/` | Supabase Edge Functions |
+| Shared server modules `access.ts`, `history.ts`, `taskWriteRules.ts`, `taskRef.ts`, `records.ts`, `workImport.ts` | `base44/shared/` | plain TypeScript modules, portable as-is |
 | Private file storage (`UploadPrivateFile`) and signed links (`CreateFileSignedUrl`) | daily update site photos | Supabase Storage, private bucket + signed URLs |
 | Built-in User entity | Auth | `auth.users` + `profiles` |
 | `created_by_id`, `created_date`, `updated_date`, `member_ids` system fields | every record | explicit columns; `member_ids` becomes a join table |
@@ -82,8 +83,10 @@ and the stamps that travel with them — the one gate both the task editor and t
 daily report pass through), `taskRef.ts` (reference allocation),
 `base44/functions/taskWrite` (task validation), `dailyUpdate` (site reports:
 permission, the report row, the task fields it moves and the trail row),
-`baselineAction` (baseline lifecycle), `src/lib/accessRules.js` and
-`src/lib/constants.js` (shared labels, statuses, capability ranks).
+`baselineAction` (baseline lifecycle), `workImport.ts` (a CSV row: matching,
+validation, duplicate detection and the task records an import writes — see H),
+`src/lib/accessRules.js` and `src/lib/constants.js` (shared labels, statuses,
+capability ranks).
 
 ## E. Authentication and permissions
 
@@ -129,6 +132,7 @@ Mapping to Supabase:
 | DailyUpdate | `daily_updates` | `task_id` fk → tasks, `project_id`/`phase_id`/`location_id` fks (`location_id` nullable for site-wide), `reported_by uuid` → `auth.users`, `update_date date`, `photo_uris text[]` holds storage paths |
 | TaskHistory | `task_history` | `changed_at timestamptz`, `old_value/new_value text` |
 | RefAllocation | `ref_allocations` | `unique (task_ref)`, `unique (prefix, sequence)`; imported after `tasks`, then each prefix counter is set from `max(sequence)` |
+| ImportBatch | `import_batches` | `batch_ref text unique`, `report jsonb`, `source_checksum text` (index it — that is how a repeated file is recognised) |
 | BaselineVersion | `baseline_versions` | `snapshot jsonb`, `changes jsonb`, `version_number int` |
 | User | `profiles` | `id` = `auth.users.id` |
 | `member_ids` (system field) | *(none)* | replaced by `project_memberships` |
@@ -175,9 +179,79 @@ All date logic uses Asia/Kolkata.
 8. **No one-click migration** — Base44 exports data and code, not an equivalent
    database. Expect a scripted import: entities in dependency order (projects →
    phases → locations → contractors → disciplines → work packages → contractor
-   defaults → memberships → tasks → daily updates → dependencies → baselines →
-   ref allocations → history), then set each reference counter from the ledger
-   (`setval`), then
-   re-point membership `user_id`s by email after inviting users into Supabase Auth.
+   defaults → memberships → import batches → tasks → daily updates →
+   dependencies → baselines → ref allocations → history), then set each reference
+   counter from the ledger (`setval`), then re-point membership `user_id`s by
+   email after inviting users into Supabase Auth. Tasks carry `import_batch_id`,
+   so `import_batches` must be loaded before `tasks`.
 9. **Screens are not portable** — pages use shadcn/ui + Tailwind and are the
    cheapest part to keep; the SDK calls, RLS and the auth pages are what change.
+
+## H. CSV work import (Import Works)
+
+Run from **Import Works**, restricted on the server to a Project Manager or an
+application administrator on that project. The file is parsed, matched,
+validated and written by `base44/functions/workImport` together with
+`base44/shared/workImport.ts`. The browser only displays what the server
+reports and sends back the corrections the user makes; preview and import run
+the *same* validation, so a confirmed import creates exactly what the preview
+showed. Full operating notes for the screen: `docs/CSV_IMPORT.md`.
+
+Column → field mapping (headers are matched loosely: case, spaces and
+punctuation ignored):
+
+| CSV column | Task field | Rule |
+| --- | --- | --- |
+| Project | `project_id` | Must be the project the import was started for; another project's name is refused |
+| Phase | `phase_id` | `A` / `Phase A`; the villa's own phase wins and a disagreement is reported |
+| Villa/location code | `location_id` | `villa_code` as registered; a plot reference is matched only when it names one villa, otherwise the row is flagged ambiguous |
+| Work category | *(site-wide has `location_id` null)* | `Villa Work` or `Site-Wide Work`; blank is inferred from the location |
+| Discipline | `discipline` | Discipline code — required |
+| Work package | `work_package` | Standard name preferred; a non-standard value is imported as written and flagged |
+| Task description | `name` | Required |
+| Contractor | `contractor_id` | Named contractor, else the project default for discipline + phase; never invented |
+| Responsible engineer | `responsible_engineer` | |
+| Priority | `priority` | `Low`/`Medium`/`High`/`Critical`; blank → Medium |
+| Status | `status` | Register statuses; blank → Not Started |
+| Baseline start / finish | `baseline_start` / `baseline_finish` | A *proposed* baseline (`baseline_approval_status = Not Submitted`, never locked) |
+| Forecast finish | `current_forecast_finish` | |
+| Progress percentage | `progress_percent` | 0–100; blank stays blank (never 0) |
+| Estimated man-hours | `estimated_manhours` | |
+| Blocker description | `blocker_description` | |
+| Remarks | `remarks` | |
+| Source reference | `source_reference` | The work list's own reference, kept with the task |
+
+Import metadata on every imported task (server-owned; a screen can never set
+it): `import_batch_id`, `import_source_file`, `import_row_number`, plus
+`source_reference`. The `ImportBatch` row holds `batch_ref`, the file name, its
+fingerprint, who ran it and when, the row counts, the status, and the per-row
+report — outcome, task reference, villa, contractor and the information still
+missing.
+
+What an import never does:
+
+- **Never overwrites or merges.** A likely duplicate is offered as *Skip*,
+  *Import as new*, or *Link*; linking writes one `Import Link` row to that
+  task's history and leaves its fields untouched.
+- **Never renumbers a published reference.** References are allocated per phase
+  in blocks and checked afterwards; a simultaneous claim is re-issued the next
+  free number, and the correction is both reported in the batch and recorded in
+  the task's history.
+- **Never guesses.** A blank cell stays blank; an unreadable date, an unmatched
+  villa or an unmatched contractor is an error on that row.
+
+Limitations carried into the migration:
+
+1. **Bounds.** One import holds up to 500 rows, and duplicate detection reads the
+   project's most recent 2,000 tasks. Postgres removes both (a unique index on
+   `(project_id, normalised description, location_id, discipline)`).
+2. **A number consumed by a deleted or test task stays consumed.** That is the
+   ledger's purpose, and `ref_allocations` carries it across the migration.
+3. **Dates are read day-first** when the form is ambiguous (`DD/MM/YYYY`). The
+   template's `YYYY-MM-DD` / `DD-MMM-YY` forms avoid the ambiguity entirely.
+4. **A file is not a database transaction.** A failing block is reported per row
+   and the rest of the file continues, so a partly applied file is always
+   visible in the batch report. Supabase can wrap the whole file in one
+   transaction.
+5. **Excel is not read.** Work lists are cleaned, consolidated and saved as CSV
+   outside the app.

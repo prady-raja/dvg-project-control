@@ -576,10 +576,20 @@ function validateOneRow(row, ctx, override) {
   };
 
   /* project ------------------------------------------------------------- */
+  // The import is already scoped to one project, so the column only has to be
+  // recognisable as that project — “Imagine” for “Imagine Villas” is fine, a
+  // different development is not.
   const projectText = cleanText(values.project);
   if (projectText) {
     const key = looseKey(projectText);
-    const matches = key === looseKey(ctx.project.name) || key === looseKey(ctx.project.code);
+    const nameKey = looseKey(ctx.project.name);
+    const codeKey = looseKey(ctx.project.code);
+    const matches =
+      key === nameKey ||
+      (!!codeKey && key === codeKey) ||
+      nameKey.startsWith(key) ||
+      key.startsWith(nameKey) ||
+      (!!codeKey && codeKey.startsWith(key));
     if (!matches) add('error', 'project_mismatch', `Row names project “${projectText}”, but this import is for ${ctx.project.name}.`);
   }
 
@@ -791,6 +801,59 @@ function validateOneRow(row, ctx, override) {
   };
 }
 
+/**
+ * The same work listed twice inside one file — the usual consolidation slip.
+ * The later row is offered as a duplicate (skip it, or import it deliberately),
+ * and the earlier row carries a caution so the pair is visible.
+ */
+function flagInFileDuplicates(results) {
+  const seen = new Map();
+  results.forEach((row) => {
+    if (row.blocking) return;
+    const sourceKey = looseKey(row.values.source_reference);
+    const nameKey = looseKey(row.resolved.name);
+    const key = sourceKey
+      ? `source:${sourceKey}`
+      : nameKey && row.resolved.discipline
+        ? `work:${row.resolved.location_id || 'site'}|${row.resolved.discipline}|${nameKey}`
+        : '';
+    if (!key) return;
+
+    const first = seen.get(key);
+    if (!first) {
+      seen.set(key, row);
+      return;
+    }
+
+    row.issues.push({
+      severity: 'warning',
+      code: 'duplicate_in_file',
+      message: `Row ${first.row_number} of this file describes the same work.`,
+    });
+    if (!row.duplicate || row.duplicate.confidence !== 'confident') {
+      row.duplicate = {
+        task_id: '',
+        task_ref: `row ${first.row_number}`,
+        name: row.resolved.name,
+        status: '',
+        archived: false,
+        location: row.resolved.villa_code || 'Site-wide',
+        confidence: 'confident',
+        reason: `The same work as row ${first.row_number} of this file`,
+        can_link: false,
+        others: [],
+        in_file: true,
+      };
+    }
+    first.issues.push({
+      severity: 'warning',
+      code: 'repeated_in_file',
+      message: `Row ${row.row_number} of this file repeats this work.`,
+    });
+  });
+  return results;
+}
+
 export function validateImportRows({ rows, ctx, overrides = {}, fileName = '' }) {
   const withFile = {};
   Object.keys(overrides || {}).forEach((key) => {
@@ -801,6 +864,10 @@ export function validateImportRows({ rows, ctx, overrides = {}, fileName = '' })
   });
 
   const results = (rows || []).map((row) => validateOneRow(row, ctx, withFile[row.row_number] || {}));
+  flagInFileDuplicates(results);
+  results.forEach((row) => {
+    row.status = row.blocking ? 'invalid' : row.duplicate ? 'duplicate' : 'valid';
+  });
   const has = (code) => (row) => row.issues.some((issue) => issue.code === code);
 
   const summary = {
