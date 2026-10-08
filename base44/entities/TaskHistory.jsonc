@@ -1,7 +1,7 @@
 {
   "name": "TaskHistory",
   "type": "object",
-  "description": "Structure only in Step 1A - audit capture is enforced in a later step.",
+  "description": "Immutable audit trail. Written only by trusted server-side operations; no application user can create, edit or delete entries.",
   "properties": {
     "task_id": {
       "type": "string"
@@ -21,6 +21,9 @@
     "new_value": {
       "type": "string"
     },
+    "changed_by_id": {
+      "type": "string"
+    },
     "changed_by_name": {
       "type": "string"
     },
@@ -30,9 +33,45 @@
     },
     "note": {
       "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project at the time of the change."
     }
   },
   "required": [
     "task_id"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

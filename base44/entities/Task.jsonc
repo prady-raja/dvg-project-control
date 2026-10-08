@@ -25,6 +25,18 @@
     "parent_task_id": {
       "type": "string"
     },
+    "is_villa_work_parent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Villa Work assignment holding one child task per villa. Held out of work totals so parent and children are never double counted."
+    },
+    "villa_work_key": {
+      "type": "string",
+      "description": "Retry key for a multi-villa creation; also used per child to stop duplicate rows"
+    },
+    "child_villa_count": {
+      "type": "number"
+    },
     "name": {
       "type": "string"
     },
@@ -90,6 +102,14 @@
         "Rejected"
       ],
       "default": "Not Submitted"
+    },
+    "baseline_version_id": {
+      "type": "string"
+    },
+    "baseline_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "True once an approved baseline covers this task. Only a Project Manager or administrator may change the baseline dates afterwards."
     },
     "current_forecast_finish": {
       "type": "string",
@@ -201,6 +221,22 @@
     "attachment_ref": {
       "type": "string"
     },
+    "execution_completed_by_id": {
+      "type": "string"
+    },
+    "execution_completed_by_name": {
+      "type": "string"
+    },
+    "approved_by_id": {
+      "type": "string"
+    },
+    "approved_by_name": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "created_by_name": {
       "type": "string"
     },
@@ -214,6 +250,13 @@
     "is_demo": {
       "type": "boolean",
       "default": false
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
     }
   },
   "required": [
@@ -221,5 +264,34 @@
     "project_id",
     "discipline",
     "name"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

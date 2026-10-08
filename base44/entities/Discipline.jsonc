@@ -1,6 +1,7 @@
 {
   "name": "Discipline",
   "type": "object",
+  "description": "Company-wide discipline list. Not project-scoped, so every signed-in user may read it; only application administrators may change it.",
   "properties": {
     "name": {
       "type": "string"
@@ -23,5 +24,23 @@
   "required": [
     "name",
     "code"
-  ]
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

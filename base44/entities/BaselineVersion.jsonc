@@ -1,7 +1,7 @@
 {
   "name": "BaselineVersion",
   "type": "object",
-  "description": "Structure only in Step 1A - baseline approval workflow is built in Step 1B.",
+  "description": "Baseline versioning for a project phase. Drafts are editable by Project Managers; once approved a version is frozen permanently and superseded rather than edited.",
   "properties": {
     "project_id": {
       "type": "string"
@@ -25,6 +25,9 @@
       ],
       "default": "Draft"
     },
+    "approved_by_id": {
+      "type": "string"
+    },
     "approved_by_name": {
       "type": "string"
     },
@@ -32,11 +35,81 @@
       "type": "string",
       "format": "date"
     },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by_id": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why this version was created or replaced"
+    },
+    "previous_baseline_version_id": {
+      "type": "string"
+    },
+    "task_count": {
+      "type": "number"
+    },
+    "snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Frozen baseline dates at approval: [{ task_id, task_ref, location_code, baseline_start, baseline_finish }]"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Previous and new dates versus the version this one replaces"
+    },
     "notes": {
       "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
     }
   },
   "required": [
     "project_id"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

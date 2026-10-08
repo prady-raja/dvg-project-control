@@ -1,8 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
+import { canEditTasks, resolveRank } from '../../shared/access.ts';
+import { allocateTaskRef } from '../../shared/taskRef.ts';
 
 /**
  * Allocates the next permanent task reference for a project + phase,
  * e.g. IMG-A-0001. Project-level common work uses the GEN phase code.
+ * Only a user who may create tasks on that project can obtain one.
  */
 export default async function (req) {
   try {
@@ -19,35 +22,17 @@ export default async function (req) {
       return Response.json({ error: 'project_id is required' }, { status: 400 });
     }
 
-    const projectRes = await base44.entities.Project.filter({ id: projectId }, { limit: 1 });
-    const project = (projectRes?.items || projectRes || [])[0];
-    if (!project) {
-      return Response.json({ error: 'Project not found' }, { status: 404 });
-    }
-    const projectCode = String(project.code || 'PRJ').toUpperCase().trim();
-
-    let phaseCode = 'GEN';
-    if (phaseId) {
-      const phaseRes = await base44.entities.Phase.filter({ id: phaseId }, { limit: 1 });
-      const phase = (phaseRes?.items || phaseRes || [])[0];
-      if (phase && phase.code) phaseCode = String(phase.code).toUpperCase().trim();
+    const rank = await resolveRank(base44, projectId, user);
+    if (!canEditTasks(rank)) {
+      return Response.json(
+        { error: 'You do not have permission to create tasks on this project.' },
+        { status: 403 },
+      );
     }
 
-    const prefix = `${projectCode}-${phaseCode}-`;
-    const existingRes = await base44.entities.Task.filter(
-      { task_ref: { $regex: `^${prefix}` } },
-      { sort: '-task_ref', limit: 1 },
-    );
-    const existing = existingRes?.items || existingRes || [];
-
-    let next = 1;
-    if (existing.length > 0 && existing[0].task_ref) {
-      const match = String(existing[0].task_ref).match(/(\d+)$/);
-      if (match) next = parseInt(match[1], 10) + 1;
-    }
-
-    return Response.json({ task_ref: `${prefix}${String(next).padStart(4, '0')}` });
+    const task_ref = await allocateTaskRef(base44.asServiceRole, projectId, phaseId);
+    return Response.json({ task_ref });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }

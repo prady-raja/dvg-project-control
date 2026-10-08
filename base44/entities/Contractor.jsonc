@@ -1,6 +1,7 @@
 {
   "name": "Contractor",
   "type": "object",
+  "description": "Company-wide execution teams. Not project-scoped, so every signed-in user may read the list; only application administrators may change it.",
   "properties": {
     "name": {
       "type": "string"
@@ -37,5 +38,23 @@
   "required": [
     "name",
     "classification"
-  ]
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

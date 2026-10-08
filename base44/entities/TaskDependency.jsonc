@@ -1,7 +1,7 @@
 {
   "name": "TaskDependency",
   "type": "object",
-  "description": "Structure only in Step 1A - dependency workflows are built in a later step.",
+  "description": "Structure only - dependency workflows are built in a later step. Carries the same project access rules as tasks.",
   "properties": {
     "project_id": {
       "type": "string"
@@ -32,10 +32,46 @@
     },
     "notes": {
       "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
     }
   },
   "required": [
     "predecessor_task_id",
     "successor_task_id"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
