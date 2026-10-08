@@ -240,6 +240,11 @@ export default function WorkImport() {
         links,
         reasons,
         edits,
+        // The record version this comparison was made against, row by row: a task
+        // edited in the meantime is refused rather than written over quietly.
+        expected: Object.fromEntries(
+          (preview?.rows || []).map((row) => [row.row_number, row.reconcile?.match?.updated_date || '']),
+        ),
         ai_status: preview?.ai?.note || '',
       });
       setResult(data);

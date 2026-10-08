@@ -97,6 +97,9 @@ export async function applyTaskUpdate({
     write[entry.field_changed] = entry.new_value;
   });
   Object.assign(write, effects.patch);
+  // The reason for moving a forecast date travels with the task as well as into
+  // the audit trail, so the record always shows why its forecast last moved.
+  if (forecastChanged && reason) write.date_revision_reason = reason;
   write.updated_by_name = actorName(user);
   if (memberIds) write.member_ids = memberIds;
 

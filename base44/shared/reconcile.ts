@@ -20,6 +20,7 @@
 
 import { normalizeValue } from './history.ts';
 import { cleanText, listOf, looseKey, scopeKeyOf } from './workImport.ts';
+import { standardLabelHint } from './areaLabels.ts';
 
 export const OUTCOMES = {
   create: 'CREATE NEW',
@@ -202,7 +203,14 @@ function clarificationsFor({ row, match, task }) {
     notes.push(`${task.task_ref} is archived. Restore it first, or import this row as new work.`);
   }
   if (['floor', 'area'].some((cell) => cleanText(row.values[cell])) && row.resolved.scope_unassigned) {
-    notes.push('The floor or room named here is not in the villa register, so the location cannot be compared with the recorded work — register the room or choose the right one.');
+    // The company's own wording is offered beside what the file wrote. The source
+    // text is kept as written, no room is created and two rooms are never merged.
+    const hint = standardLabelHint(row.values.area);
+    notes.push(
+      `The floor or room named here is not in the villa register, so the location cannot be compared with the recorded work — register the room or choose the right one.${
+        hint && cleanText(hint) !== cleanText(row.values.area) ? ` “${cleanText(row.values.area)}” reads as the standard label “${hint}”.` : ''
+      }`,
+    );
   }
   if (match.confidence === 'unknown' && cleanText(row.values.task_ref)) {
     notes.push(match.reason);

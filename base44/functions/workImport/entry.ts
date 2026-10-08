@@ -93,6 +93,9 @@ export default async function (req) {
     const links = body?.links && typeof body.links === 'object' ? body.links : {};
     const reasons = body?.reasons && typeof body.reasons === 'object' ? body.reasons : {};
     const edits = body?.edits && typeof body.edits === 'object' ? body.edits : {};
+    // The record version the review screen compared against, row by row. A task that
+    // has moved since that comparison is refused rather than written over.
+    const expectedDates = body?.expected && typeof body.expected === 'object' ? body.expected : {};
     // Which worksheet the rows were read from, and the row each one sits on. Both
     // are provenance only — the file text is still the single source of truth, and
     // a row number list that does not line up is ignored rather than trusted.
@@ -380,7 +383,7 @@ export default async function (req) {
             edits: edits[row.row_number] || {},
             batchRef,
             fileName,
-            expected: rec.match.updated_date || '',
+            expected: String(expectedDates[row.row_number] || rec.match.updated_date || ''),
           });
           report.push(
             entryFor(row, result.outcome, {
@@ -399,7 +402,17 @@ export default async function (req) {
         continue;
       }
 
-      // Everything left is a new task.
+      // Everything left is offered as a new task — but only while the register still
+      // reads the row that way. A repeat of a confirmation that has already run, or a
+      // tab left open while someone else changed the work, arrives with an "import"
+      // decision against a row that is now a change to an existing task: that row is
+      // refused and asked for again rather than written a second time.
+      if (rec.outcome !== 'create') {
+        const note = `The register now reads this row as ${rec.label} — nothing was written. Review the row again and decide it as it now stands.`;
+        report.push(entryFor(row, 'failed', { decision, note }));
+        applied[row.row_number] = { outcome: 'failed', note };
+        continue;
+      }
       if (row.blocking) {
         report.push(entryFor(row, 'failed', { decision, note: 'Row still has unresolved problems' }));
         applied[row.row_number] = { outcome: 'failed', note: 'Row still has unresolved problems' };
