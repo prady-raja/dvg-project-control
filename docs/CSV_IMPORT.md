@@ -1,4 +1,4 @@
-# Import Works — CSV work lists
+# Import Works — Excel and CSV work lists
 
 How to bring a reviewed work list onto the task register without inventing,
 duplicating or overwriting anything.
@@ -10,12 +10,19 @@ be used to write into a project you do not manage.
 
 ## 1. Prepare the file
 
-Excel work lists are cleaned, consolidated and saved as **CSV UTF-8** outside the
-app. One row per task. The first row must be the header row; a row that is
+Upload the reviewed workbook as **.xlsx** directly, or save it as **CSV UTF-8** and
+upload that. One row per task. The first row must be the header row; a row that is
 entirely blank is ignored.
 
-Download the template from the screen (or from this column list) and keep the
-header names — they are matched loosely, so `Villa Code`, `villa code` and
+An **.xlsx** workbook is read from its **Works** worksheet, so nothing has to be
+exported by hand any more. Only saved cell values are read: a formula is never
+evaluated and a macro can never run, because the workbook is read as a document.
+The rows then travel the identical server path a CSV travels — the same matching,
+validation, duplicate detection, preview, corrections and confirmation.
+
+Download the template from the screen — **Download Excel template** for the
+standard workbook, or the CSV template for the column list below — and keep the
+header names. They are matched loosely, so `Villa Code`, `villa code` and
 `VILLA-CODE` all work:
 
 | # | Column | Required | Notes |
@@ -49,6 +56,33 @@ Example row:
 ```
 Imagine,A,A-01,Villa Work,FIN,Painting,Repaint bedroom ceilings,Hariom,,High,In Progress,2026-10-10,2026-10-20,,40,120,,,IMG-EXCEL-14
 ```
+
+## Excel workbooks (.xlsx)
+
+| | |
+| --- | --- |
+| Worksheet read | `Works`, matched case-insensitively. Every other sheet is reference only. |
+| No `Works` sheet | The upload is refused, and the workbook's own sheet names are listed. |
+| Empty rows | Ignored — and they do not shift the row numbers of the rows that follow them. |
+| Row numbers | The report and every created task carry the **worksheet row**, so a row is always found where you see it in Excel. |
+| Dates | Read from Excel's own date value: an ordinary date cell becomes `YYYY-MM-DD` with no time-zone shift. A cell formatted as a percentage (0.4 displayed as 40%) is read as 40. |
+| Text | Identifiers such as `B-05-06`, `B-14A` or `IMG-EXCEL-14` are preserved exactly as typed. |
+| Formulas | Never evaluated. A formula cell imports the value Excel last saved — paste values if the workbook has not been recalculated. |
+| Macros | Never run: a workbook is read as a document, not as a program. `.xls`, `.xlsm`, `.xlsb`, `.ods` and `.numbers` are refused with a message telling you to save as `.xlsx`. |
+| Password-protected | Refused, with a message telling you to remove the password in Excel and upload it again. |
+| Damaged, or not a workbook | Refused, with a message telling you to open it in Excel and save it again as `.xlsx`. |
+| Limits | Unchanged: 1.5 MB, up to 500 rows, and the same validation, duplicate detection and confirmation as a CSV. |
+
+The workbook's rows become exactly the rows a CSV would carry, so the same data
+produces the same task relationships and the same warnings in either format. The
+one intended difference is the row number: a workbook reports the worksheet row, a
+CSV reports the line.
+
+The standard workbook carries four sheets: `Works` (the work rows — the only sheet
+that is imported), `Instructions` (the rules and worked examples), `Review_Only`
+and `Villa_Mapping`, kept because the Imagine workbooks carry them. Villa_Mapping
+is filled with the villas registered on the chosen project when the template is
+downloaded, so a code is copied rather than retyped.
 
 ## 2. Preview and correct
 
@@ -101,12 +135,12 @@ The result shows the batch reference, the file, who ran it and when, then:
 - **Tasks that still need information** (no contractor, missing baseline dates or
   blank progress)
 - **Skipped rows**, and any row that failed with the reason
-- a **reconciliation report (CSV)** with one line per row: row number, outcome,
-  task reference, description, villa, discipline, contractor, what is missing,
-  the issues found and the note
+- a **reconciliation report (CSV)** with one line per row: row number, worksheet,
+  outcome, task reference, description, villa, discipline, contractor, what is
+  missing, the issues found and the note
 
-Every created task carries its permanent reference, its import batch, source file
-and row number, and a `Task Created` row in its history. Those fields are
+Every created task carries its permanent reference, its import batch, source file,
+worksheet and row number, and a `Task Created` row in its history. Those fields are
 server-owned: no screen can set or change them.
 
 Re-importing the same file is warned about before anything is written (the file's

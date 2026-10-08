@@ -66,12 +66,12 @@ export const EXPORT_ENTITIES = [
       'supplied_by', 'selection_status', 'procurement_status', 'expected_delivery_date',
       'owner_access_required', 'access_status', 'blocker_category', 'blocker_description',
       'blocker_responsible_party', 'blocked_since', 'remarks', 'latest_update', 'attachment_ref',
-      'source_reference', 'import_batch_id', 'import_source_file', 'import_row_number',
+      'source_reference', 'import_batch_id', 'import_source_file', 'import_source_sheet', 'import_row_number',
       'execution_completed_by_id', 'execution_completed_by_name', 'approved_by_id', 'approved_by_name', 'approved_at',
       'created_by_name', 'updated_by_name', 'archived', 'is_demo', 'member_ids',
       'created_date', 'updated_date', 'created_by_id',
     ],
-    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. floor_id → VillaFloor.id and area_ids → VillaArea.id[] carry the room-level scope; scope_type states which of Specific Room/Area, Multiple Rooms/Areas, Entire Floor, Entire Villa or Site-wide it is, and area_label is the readable form (e.g. "First Floor · Master Bedroom"). source_location_text keeps the floor and room words exactly as the source list wrote them, and scope_unresolved is true when such words were named but never registered — those rows are flagged in Needs Attention and are never read as confirmed whole-villa work. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted. import_batch_id / import_source_file / import_row_number / source_reference record the CSV row a task came from, and are written only by the import operation.',
+    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. floor_id → VillaFloor.id and area_ids → VillaArea.id[] carry the room-level scope; scope_type states which of Specific Room/Area, Multiple Rooms/Areas, Entire Floor, Entire Villa or Site-wide it is, and area_label is the readable form (e.g. "First Floor · Master Bedroom"). source_location_text keeps the floor and room words exactly as the source list wrote them, and scope_unresolved is true when such words were named but never registered — those rows are flagged in Needs Attention and are never read as confirmed whole-villa work. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted. import_batch_id / import_source_file / import_source_sheet / import_row_number / source_reference record the workbook or CSV row a task came from — for an Excel import the worksheet and the worksheet row — and are written only by the import operation.',
   },
   {
     name: 'DailyUpdate',
@@ -103,9 +103,9 @@ export const EXPORT_ENTITIES = [
   },
   {
     name: 'ImportBatch',
-    label: 'CSV import batches',
-    fields: ['id', 'batch_ref', 'project_id', 'phase_id', 'source_file', 'source_checksum', 'row_count', 'created_count', 'skipped_count', 'linked_count', 'failed_count', 'attention_count', 'status', 'imported_by_id', 'imported_by_name', 'imported_at', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
-    note: 'report is a nested list carried in full by the JSON bundle; a CSV holds it as JSON text. source_checksum is the fingerprint that recognises a repeated file. Tasks point back through import_batch_id, so import_batches must be loaded before tasks.',
+    label: 'Excel and CSV import batches',
+    fields: ['id', 'batch_ref', 'project_id', 'phase_id', 'source_file', 'source_sheet', 'source_checksum', 'row_count', 'created_count', 'skipped_count', 'linked_count', 'failed_count', 'attention_count', 'status', 'imported_by_id', 'imported_by_name', 'imported_at', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'report is a nested list carried in full by the JSON bundle; a CSV holds it as JSON text. source_sheet names the worksheet an Excel import was read from and is empty for a CSV. source_checksum is the fingerprint that recognises a repeated file. Tasks point back through import_batch_id, so import_batches must be loaded before tasks.',
   },
   {
     name: 'TaskHistory',

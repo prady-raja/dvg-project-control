@@ -39,7 +39,9 @@ const RowList = ({ title, rows, empty }) => (
         {rows.map((row) => (
           <li key={`${row.row_number}-${row.task_ref}`} className="border-b border-border/60 pb-2 last:border-0 last:pb-0">
             <p className="flex flex-wrap items-center gap-2">
-              <span className="field-mono text-muted-foreground">row {row.row_number}</span>
+              <span className="field-mono text-muted-foreground">
+                {row.sheet ? `${row.sheet} · ` : ''}row {row.row_number}
+              </span>
               {row.task_ref && <span className="field-mono font-medium">{row.task_ref}</span>}
               <span className="truncate">{row.name}</span>
             </p>
@@ -66,8 +68,13 @@ export default function ImportResultPanel({ result, projectName, onDownload, onR
               <CheckCircle2 className="h-4 w-4 text-success" /> Import finished
             </h2>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Batch <span className="field-mono">{result.batch_ref}</span> · {result.batch?.source_file} ·{' '}
-              {formatDateTimeIst(result.batch?.imported_at)} · {projectName}
+              Batch <span className="field-mono">{result.batch_ref}</span> · {result.batch?.source_file}
+              {result.batch?.source_sheet ? (
+                <> · worksheet <span className="field-mono">{result.batch.source_sheet}</span></>
+              ) : (
+                ''
+              )}{' '}
+              · {formatDateTimeIst(result.batch?.imported_at)} · {projectName}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">Status: {result.batch?.status}</p>
           </div>

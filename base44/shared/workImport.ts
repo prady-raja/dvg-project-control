@@ -147,10 +147,27 @@ export function parseCsv(text) {
 }
 
 /**
+ * Row numbers exactly as the source file holds them: an Excel workbook reports
+ * the worksheet row, so a row can be found where the person sees it even when
+ * the sheet has empty rows between activities, and a CSV reports the line it sits
+ * on. A missing or malformed list is ignored rather than trusted — the position
+ * in the file decides then.
+ */
+function rowNumberMap(provided, count) {
+  if (!Array.isArray(provided) || !count || provided.length < count) return null;
+  const numbers = provided.slice(0, count).map((value) => Number(value));
+  for (let i = 0; i < numbers.length; i += 1) {
+    if (!Number.isInteger(numbers[i]) || numbers[i] < 2) return null;
+    if (i > 0 && numbers[i] <= numbers[i - 1]) return null;
+  }
+  return numbers;
+}
+
+/**
  * Header row -> column map, then one entry per data row. `row_number` is the
  * spreadsheet row, so row 2 is the first task in the file.
  */
-export function readImportFile(text) {
+export function readImportFile(text, options = {}) {
   const rows = parseCsv(text);
   if (!rows.length) return { error: 'That file is empty.', columns: [], rows: [], total: 0, unmapped: [] };
 
@@ -182,12 +199,14 @@ export function readImportFile(text) {
     };
   }
 
-  const dataRows = rows.slice(1).map((cells, index) => {
+  const body = rows.slice(1);
+  const rowNumbers = rowNumberMap(options.rowNumbers, body.length);
+  const dataRows = body.map((cells, index) => {
     const values = {};
     columns.forEach((column) => {
       values[column.key] = cleanText(cells[column.index]);
     });
-    return { row_number: index + 2, values };
+    return { row_number: rowNumbers ? rowNumbers[index] : index + 2, values };
   });
 
   return {

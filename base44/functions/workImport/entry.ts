@@ -58,6 +58,11 @@ export default async function (req) {
     const overrides = body?.overrides && typeof body.overrides === 'object' ? body.overrides : {};
     const decisions = body?.decisions && typeof body.decisions === 'object' ? body.decisions : {};
     const links = body?.links && typeof body.links === 'object' ? body.links : {};
+    // Which worksheet the rows were read from, and the row each one sits on. Both
+    // are provenance only — the file text is still the single source of truth, and
+    // a row number list that does not line up is ignored rather than trusted.
+    const sourceSheet = String(body?.source_sheet || '').trim().slice(0, 80);
+    const rowNumbers = Array.isArray(body?.row_numbers) ? body.row_numbers.slice(0, MAX_IMPORT_ROWS + 1) : [];
 
     if (!projectId) throw fail('Choose the project this file belongs to.');
     if (!fileText) throw fail('Choose a CSV file to import.');
@@ -74,7 +79,7 @@ export default async function (req) {
     const svc = base44.asServiceRole.entities;
     const ctx = await loadImportContext(base44, projectId);
 
-    const file = readImportFile(fileText);
+    const file = readImportFile(fileText, { rowNumbers });
     if (file.error) throw fail(file.error);
     if (!file.total) throw fail('That file has a header row but no work rows.');
     if (file.total > MAX_IMPORT_ROWS) {
@@ -96,6 +101,7 @@ export default async function (req) {
         project: { id: ctx.project.id, name: ctx.project.name, code: ctx.project.code },
         file: {
           name: fileName,
+          sheet: sourceSheet,
           checksum,
           rows: file.total,
           columns: file.columns,
@@ -154,6 +160,7 @@ export default async function (req) {
       batch_ref: batchRef,
       project_id: projectId,
       source_file: fileName,
+      source_sheet: sourceSheet || null,
       source_checksum: checksum,
       row_count: validated.rows.length,
       created_count: 0,
@@ -167,12 +174,13 @@ export default async function (req) {
       imported_at: startedAt.toISOString(),
       member_ids: memberIds,
       report: [],
-      notes: `CSV import of ${fileName}`,
+      notes: sourceSheet ? `Excel import of ${fileName} (worksheet ${sourceSheet})` : `CSV import of ${fileName}`,
     });
 
     const report = [];
     const entryFor = (row, outcome, extra = {}) => ({
       row_number: row.row_number,
+      sheet: sourceSheet || '',
       outcome,
       decision: extra.decision || '',
       task_id: extra.task_id || '',
@@ -261,6 +269,7 @@ export default async function (req) {
               member_ids: memberIds,
               import_batch_id: batch.id,
               import_source_file: fileName,
+              import_source_sheet: sourceSheet || null,
               import_row_number: row.row_number,
             }),
           );

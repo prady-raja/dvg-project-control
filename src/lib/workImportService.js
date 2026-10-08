@@ -126,7 +126,7 @@ export async function downloadExcelTemplate({ villas = [], projectName = '' } = 
 
 /** The per-row reconciliation of an import, as a spreadsheet. */
 export function reconciliationCsv(result) {
-  const fields = ['row_number', 'outcome', 'decision', 'task_ref', 'name', 'villa_code', 'discipline', 'contractor', 'missing', 'issues', 'note'];
+  const fields = ['row_number', 'sheet', 'outcome', 'decision', 'task_ref', 'name', 'villa_code', 'discipline', 'contractor', 'missing', 'issues', 'note'];
   const rows = [
     ...(result.created || []),
     ...(result.linked || []),
@@ -135,15 +135,21 @@ export function reconciliationCsv(result) {
   ].sort((a, b) => a.row_number - b.row_number);
 
   const lines = [fields.join(',')];
-  lines.push(`#,batch,${csvValue(result.batch_ref || '')},,,,,,,,`);
+  // The first line names the batch, the source file and the worksheet, so a row
+  // number in this report can always be found in the workbook it came from.
+  lines.push(
+    ['#', `batch ${result.batch_ref || ''}`, csvValue(result.batch?.source_file || ''), csvValue(result.batch?.source_sheet || '')].join(','),
+  );
   rows.forEach((row) =>
     lines.push(
       fields
         .map((field) =>
           csvValue(
-            field === 'missing' || field === 'issues'
-              ? (row[field] || []).join(' | ')
-              : row[field],
+            field === 'sheet'
+              ? row.sheet || result.batch?.source_sheet || ''
+              : field === 'missing' || field === 'issues'
+                ? (row[field] || []).join(' | ')
+                : row[field],
           ),
         )
         .join(','),

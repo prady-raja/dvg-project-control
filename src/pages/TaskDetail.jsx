@@ -244,7 +244,13 @@ export default function TaskDetail() {
               {
                 label: 'Imported from',
                 value: task.import_source_file
-                  ? `${task.import_source_file}${task.import_row_number ? ` · row ${task.import_row_number}` : ''}`
+                  ? [
+                    task.import_source_file,
+                    task.import_source_sheet ? `worksheet ${task.import_source_sheet}` : '',
+                    task.import_row_number ? `row ${task.import_row_number}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
                   : '',
               },
               { label: 'Created', value: formatDateTime(task.created_date), mono: true },

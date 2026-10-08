@@ -271,11 +271,15 @@
     },
     "import_source_file": {
       "type": "string",
-      "description": "Name of the CSV the task came from. Set only by the import operation."
+      "description": "Name of the CSV or Excel file the task came from. Set only by the import operation."
+    },
+    "import_source_sheet": {
+      "type": "string",
+      "description": "Worksheet the row was read from, e.g. Works for an Excel work list; empty for a CSV import. Set only by the import operation."
     },
     "import_row_number": {
       "type": "number",
-      "description": "Row of the source CSV the task came from. Set only by the import operation."
+      "description": "Row of the source file the task came from: the worksheet row for an Excel workbook, the line for a CSV. Set only by the import operation."
     },
     "execution_completed_by_id": {
       "type": "string"

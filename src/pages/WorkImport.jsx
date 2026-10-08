@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
 import PageHeader from '@/components/common/PageHeader';
@@ -13,6 +13,7 @@ import ImportResultPanel from '@/components/import/ImportResultPanel';
 import {
   MAX_FILE_BYTES,
   checksumOf,
+  downloadExcelTemplate,
   downloadReconciliation,
   downloadTemplate,
   runWorkImport,
@@ -44,6 +45,21 @@ export default function WorkImport() {
     [cat.projects, access],
   );
 
+  // The chosen project's villa register, written into the Excel template's
+  // Villa_Mapping sheet so a code is copied rather than retyped.
+  const villas = useMemo(
+    () =>
+      cat.locations
+        .filter((location) => location.project_id === projectId)
+        .map((location) => ({
+          code: location.villa_code,
+          plots: location.plot_numbers,
+          phase: (cat.phases.find((phase) => phase.id === location.phase_id) || {}).code || '',
+          type: location.location_type,
+        })),
+    [cat.locations, cat.phases, projectId],
+  );
+
   const previewFor = useCallback(
     async (target, nextOverrides, pid) => {
       if (!target?.text || !pid) return;
@@ -54,6 +70,8 @@ export default function WorkImport() {
           action: 'preview',
           project_id: pid,
           file_name: target.name,
+          sheet_name: target.sheet || '',
+          row_numbers: target.rowNumbers || [],
           checksum: target.checksum,
           file_text: target.text,
           overrides: nextOverrides,
@@ -69,15 +87,24 @@ export default function WorkImport() {
     [],
   );
 
-  const handleFile = async (text, name) => {
-    if (!text) return;
+  // A CSV arrives as text; an Excel workbook arrives already read from its Works
+  // sheet, together with the worksheet row each row sits on. Both then travel the
+  // identical server path.
+  const handleFile = async (source) => {
+    if (!source?.text) return;
     setResult(null);
     setError('');
-    if (text.length > MAX_FILE_BYTES) {
+    if (source.text.length > MAX_FILE_BYTES) {
       setError('That file is larger than 1.5 MB. Split the work list into smaller files.');
       return;
     }
-    const target = { name, text, checksum: checksumOf(text) };
+    const target = {
+      name: source.name,
+      text: source.text,
+      sheet: source.sheet || '',
+      rowNumbers: source.rowNumbers || [],
+      checksum: checksumOf(source.text),
+    };
     setFile(target);
     setOverrides({});
     setDecisions({});
@@ -151,6 +178,8 @@ export default function WorkImport() {
         action: 'commit',
         project_id: projectId,
         file_name: file.name,
+        sheet_name: file.sheet || '',
+        row_numbers: file.rowNumbers || [],
         checksum: file.checksum,
         file_text: file.text,
         overrides,
@@ -177,6 +206,18 @@ export default function WorkImport() {
     setError('');
   };
 
+  const downloadWorkbook = async () => {
+    setError('');
+    try {
+      await downloadExcelTemplate({
+        villas,
+        projectName: (projects.find((item) => item.id === projectId) || {}).name || '',
+      });
+    } catch (caught) {
+      setError(caught.message);
+    }
+  };
+
   if (cat.loading || access.loading) return <Skeleton className="h-96 rounded-xl" />;
 
   const project = projects.find((item) => item.id === projectId);
@@ -187,7 +228,7 @@ export default function WorkImport() {
         <PageHeader
           eyebrow="Import Works"
           title="Import Works"
-          description="Bring a reviewed CSV work list onto the task register."
+          description="Bring a reviewed Excel or CSV work list onto the task register."
         />
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           Import Works is available to Project Managers and administrators. You do not manage a project yet — your roles are
@@ -202,11 +243,16 @@ export default function WorkImport() {
       <PageHeader
         eyebrow="Import Works"
         title="Import Works"
-        description="Upload a reviewed CSV work list, check every row, and create the tasks with permanent references."
+        description="Upload a reviewed Excel workbook or CSV work list, check every row, and create the tasks with permanent references."
         actions={
-          <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
-            <Upload className="h-4 w-4" /> Download CSV template
-          </Button>
+          <>
+            <Button className="gap-2" onClick={downloadWorkbook}>
+              <FileSpreadsheet className="h-4 w-4" /> Download Excel template
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
+              <FileText className="h-4 w-4" /> CSV template
+            </Button>
+          </>
         }
       />
 
@@ -250,6 +296,7 @@ export default function WorkImport() {
                 <p className="text-xs text-muted-foreground">
                   {counts.created} task(s) will be created · {counts.skipped} skipped · {counts.linked} linked ·{' '}
                   {counts.attention} need attention
+                  {preview.file?.sheet && <> · worksheet <span className="field-mono">{preview.file.sheet}</span></>}
                   {preview.file?.unmapped?.length > 0 && <> · ignored columns: {preview.file.unmapped.join(', ')}</>}
                 </p>
                 <Button
@@ -272,7 +319,7 @@ export default function WorkImport() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         counts={counts}
-        fileName={file?.name || ''}
+        fileName={file ? `${file.name}${file.sheet ? ` · worksheet ${file.sheet}` : ''}` : ''}
         busy={busy === 'commit'}
         error={error}
         onConfirm={commit}

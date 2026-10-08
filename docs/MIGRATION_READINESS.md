@@ -22,7 +22,7 @@ platform-specific, and how the data maps across.
 | TaskDependency | Structure only, logic is a later step | Project |
 | TaskHistory | Append-only change trail | Project |
 | RefAllocation | Append-only ledger of every task reference ever issued — the counter behind `task_ref` | Project |
-| ImportBatch | One CSV work import: the file, who ran it, what it created and every row's outcome | Project |
+| ImportBatch | One work import (Excel workbook or CSV): the file, the worksheet, who ran it, what it created and every row's outcome | Project |
 | DailyUpdate | One site report per save: progress, work done, manpower, plan, blocker, photos | Project |
 | BaselineVersion | Frozen baseline snapshots per phase | Project |
 | User | Built-in profile (id, email, full_name, role) | Platform |
@@ -187,7 +187,7 @@ All date logic uses Asia/Kolkata.
 9. **Screens are not portable** — pages use shadcn/ui + Tailwind and are the
    cheapest part to keep; the SDK calls, RLS and the auth pages are what change.
 
-## H. CSV work import (Import Works)
+## H. Excel and CSV work import (Import Works)
 
 Run from **Import Works**, restricted on the server to a Project Manager or an
 application administrator on that project. The file is parsed, matched,
@@ -196,6 +196,17 @@ validated and written by `base44/functions/workImport` together with
 reports and sends back the corrections the user makes; preview and import run
 the *same* validation, so a confirmed import creates exactly what the preview
 showed. Full operating notes for the screen: `docs/CSV_IMPORT.md`.
+
+An **.xlsx** workbook is accepted as well as a CSV. The browser reads the `Works`
+worksheet and turns it into the same CSV text the server has always validated
+(`src/lib/xlsxImport.js`), so there is exactly one validation path and no second
+set of rules to port. Only saved cell values are read — no formula is evaluated and
+no macro can run — and dates are converted from Excel's own date value, so no time
+zone can shift them. The worksheet name and each row's worksheet row travel with
+the request (`source_sheet`, `row_numbers`) and are re-validated server-side; a row
+number list that does not line up is ignored and the position in the file decides.
+In Supabase, the workbook can be parsed server-side instead with the same column
+list; nothing else about the import changes.
 
 Column → field mapping (headers are matched loosely: case, spaces and
 punctuation ignored):
@@ -222,11 +233,12 @@ punctuation ignored):
 | Source reference | `source_reference` | The work list's own reference, kept with the task |
 
 Import metadata on every imported task (server-owned; a screen can never set
-it): `import_batch_id`, `import_source_file`, `import_row_number`, plus
-`source_reference`. The `ImportBatch` row holds `batch_ref`, the file name, its
+it): `import_batch_id`, `import_source_file`, `import_source_sheet`,
+`import_row_number`, plus `source_reference`. The `ImportBatch` row holds
+`batch_ref`, the file name, the worksheet it was read from (`source_sheet`), its
 fingerprint, who ran it and when, the row counts, the status, and the per-row
-report — outcome, task reference, villa, contractor and the information still
-missing.
+report — row number, worksheet, outcome, task reference, villa, contractor and the
+information still missing.
 
 What an import never does:
 
@@ -253,8 +265,12 @@ Limitations carried into the migration:
    and the rest of the file continues, so a partly applied file is always
    visible in the batch report. Supabase can wrap the whole file in one
    transaction.
-5. **Excel is not read.** Work lists are cleaned, consolidated and saved as CSV
-   outside the app.
+5. **Excel is read in the browser.** The workbook is parsed client-side into the
+   same CSV text the server validates, so there is one validation path; only saved
+   cell values are read (no formula evaluation, no macro). Supabase can move this
+   server-side with the same column list, and the stored provenance
+   (`import_source_file`, `import_source_sheet`, `import_row_number`) is unchanged
+   either way.
 
 ---
 

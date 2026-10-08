@@ -1,7 +1,7 @@
 {
   "name": "ImportBatch",
   "type": "object",
-  "description": "One CSV work import: the file it came from, who ran it, what it created and the per-row outcome. Written only by the trusted import operation, so the reconciliation of an import cannot be rewritten afterwards.",
+  "description": "One work import (Excel workbook or CSV): the file it came from, the worksheet its rows were read from, who ran it, what it created and the per-row outcome. Written only by the trusted import operation, so the reconciliation of an import cannot be rewritten afterwards.",
   "properties": {
     "batch_ref": {
       "type": "string",
@@ -16,7 +16,11 @@
     },
     "source_file": {
       "type": "string",
-      "description": "Name of the CSV file as uploaded"
+      "description": "Name of the CSV or Excel file as uploaded"
+    },
+    "source_sheet": {
+      "type": "string",
+      "description": "Worksheet the work rows were read from, e.g. Works. Empty for a CSV import."
     },
     "source_checksum": {
       "type": "string",
@@ -67,7 +71,7 @@
       "items": {
         "type": "object"
       },
-      "description": "One entry per row: row number, outcome, task reference, villa, contractor and any issue"
+      "description": "One entry per row: row number, worksheet, outcome, task reference, villa, contractor and any issue"
     },
     "notes": {
       "type": "string"
