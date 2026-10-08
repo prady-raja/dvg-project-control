@@ -54,6 +54,7 @@ export const WORK_PACKAGE_REQUIRED_DISCIPLINES = ['Finishes'];
 export const NAV_ITEMS = [
   { label: 'Projects', to: '/', icon: 'Building2' },
   { label: 'Villas & Locations', to: '/locations', icon: 'MapPin' },
+  { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck' },
   { label: 'Task Register', to: '/tasks', icon: 'ClipboardList' },
   { label: 'Contractors', to: '/contractors', icon: 'HardHat' },
   { label: 'Administration', to: '/admin', icon: 'Settings2' },

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Zap, Archive, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Pencil, Zap, Archive, RotateCcw, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
@@ -17,6 +17,8 @@ import { useAccess } from '@/lib/AccessContext';
 import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
+import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
+import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
 
 const Section = ({ title, children }) => (
   <section className="rounded-xl border border-border bg-card p-5">
@@ -35,6 +37,8 @@ export default function TaskDetail() {
   const [parentTask, setParentTask] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [dailyRefresh, setDailyRefresh] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -94,12 +98,17 @@ export default function TaskDetail() {
         actions={
           <>
             {canEdit && (
+              <Button size="sm" className="gap-2" onClick={() => setDailyOpen(true)}>
+                <CalendarPlus className="h-3.5 w-3.5" /> Daily update
+              </Button>
+            )}
+            {canEdit && (
               <Button variant="outline" size="sm" className="gap-2" onClick={() => setQuickOpen(true)}>
                 <Zap className="h-3.5 w-3.5" /> Quick update
               </Button>
             )}
             {canEdit && (
-              <Button size="sm" className="gap-2" onClick={() => navigate(`/tasks/${task.id}/edit`)}>
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/tasks/${task.id}/edit`)}>
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
             )}
@@ -244,6 +253,26 @@ export default function TaskDetail() {
         </div>
       )}
 
+      <section className="mt-5 rounded-xl border border-border bg-card p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Daily updates
+          </h2>
+          {canEdit && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setDailyOpen(true)}>
+              <CalendarPlus className="h-3.5 w-3.5" /> Report today's work
+            </Button>
+          )}
+        </div>
+        <DailyUpdateFeed
+          key={dailyRefresh}
+          filter={{ task_id: task.id }}
+          hideVilla
+          emptyTitle="No site reports yet"
+          emptyDescription="Every daily update filed against this task appears here as its own record."
+        />
+      </section>
+
       <div className="mt-5">
         <TaskHistoryPanel taskId={task.id} />
       </div>
@@ -255,6 +284,17 @@ export default function TaskDetail() {
         user={user}
         onSaved={() => {
           setQuickOpen(false);
+          load();
+        }}
+      />
+
+      <DailyUpdateDialog
+        task={task}
+        open={dailyOpen}
+        onOpenChange={setDailyOpen}
+        onSaved={() => {
+          setDailyOpen(false);
+          setDailyRefresh((n) => n + 1);
           load();
         }}
       />

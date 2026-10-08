@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
@@ -13,6 +13,10 @@ import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
 import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import LocationDialog from '@/components/locations/LocationDialog';
+import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
+import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
+import { useAccess } from '@/lib/AccessContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList } from 'lucide-react';
@@ -22,11 +26,15 @@ export default function LocationDetail() {
   const { locationId } = useParams();
   const cat = useCatalogs();
   const { user } = useAuth();
+  const access = useAccess();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [quickTask, setQuickTask] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [reportTask, setReportTask] = useState(null);
+  const [dailyRefresh, setDailyRefresh] = useState(0);
 
   const location = cat.locationById(locationId);
   const phase = location ? cat.phaseById(location.phase_id) : null;
@@ -59,6 +67,8 @@ export default function LocationDetail() {
       </div>
     );
   }
+
+  const canEdit = access.can(location.project_id, 'edit_tasks');
 
   return (
     <>
@@ -148,6 +158,52 @@ export default function LocationDetail() {
           </>
         )}
       </section>
+
+      <section className="mt-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Daily updates
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Every site report filed here, newest first — nothing is overwritten.
+            </p>
+          </div>
+          {canEdit && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+              <CalendarPlus className="h-4 w-4" /> Log daily update
+            </Button>
+          )}
+        </div>
+        <DailyUpdateFeed
+          key={dailyRefresh}
+          filter={{ location_id: location.id }}
+          hideVilla
+          emptyTitle="No daily updates for this location yet"
+          emptyDescription="Log an update from the field and it appears here with the engineer, the time and any photos."
+        />
+      </section>
+
+      <TaskPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        projectId={location.project_id}
+        locationId={location.id}
+        onPick={(task) => {
+          setPickerOpen(false);
+          setReportTask(task);
+        }}
+      />
+
+      <DailyUpdateDialog
+        task={reportTask}
+        open={!!reportTask}
+        onOpenChange={(v) => !v && setReportTask(null)}
+        onSaved={() => {
+          setReportTask(null);
+          setDailyRefresh((n) => n + 1);
+        }}
+      />
 
       <QuickUpdateDialog
         task={quickTask}

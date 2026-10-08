@@ -71,6 +71,22 @@ export const EXPORT_ENTITIES = [
     note: 'task_ref is permanent and unique. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted.',
   },
   {
+    name: 'DailyUpdate',
+    label: 'Daily site updates',
+    fields: [
+      'id', 'project_id', 'phase_id', 'location_id', 'work_scope', 'site_area',
+      'task_id', 'task_ref', 'task_name', 'villa_code', 'discipline',
+      'update_date', 'reported_at', 'reported_by_id', 'reported_by_name',
+      'status', 'progress_percent', 'work_done', 'plan_tomorrow',
+      'manpower_total', 'manpower_items',
+      'blocker_reported', 'blocker_category', 'blocker_description', 'blocker_responsible_party',
+      'expected_resolution_date', 'blocker_cleared',
+      'forecast_previous', 'forecast_new', 'date_revision_reason',
+      'photo_uris', 'member_ids', 'is_demo', 'created_date', 'updated_date', 'created_by_id',
+    ],
+    note: 'One row per report; many per task per day, none ever overwritten. task_ref, task_name, villa_code and discipline are snapshots taken when the report was filed, so the day still reads correctly after a task is renamed or a villa reassigned. location_id is empty for site-wide work (work_scope = Site-wide). photo_uris holds private storage paths, not the image files.',
+  },
+  {
     name: 'TaskDependency',
     label: 'Task dependencies',
     fields: ['id', 'project_id', 'predecessor_task_id', 'successor_task_id', 'dependency_type', 'lag_days', 'active', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
@@ -97,8 +113,8 @@ export const EXPORT_ENTITIES = [
 ];
 
 export const NOT_EXPORTED_YET = [
-  'Daily updates, inspections and manpower records — not built yet (Step 1C). The Task fields planned_manpower, actual_manpower, estimated_manhours and actual_manhours carry the current figures.',
-  'Photos and attachments — only the reference field Task.attachment_ref exists today; no file upload is implemented.',
+  'Inspections are not built yet (a later step). The Task fields planned_manpower, actual_manpower, estimated_manhours and actual_manhours carry the current figures; daily manpower is in DailyUpdate.manpower_total / .manpower_items.',
+  'Site photos — DailyUpdate.photo_uris holds the private storage references, which export as text. The image files themselves stay in platform storage and must be copied across separately (see G7).',
 ];
 
 export const RELATIONSHIPS = [
@@ -111,5 +127,6 @@ export const RELATIONSHIPS = [
   'Task.parent_task_id → Task.id (Villa Work container → one child task per villa)',
   'Task.contractor_id → Contractor.id; Task.baseline_version_id → BaselineVersion.id',
   'TaskHistory.task_id → Task.id; BaselineVersion.phase_id → Phase.id',
+  'DailyUpdate.task_id → Task.id, .project_id → Project.id, .location_id → Location.id (empty for site-wide work); DailyUpdate.reported_by_id → User.id',
   'TaskDependency.predecessor_task_id / successor_task_id → Task.id',
 ];

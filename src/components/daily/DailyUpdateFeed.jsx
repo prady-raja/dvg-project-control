@@ -59,7 +59,7 @@ export default function DailyUpdateFeed({
 
   if (!rows.length) {
     return (
-      <div className="rounded-xl border border-border bg-card">
+      <div className="rounded-xl border border-dashed border-border">
         <EmptyState icon={CalendarDays} title={emptyTitle} description={emptyDescription} />
       </div>
     );

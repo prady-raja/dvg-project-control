@@ -1,10 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Building2, MapPin, ClipboardList, HardHat, Settings2, UsersRound } from 'lucide-react';
+import { Building2, MapPin, ClipboardList, HardHat, Settings2, UsersRound, CalendarCheck } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-const ICONS = { Building2, MapPin, ClipboardList, HardHat, Settings2, UsersRound };
+const ICONS = { Building2, MapPin, ClipboardList, HardHat, Settings2, UsersRound, CalendarCheck };
 
 export default function NavList({ onNavigate }) {
   return (

@@ -21,6 +21,7 @@ platform-specific, and how the data maps across.
 | Task | Every work item; permanent `task_ref` | Project |
 | TaskDependency | Structure only, logic is a later step | Project |
 | TaskHistory | Append-only change trail | Project |
+| DailyUpdate | One site report per save: progress, work done, manpower, plan, blocker, photos | Project |
 | BaselineVersion | Frozen baseline snapshots per phase | Project |
 | User | Built-in profile (id, email, full_name, role) | Platform |
 
@@ -52,9 +53,9 @@ Administration → Export (application administrators only):
 
 The export function pages through records (500 at a time) so it keeps working as
 the register grows. Excluded: passwords, tokens, sessions, verification codes.
-Photos and attachments are not exported yet — no upload exists; only
-`Task.attachment_ref`. Daily updates, inspections and manpower records are not
-built yet.
+Daily updates export in full, including the photo references in
+`DailyUpdate.photo_uris` — the image files themselves stay in platform storage
+and are copied separately (see G7). Inspections are not built yet.
 
 ## D. Base44-specific dependencies
 
@@ -62,8 +63,9 @@ built yet.
 | --- | --- | --- |
 | `@/api/base44Client` SDK (entities, functions, auth) | every page | Supabase JS client + REST |
 | RLS via `rls` blocks in `base44/entities/*.jsonc` | all project data | Postgres RLS policies (see E) |
-| Backend functions `taskWrite`, `saveRecord`, `villaWorkCreate`, `baselineAction`, `nextTaskRef`, `getMyAccess`, `dataExport` | `base44/functions/` | Supabase Edge Functions |
-| Shared server modules `access.ts`, `history.ts`, `taskRef.ts`, `records.ts` | `base44/shared/` | plain TypeScript modules, portable as-is |
+| Backend functions `taskWrite`, `dailyUpdate`, `saveRecord`, `villaWorkCreate`, `baselineAction`, `nextTaskRef`, `getMyAccess`, `dataExport` | `base44/functions/` | Supabase Edge Functions |
+| Shared server modules `access.ts`, `history.ts`, `taskWriteRules.ts`, `taskRef.ts`, `records.ts` | `base44/shared/` | plain TypeScript modules, portable as-is |
+| Private file storage (`UploadPrivateFile`) and signed links (`CreateFileSignedUrl`) | daily update site photos | Supabase Storage, private bucket + signed URLs |
 | Built-in User entity | Auth | `auth.users` + `profiles` |
 | `created_by_id`, `created_date`, `updated_date`, `member_ids` system fields | every record | explicit columns; `member_ids` becomes a join table |
 | Platform auth pages (login, register, reset) | `src/pages/` | Supabase Auth UI |
@@ -71,9 +73,12 @@ built yet.
 
 Business rules live in single places, not in components:
 `base44/shared/access.ts` (roles and ranks), `history.ts` (what is audited and
-how values are compared), `taskRef.ts` (reference allocation),
-`base44/functions/taskWrite` (task validation, approval separation, baseline
-lock), `baselineAction` (baseline lifecycle), `src/lib/accessRules.js` and
+how values are compared), `taskWriteRules.ts` (which change sets a task accepts,
+and the stamps that travel with them — the one gate both the task editor and the
+daily report pass through), `taskRef.ts` (reference allocation),
+`base44/functions/taskWrite` (task validation), `dailyUpdate` (site reports:
+permission, the report row, the task fields it moves and the trail row),
+`baselineAction` (baseline lifecycle), `src/lib/accessRules.js` and
 `src/lib/constants.js` (shared labels, statuses, capability ranks).
 
 ## E. Authentication and permissions
@@ -117,6 +122,7 @@ Mapping to Supabase:
 | ProjectMembership | `project_memberships` | `user_id` fk → `auth.users`, `unique (project_id, user_id)` |
 | Task | `tasks` | all fields as columns; `task_ref text unique`; self fk `parent_task_id`; `dates date`; enums as `text` + check constraint |
 | TaskDependency | `task_dependencies` | two fks to `tasks` |
+| DailyUpdate | `daily_updates` | `task_id` fk → tasks, `project_id`/`phase_id`/`location_id` fks (`location_id` nullable for site-wide), `reported_by uuid` → `auth.users`, `update_date date`, `photo_uris text[]` holds storage paths |
 | TaskHistory | `task_history` | `changed_at timestamptz`, `old_value/new_value text` |
 | BaselineVersion | `baseline_versions` | `snapshot jsonb`, `changes jsonb`, `version_number int` |
 | User | `profiles` | `id` = `auth.users.id` |
@@ -149,14 +155,16 @@ All date logic uses Asia/Kolkata.
 6. **Baseline freeze semantics** — an approved baseline is immutable and later
    changes are new versions. A naive "just update the task dates" port loses the
    audit of what moved.
-7. **Files** — no photo or attachment upload exists yet. When it is added, store
-   in Supabase Storage with a private bucket and a metadata row holding
-   `task_id`, the storage path, timestamp and uploader; mirror `UploadPrivateFile`
-   semantics, not public URLs.
+7. **Files** — site photos are private storage references in
+   `DailyUpdate.photo_uris`, never public URLs. After migration use a private
+   Supabase Storage bucket and keep the path list on the row; signed links are
+   generated on demand. Copying the actual files is a separate step from the
+   database import.
 8. **No one-click migration** — Base44 exports data and code, not an equivalent
    database. Expect a scripted import: entities in dependency order (projects →
    phases → locations → contractors → disciplines → work packages → contractor
-   defaults → memberships → tasks → dependencies → baselines → history), then
+   defaults → memberships → tasks → daily updates → dependencies → baselines →
+   history), then
    re-point membership `user_id`s by email after inviting users into Supabase Auth.
 9. **Screens are not portable** — pages use shadcn/ui + Tailwind and are the
    cheapest part to keep; the SDK calls, RLS and the auth pages are what change.
