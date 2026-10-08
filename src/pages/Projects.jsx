@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
+import { useAccess } from '@/lib/AccessContext';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import ProjectCard from '@/components/projects/ProjectCard';
@@ -13,7 +13,7 @@ import { Building2 } from 'lucide-react';
 
 export default function Projects() {
   const cat = useCatalogs();
-  const { user } = useAuth();
+  const access = useAccess();
   const [counts, setCounts] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -53,9 +53,9 @@ export default function Projects() {
     loadCounts();
   }, [cat.loading, cat.locations.length, loadCounts]);
 
-  // Step 1A is a private development build: every signed-in user may edit configuration.
-  // Role-based restrictions arrive with server-side project permissions in Step 1B.
-  const canEdit = Boolean(user);
+  // Creating a project is an application-administrator action; a Project Manager
+  // may change the project they belong to. The server enforces both.
+  const canEdit = access.appAdmin;
 
   return (
     <>
@@ -64,15 +64,17 @@ export default function Projects() {
         title="Projects"
         description="Every phase, villa and task hangs off a project. Open a project to manage its phases and villas."
         actions={
-          <Button
-            className="gap-2"
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> New project
-          </Button>
+          canEdit ? (
+            <Button
+              className="gap-2"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" /> New project
+            </Button>
+          ) : null
         }
       />
 
@@ -97,7 +99,7 @@ export default function Projects() {
               project={project}
               phases={cat.phasesFor(project.id)}
               counts={counts[project.id]}
-              canEdit={canEdit}
+              canEdit={canEdit || access.can(project.id, 'manage_project')}
               onEdit={(p) => {
                 setEditing(p);
                 setDialogOpen(true);

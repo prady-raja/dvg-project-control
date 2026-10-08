@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { archiveTask, restoreTask } from '@/lib/taskService';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { useAccess } from '@/lib/AccessContext';
+import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
+import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
+import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 
 const Section = ({ title, children }) => (
   <section className="rounded-xl border border-border bg-card p-5">
@@ -24,9 +28,11 @@ const Section = ({ title, children }) => (
 export default function TaskDetail() {
   const { taskId } = useParams();
   const cat = useCatalogs();
+  const access = useAccess();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [task, setTask] = useState(null);
+  const [parentTask, setParentTask] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
@@ -34,6 +40,9 @@ export default function TaskDetail() {
     try {
       const record = await base44.entities.Task.get(taskId);
       setTask(record);
+      setParentTask(
+        record.parent_task_id ? await base44.entities.Task.get(record.parent_task_id).catch(() => null) : null,
+      );
     } catch {
       setNotFound(true);
     }
@@ -60,6 +69,9 @@ export default function TaskDetail() {
   const phase = cat.phaseById(task.phase_id);
   const project = cat.projectById(task.project_id);
   const contractor = cat.contractorById(task.contractor_id);
+  const canEdit = access.can(task.project_id, 'edit_tasks');
+  const canManage = access.can(task.project_id, 'manage_project');
+  const isParent = task.is_villa_work_parent === true;
 
   const toggleArchive = async () => {
     if (task.archived) await restoreTask(task.id);
@@ -81,16 +93,22 @@ export default function TaskDetail() {
         description={task.description || undefined}
         actions={
           <>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setQuickOpen(true)}>
-              <Zap className="h-3.5 w-3.5" /> Quick update
-            </Button>
-            <Button size="sm" className="gap-2" onClick={() => navigate(`/tasks/${task.id}/edit`)}>
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </Button>
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={toggleArchive}>
-              {task.archived ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-              {task.archived ? 'Restore' : 'Archive'}
-            </Button>
+            {canEdit && (
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setQuickOpen(true)}>
+                <Zap className="h-3.5 w-3.5" /> Quick update
+              </Button>
+            )}
+            {canEdit && (
+              <Button size="sm" className="gap-2" onClick={() => navigate(`/tasks/${task.id}/edit`)}>
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={toggleArchive}>
+                {task.archived ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                {task.archived ? 'Restore' : 'Archive'}
+              </Button>
+            )}
           </>
         }
       />
@@ -104,6 +122,21 @@ export default function TaskDetail() {
         </span>
       </div>
 
+      {parentTask && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Part of Villa Work{' '}
+          <Link
+            to={`/tasks/${parentTask.id}`}
+            className="font-medium text-foreground underline underline-offset-2"
+          >
+            {parentTask.task_ref}
+          </Link>
+          {parentTask.child_villa_count ? ` · ${parentTask.child_villa_count} villas` : ''}
+        </p>
+      )}
+
+      <TaskApprovalActions task={task} canEdit={canEdit} canApprove={canManage} onChanged={load} />
+
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <Section title="Identification">
           <DetailList
@@ -114,6 +147,7 @@ export default function TaskDetail() {
               { label: 'Villa / Location', value: location?.villa_code },
               { label: 'Discipline', value: cat.disciplineName(task.discipline) },
               { label: 'Work package', value: task.work_package },
+              { label: 'Villa Work', value: isParent ? `${task.child_villa_count || 0} villas` : '' },
               { label: 'Parent task ID', value: task.parent_task_id, mono: true },
             ]}
           />
@@ -202,6 +236,16 @@ export default function TaskDetail() {
             ]}
           />
         </Section>
+      </div>
+
+      {isParent && (
+        <div className="mt-5">
+          <VillaWorkChildren parentId={task.id} />
+        </div>
+      )}
+
+      <div className="mt-5">
+        <TaskHistoryPanel taskId={task.id} />
       </div>
 
       <QuickUpdateDialog

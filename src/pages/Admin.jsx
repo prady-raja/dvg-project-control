@@ -6,9 +6,28 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DisciplineTab from '@/components/admin/DisciplineTab';
 import WorkPackageTab from '@/components/admin/WorkPackageTab';
 import ContractorDefaultTab from '@/components/admin/ContractorDefaultTab';
+import ExportPanel from '@/components/admin/ExportPanel';
+import { useAccess } from '@/lib/AccessContext';
 
 export default function Admin() {
   const cat = useCatalogs();
+  const access = useAccess();
+
+  if (!access.loading && !access.appAdmin) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Administration"
+          title="Configuration"
+          description="Disciplines, work packages and default contractor assignments."
+        />
+        <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          These lists are company-wide configuration and can only be changed by an application administrator. Your
+          project roles are shown on Users &amp; Access.
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -26,6 +45,7 @@ export default function Admin() {
             <TabsTrigger value="disciplines">Disciplines</TabsTrigger>
             <TabsTrigger value="work-packages">Work packages</TabsTrigger>
             <TabsTrigger value="defaults">Contractor defaults</TabsTrigger>
+            <TabsTrigger value="export">Export</TabsTrigger>
           </TabsList>
 
           <TabsContent value="disciplines" className="mt-5">
@@ -36,6 +56,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="defaults" className="mt-5">
             <ContractorDefaultTab cat={cat} />
+          </TabsContent>
+          <TabsContent value="export" className="mt-5">
+            <ExportPanel />
           </TabsContent>
         </Tabs>
       )}

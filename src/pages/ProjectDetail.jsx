@@ -7,6 +7,8 @@ import PageHeader from '@/components/common/PageHeader';
 import Pill from '@/components/common/Pill';
 import { Metric } from '@/components/common/Metric';
 import PhaseDialog from '@/components/projects/PhaseDialog';
+import BaselineSection from '@/components/baselines/BaselineSection';
+import { useAccess } from '@/lib/AccessContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
@@ -14,6 +16,8 @@ import { formatDate } from '@/lib/format';
 export default function ProjectDetail() {
   const { projectId } = useParams();
   const cat = useCatalogs();
+  const access = useAccess();
+  const canManage = access.can(projectId, 'manage_project');
   const [phaseCounts, setPhaseCounts] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -99,17 +103,19 @@ export default function ProjectDetail() {
         actions={
           <>
             <Pill value={project.status} />
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              onClick={() => {
-                setEditing(null);
-                setDialogOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" /> Add phase
-            </Button>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setEditing(null);
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" /> Add phase
+              </Button>
+            )}
           </>
         }
       />
@@ -146,17 +152,19 @@ export default function ProjectDetail() {
                       </div>
                       <h3 className="mt-2 truncate font-display text-base font-semibold">{phase.name}</h3>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      onClick={() => {
-                        setEditing(phase);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => {
+                          setEditing(phase);
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
 
                   <div className="mt-4 grid grid-cols-4 gap-3 border-t border-border pt-4">
@@ -171,6 +179,8 @@ export default function ProjectDetail() {
                       View villas <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
+
+                  <BaselineSection projectId={projectId} phaseId={phase.id} canManage={canManage} />
                 </article>
               );
             })}

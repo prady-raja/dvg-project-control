@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, ClipboardList } from 'lucide-react';
+import { Plus, ClipboardList, Layers } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
+import { useAccess } from '@/lib/AccessContext';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import TaskFilters, { EMPTY_TASK_FILTERS } from '@/components/tasks/TaskFilters';
 import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
 import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
+import VillaWorkDialog from '@/components/tasks/VillaWorkDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,6 +20,7 @@ const PAGE_SIZE = 50;
 
 export default function TaskRegister() {
   const cat = useCatalogs();
+  const access = useAccess();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,7 +44,9 @@ export default function TaskRegister() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [quickTask, setQuickTask] = useState(null);
+  const [villaOpen, setVillaOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const canEdit = access.canAnywhere('edit_tasks');
 
   useEffect(() => {
     const t = setTimeout(() => setFilters(draft), 300);
@@ -49,7 +54,10 @@ export default function TaskRegister() {
   }, [draft]);
 
   const buildQuery = useCallback(() => {
-    const q = { archived: { $ne: true } };
+    // A Villa Work assignment is a container holding one task per villa; the
+    // container carries no work of its own, so it is held out of the register and
+    // its total. Parent and children are never counted twice.
+    const q = { archived: { $ne: true }, is_villa_work_parent: { $ne: true } };
     if (filters.project_id) q.project_id = filters.project_id;
     if (filters.phase_id) q.phase_id = filters.phase_id;
     if (filters.location_id) q.location_id = filters.location_id;
@@ -112,9 +120,16 @@ export default function TaskRegister() {
         title="Tasks"
         description="Every work item is linked to its project, phase, villa, discipline, contractor and engineer."
         actions={
-          <Button className="gap-2" onClick={() => navigate('/tasks/new')}>
-            <Plus className="h-4 w-4" /> Create task
-          </Button>
+          canEdit ? (
+            <>
+              <Button variant="outline" className="gap-2" onClick={() => setVillaOpen(true)}>
+                <Layers className="h-4 w-4" /> Villa work
+              </Button>
+              <Button className="gap-2" onClick={() => navigate('/tasks/new')}>
+                <Plus className="h-4 w-4" /> Create task
+              </Button>
+            </>
+          ) : null
         }
       />
 
@@ -122,7 +137,11 @@ export default function TaskRegister() {
 
       <div className="mt-4 mb-3 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : `${total} task${total === 1 ? '' : 's'}${hasMore ? ` · showing ${tasks.length}` : ''}`}
+          {loading
+            ? 'Loading…'
+            : `${total} task${total === 1 ? '' : 's'}${
+                hasMore ? ` · showing ${tasks.length}` : ''
+              } · villa work appears once per villa`}
         </p>
       </div>
 
@@ -135,9 +154,11 @@ export default function TaskRegister() {
             title="No tasks match"
             description="Change the filters, or create a task to start the register."
             action={
-              <Button className="gap-2" onClick={() => navigate('/tasks/new')}>
-                <Plus className="h-4 w-4" /> Create task
-              </Button>
+              canEdit ? (
+                <Button className="gap-2" onClick={() => navigate('/tasks/new')}>
+                  <Plus className="h-4 w-4" /> Create task
+                </Button>
+              ) : null
             }
           />
         </div>
@@ -160,6 +181,15 @@ export default function TaskRegister() {
           )}
         </>
       )}
+
+      <VillaWorkDialog
+        open={villaOpen}
+        onOpenChange={setVillaOpen}
+        cat={cat}
+        projectId={filters.project_id}
+        phaseId={filters.phase_id}
+        onCreated={() => setReloadKey((k) => k + 1)}
+      />
 
       <QuickUpdateDialog
         task={quickTask}
