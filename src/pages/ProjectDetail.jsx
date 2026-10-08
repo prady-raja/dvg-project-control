@@ -77,8 +77,12 @@ export default function ProjectDetail() {
 
   const totalPlanned =
     phases.reduce((sum, p) => sum + (Number(p.planned_villa_count) || 0), 0) || project.planned_villa_count || 0;
-  const registeredTotal = phases.reduce((sum, p) => sum + ((phaseCounts[p.id] || {}).registered || 0), 0);
-  const onHoldTotal = phases.reduce((sum, p) => sum + ((phaseCounts[p.id] || {}).onHold || 0), 0);
+  // Show a dash until the server totals arrive, so a delay never reads as "zero villas".
+  const countsReady = phases.length > 0 && phases.every((p) => phaseCounts[p.id] !== undefined);
+  const registeredTotal = countsReady
+    ? phases.reduce((sum, p) => sum + (phaseCounts[p.id].registered || 0), 0)
+    : '—';
+  const onHoldTotal = countsReady ? phases.reduce((sum, p) => sum + (phaseCounts[p.id].onHold || 0), 0) : '—';
 
   return (
     <>
@@ -114,7 +118,7 @@ export default function ProjectDetail() {
         <Metric label="Planned villas" value={totalPlanned || '—'} />
         <Metric label="Phases" value={phases.length} />
         <Metric label="Registered villas" value={registeredTotal} />
-        <Metric label="On hold" value={onHoldTotal} tone={onHoldTotal ? 'danger' : 'muted'} />
+        <Metric label="On hold" value={onHoldTotal} tone={countsReady && onHoldTotal ? 'danger' : 'muted'} />
       </div>
 
       <section className="mt-8">
@@ -128,7 +132,8 @@ export default function ProjectDetail() {
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {phases.map((phase) => {
-              const stats = phaseCounts[phase.id] || { registered: 0, active: 0, onHold: 0 };
+              const stats = phaseCounts[phase.id];
+              const stat = (key) => (stats && stats[key] !== undefined ? stats[key] : '—');
               return (
                 <article key={phase.id} className="min-w-0 rounded-xl border border-border bg-card p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -156,9 +161,9 @@ export default function ProjectDetail() {
 
                   <div className="mt-4 grid grid-cols-4 gap-3 border-t border-border pt-4">
                     <Metric label="Planned" value={phase.planned_villa_count ?? '—'} />
-                    <Metric label="Registered" value={stats.registered} />
-                    <Metric label="Active" value={stats.active} tone="ok" />
-                    <Metric label="On hold" value={stats.onHold} tone={stats.onHold ? 'danger' : 'muted'} />
+                    <Metric label="Registered" value={stat('registered')} />
+                    <Metric label="Active" value={stat('active')} tone={stats ? 'ok' : 'muted'} />
+                    <Metric label="On hold" value={stat('onHold')} tone={stats && stats.onHold ? 'danger' : 'muted'} />
                   </div>
 
                   <Button asChild variant="outline" size="sm" className="mt-4 w-full gap-1.5">

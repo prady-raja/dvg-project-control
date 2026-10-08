@@ -8,7 +8,8 @@ import { Metric } from '@/components/common/Metric';
 export default function ProjectCard({ project, phases, counts, onEdit, canEdit }) {
   const planned =
     project.planned_villa_count ?? phases.reduce((sum, p) => sum + (Number(p.planned_villa_count) || 0), 0);
-  const stats = counts || { registered: 0, active: 0, onHold: 0 };
+  // While the server totals are still on their way, show a dash rather than a misleading zero.
+  const stat = (key) => (counts && counts[key] !== undefined ? counts[key] : '—');
 
   return (
     <article className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-sm">
@@ -32,9 +33,9 @@ export default function ProjectCard({ project, phases, counts, onEdit, canEdit }
 
       <div className="mt-5 grid grid-cols-4 gap-3 border-y border-border py-4">
         <Metric label="Planned" value={planned || '—'} />
-        <Metric label="Registered" value={stats.registered ?? 0} />
-        <Metric label="Active" value={stats.active ?? 0} tone="ok" />
-        <Metric label="On hold" value={stats.onHold ?? 0} tone={stats.onHold ? 'danger' : 'muted'} />
+        <Metric label="Registered" value={stat('registered')} />
+        <Metric label="Active" value={stat('active')} tone={counts ? 'ok' : 'muted'} />
+        <Metric label="On hold" value={stat('onHold')} tone={counts && counts.onHold ? 'danger' : 'muted'} />
       </div>
 
       {phases.length > 0 && (

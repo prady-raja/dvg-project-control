@@ -35,7 +35,19 @@ export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSa
     setSaving(true);
     setError('');
     try {
-      await updateTask(task.id, { ...task, ...form }, user);
+      // Send only the fields this dialog owns.
+      await updateTask(
+        task.id,
+        {
+          status: form.status,
+          progress_percent: form.progress_percent,
+          current_forecast_finish: form.current_forecast_finish,
+          date_revision_reason: form.date_revision_reason,
+          latest_update: form.latest_update,
+          remarks: form.remarks,
+        },
+        user,
+      );
       onSaved();
     } catch (e) {
       setError(e?.message || 'Could not save the update.');
