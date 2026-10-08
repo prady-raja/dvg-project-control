@@ -41,6 +41,15 @@
       ],
       "description": "How much of the villa this task covers. Derived from the floor and area ids when they are given."
     },
+    "source_location_text": {
+      "type": "string",
+      "description": "The floor and room words exactly as the source work list wrote them. Kept so an unresolved location can be corrected against the original wording."
+    },
+    "scope_unresolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when a floor or room was named in the source list but is not registered. Such a task is never read as confirmed whole-villa work, is never completed by a villa-wide message, and is listed in Needs Attention."
+    },
     "acceptance_criterion": {
       "type": "string",
       "description": "What must be true for this work to be accepted, e.g. 'Even finish, no visible joints, level checked with spirit level'."
