@@ -25,6 +25,7 @@ import ContractorDetail from '@/pages/ContractorDetail';
 import Admin from '@/pages/Admin';
 import Access from '@/pages/Access';
 import DailyActivity from '@/pages/DailyActivity';
+import WorkImport from '@/pages/WorkImport';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
           <Route path="/locations" element={<Locations />} />
           <Route path="/locations/:locationId" element={<LocationDetail />} />
           <Route path="/daily" element={<DailyActivity />} />
+          <Route path="/import" element={<WorkImport />} />
           <Route path="/tasks" element={<TaskRegister />} />
           <Route path="/tasks/new" element={<TaskEditor />} />
           <Route path="/tasks/:taskId" element={<TaskDetail />} />

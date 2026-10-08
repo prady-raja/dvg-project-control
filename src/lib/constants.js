@@ -56,6 +56,7 @@ export const NAV_ITEMS = [
   { label: 'Villas & Locations', to: '/locations', icon: 'MapPin' },
   { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck' },
   { label: 'Task Register', to: '/tasks', icon: 'ClipboardList' },
+  { label: 'Import Works', to: '/import', icon: 'Upload' },
   { label: 'Contractors', to: '/contractors', icon: 'HardHat' },
   { label: 'Administration', to: '/admin', icon: 'Settings2' },
   { label: 'Users & Access', to: '/access', icon: 'UsersRound' },
