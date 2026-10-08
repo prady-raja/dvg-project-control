@@ -92,12 +92,42 @@ function rowsOf(XLSX, sheet) {
   return rows;
 }
 
-const explainReadFailure = (error) => {
-  const message = String((error && error.message) || error || '');
-  if (/password|encrypt/i.test(message)) {
+/** The first bytes of the file, so a refusal can name what the file really is. */
+const asciiHead = (bytes) => {
+  let text = '';
+  const limit = Math.min(bytes.length, 16384);
+  for (let i = 0; i < limit; i += 1) text += String.fromCharCode(bytes[i]);
+  return text;
+};
+
+/**
+ * What to tell the person when a workbook cannot be read.
+ *
+ * The bytes are sniffed rather than trusting the reader's own error, which
+ * reports a damaged zip as a password problem: an encrypted workbook is an OLE
+ * container carrying EncryptionInfo, an old .xls is one without it, a workbook is
+ * a zip, and anything else is not a spreadsheet at all.
+ */
+const explainReadFailure = (error, bytes) => {
+  const head = bytes ? asciiHead(bytes) : '';
+  const first = bytes && bytes.length > 3 ? [bytes[0], bytes[1], bytes[2], bytes[3]] : [];
+  const isZip = first[0] === 0x50 && first[1] === 0x4b;
+  const isOle = first[0] === 0xd0 && first[1] === 0xcf && first[2] === 0x11 && first[3] === 0xe0;
+
+  if (head.includes('EncryptionInfo') || head.includes('EncryptedPackage')) {
     return 'That workbook is password-protected. Open it in Excel, remove the password (File → Info → Protect Workbook), and upload it again.';
   }
-  return 'That file could not be opened as an Excel workbook. It may be damaged, or saved in the older .xls format — open it in Excel, save it as .xlsx, and upload that.';
+  if (isOle) {
+    return 'That file is not a modern .xlsx workbook — it is either an older .xls workbook or an encrypted one. Open it in Excel, save it as Excel Workbook (.xlsx), and upload that.';
+  }
+  if (!isZip) {
+    return 'That file is not an Excel workbook. Upload the work list saved as Excel Workbook (.xlsx), or as a CSV file (.csv).';
+  }
+  const message = String((error && error.message) || error || '');
+  if (/password|encrypt/i.test(message)) {
+    return 'That workbook could not be opened: it is damaged, or it is password-protected. Open it in Excel, remove any password and save it again as .xlsx, then upload that.';
+  }
+  return 'That file could not be opened as an Excel workbook. It may be damaged — open it in Excel, save it as .xlsx, and upload that.';
 };
 
 /**
@@ -110,9 +140,10 @@ export async function readExcelWorkbook(file) {
   if (!file) throw new Error('Choose a workbook first.');
   const XLSX = await xlsxLib();
 
+  const buffer = await file.arrayBuffer();
   let book;
   try {
-    book = XLSX.read(await file.arrayBuffer(), {
+    book = XLSX.read(buffer, {
       type: 'array',
       cellDates: true,
       cellFormula: false, // formulas are not read, let alone evaluated
@@ -122,7 +153,7 @@ export async function readExcelWorkbook(file) {
       sheetStubs: false,
     });
   } catch (error) {
-    throw new Error(explainReadFailure(error));
+    throw new Error(explainReadFailure(error, new Uint8Array(buffer)));
   }
 
   const names = (book.SheetNames || []).map((name) => String(name));

@@ -5,10 +5,9 @@ import {
   EXCEL_EXTENSION,
   EXCEL_REFUSED,
   IMPORT_ACCEPT,
-  MAX_FILE_BYTES,
   readExcelWorkbook,
 } from '@/lib/xlsxImport';
-import { IMPORT_EXAMPLE_ROWS, IMPORT_RULES, IMPORT_TEMPLATE_HEADERS } from '@/lib/workImportService';
+import { IMPORT_EXAMPLE_ROWS, IMPORT_RULES, IMPORT_TEMPLATE_HEADERS, MAX_FILE_BYTES } from '@/lib/workImportService';
 
 export default function ImportUploadStep({ projects, projectId, onProjectChange, onFile, onError, busy, file }) {
   const [reading, setReading] = useState(false);
