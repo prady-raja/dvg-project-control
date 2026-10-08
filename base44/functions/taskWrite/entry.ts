@@ -13,7 +13,7 @@ import {
   TASK_FIELDS,
   writeTaskHistory,
 } from '../../shared/history.ts';
-import { allocateTaskRefs } from '../../shared/taskRef.ts';
+import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne, pick } from '../../shared/records.ts';
 
@@ -35,6 +35,9 @@ export default async function (req) {
     const svc = base44.asServiceRole.entities;
 
     if (action === 'create') {
+      if (Object.prototype.hasOwnProperty.call(changes, 'task_ref')) {
+        throw fail('A task reference is issued by the system and cannot be set by hand.');
+      }
       const projectId = String(changes.project_id || '');
       if (!projectId) throw fail('A project is required.');
       if (!String(changes.name || '').trim()) throw fail('A task name is required.');
@@ -61,7 +64,12 @@ export default async function (req) {
       }
 
       const memberIds = memberIdsOf(await activeMembers(base44, projectId));
-      const [taskRef] = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, 1);
+      const [claim] = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, 1, {
+        memberIds,
+        userId: user.id,
+        userName: actorName(user),
+      });
+      const taskRef = claim.ref;
 
       const payload = pick(changes, TASK_FIELDS);
       payload.project_id = projectId;
@@ -77,25 +85,39 @@ export default async function (req) {
       payload.member_ids = memberIds;
 
       const task = await svc.Task.create(payload);
-      await writeTaskHistory(base44, {
-        task,
-        projectId,
-        memberIds,
-        user,
-        extra: [
-          {
-            change_type: 'Task Created',
-            field_changed: 'task_ref',
-            old_value: '',
-            new_value: taskRef,
-            note: 'Task created',
-          },
-        ],
+      await attachTaskRefs(base44.asServiceRole, [{ claim, taskId: task.id }]);
+
+      // Two simultaneous writers cannot share a number: a task that lost a
+      // shared reference is re-issued the next free one before it is seen.
+      const corrections = await resolveRefCollisions(base44.asServiceRole, projectId, [task]);
+
+      const extra = [
+        {
+          change_type: 'Task Created',
+          field_changed: 'task_ref',
+          old_value: '',
+          new_value: taskRef,
+          note: 'Task created',
+        },
+      ];
+      corrections.forEach((fix) => {
+        extra.push({
+          change_type: 'Reference Correction',
+          field_changed: 'task_ref',
+          old_value: fix.from,
+          new_value: fix.to,
+          note: 'Simultaneous claim — re-issued the next free reference',
+        });
       });
+
+      await writeTaskHistory(base44, { task, projectId, memberIds, user, extra });
       return Response.json({ task });
     }
 
     if (action === 'update') {
+      if (Object.prototype.hasOwnProperty.call(changes, 'task_ref')) {
+        throw fail('A task reference is issued by the system and cannot be changed.');
+      }
       const id = String(body?.id || '');
       const task = await getOne(svc.Task, id);
       if (!task) throw fail('Task not found.', 404);

@@ -6,7 +6,7 @@ import {
   memberIdsOf,
   resolveRank,
 } from '../../shared/access.ts';
-import { allocateTaskRefs } from '../../shared/taskRef.ts';
+import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 
 const WORK_FIELDS = [
@@ -122,10 +122,15 @@ export default async function (req) {
     if (!targets.length) throw fail('No villas match that selection.');
 
     const memberIds = memberIdsOf(await activeMembers(base44, projectId));
-    const refs = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, targets.length + 1);
+    // One block of permanent references: the assignment and every villa under it.
+    const claims = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, targets.length + 1, {
+      memberIds,
+      userId: user.id,
+      userName: actorName(user),
+    });
 
     const parent = await svc.Task.create({
-      task_ref: refs[0],
+      task_ref: claims[0].ref,
       project_id: projectId,
       phase_id: phaseId || null,
       location_id: null,
@@ -148,7 +153,7 @@ export default async function (req) {
     const already = new Set(listAll(alreadyRes).map((t) => t.villa_work_key));
 
     const rows = targets
-      .map((location, index) => ({ location, ref: refs[index + 1] }))
+      .map((location, index) => ({ location, ref: claims[index + 1].ref }))
       .filter(({ location }) => !already.has(`${parent.id}:${location.id}`))
       .map(({ location, ref }) => ({
         task_ref: ref,
@@ -171,9 +176,37 @@ export default async function (req) {
 
     const children = rows.length ? listAll(await svc.Task.bulkCreate(rows)) : [];
 
+    const childByRef = new Map(children.map((child) => [child.task_ref, child]));
+    const claimByRef = new Map(claims.map((claim) => [claim.ref, claim]));
+    await attachTaskRefs(base44.asServiceRole, [
+      { claim: claims[0], taskId: parent.id },
+      ...rows.map((row) => ({
+        claim: claimByRef.get(row.task_ref) || null,
+        taskId: childByRef.get(row.task_ref)?.id,
+      })),
+    ]);
+
+    // A simultaneous claim is corrected here, so no two villas can share one.
+    const corrections = await resolveRefCollisions(base44.asServiceRole, projectId, [parent, ...children]);
+
     const history = [historyRow(parent, projectId, memberIds, user, 'Villa Work assignment created')];
     (children.length ? children : rows).forEach((child) => {
       if (child.id) history.push(historyRow(child, projectId, memberIds, user, 'Child villa task created'));
+    });
+    corrections.forEach((fix) => {
+      history.push({
+        task_id: fix.taskId,
+        project_id: projectId,
+        member_ids: memberIds,
+        change_type: 'Reference Correction',
+        field_changed: 'task_ref',
+        old_value: fix.from,
+        new_value: fix.to,
+        changed_by_id: user.id,
+        changed_by_name: actorName(user),
+        changed_at: new Date().toISOString(),
+        note: 'Simultaneous claim — re-issued the next free reference',
+      });
     });
     if (history.length) await svc.TaskHistory.bulkCreate(history);
 

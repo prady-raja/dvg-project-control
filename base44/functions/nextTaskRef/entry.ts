@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { canEditTasks, resolveRank } from '../../shared/access.ts';
-import { allocateTaskRef } from '../../shared/taskRef.ts';
+import { peekTaskRef } from '../../shared/taskRef.ts';
 
 /**
  * Allocates the next permanent task reference for a project + phase,
@@ -30,8 +30,9 @@ export default async function (req) {
       );
     }
 
-    const task_ref = await allocateTaskRef(base44.asServiceRole, projectId, phaseId);
-    return Response.json({ task_ref });
+    // A preview only — the reference itself is issued when the task is saved.
+    const task_ref = await peekTaskRef(base44.asServiceRole, projectId, phaseId);
+    return Response.json({ task_ref, preview: true });
   } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
