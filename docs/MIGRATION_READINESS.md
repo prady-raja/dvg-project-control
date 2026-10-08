@@ -21,6 +21,7 @@ platform-specific, and how the data maps across.
 | Task | Every work item; permanent `task_ref` | Project |
 | TaskDependency | Structure only, logic is a later step | Project |
 | TaskHistory | Append-only change trail | Project |
+| RefAllocation | Append-only ledger of every task reference ever issued — the counter behind `task_ref` | Project |
 | DailyUpdate | One site report per save: progress, work done, manpower, plan, blocker, photos | Project |
 | BaselineVersion | Frozen baseline snapshots per phase | Project |
 | User | Built-in profile (id, email, full_name, role) | Platform |
@@ -31,8 +32,11 @@ Field-by-field export order: `src/lib/exportSchema.js`. Live export: **Administr
 
 - Every record keeps its internal `id`; the app references relations by id only.
   Display names are never used as keys.
-- Task references (`IMG-A-0001`) are allocated by the server and never reused
-  (`base44/shared/taskRef.ts`).
+- Task references (`IMG-A-0001`) are allocated by the server and never reused.
+  The counter is the append-only `RefAllocation` ledger plus any reference
+  already on a task or in the change trail — never the highest task that happens
+  to exist, so deleting, archiving or correcting a task leaves its number spent
+  (`base44/shared/taskRef.ts`; full description in `docs/REFERENCE_ALLOCATION.md`).
 - Villa work: a container task (`is_villa_work_parent = true`) plus one child per
   villa (`parent_task_id`). Children carry the work; the container is excluded
   from the register and its totals so nothing is double counted.
@@ -124,6 +128,7 @@ Mapping to Supabase:
 | TaskDependency | `task_dependencies` | two fks to `tasks` |
 | DailyUpdate | `daily_updates` | `task_id` fk → tasks, `project_id`/`phase_id`/`location_id` fks (`location_id` nullable for site-wide), `reported_by uuid` → `auth.users`, `update_date date`, `photo_uris text[]` holds storage paths |
 | TaskHistory | `task_history` | `changed_at timestamptz`, `old_value/new_value text` |
+| RefAllocation | `ref_allocations` | `unique (task_ref)`, `unique (prefix, sequence)`; imported after `tasks`, then each prefix counter is set from `max(sequence)` |
 | BaselineVersion | `baseline_versions` | `snapshot jsonb`, `changes jsonb`, `version_number int` |
 | User | `profiles` | `id` = `auth.users.id` |
 | `member_ids` (system field) | *(none)* | replaced by `project_memberships` |
@@ -143,9 +148,16 @@ All date logic uses Asia/Kolkata.
 2. **Server-side write path is the real control** — the rules live in Edge
    Functions today. If they are ported without their policies, the app still
    "works" but nothing is protected. Port RLS and functions together.
-3. **Reference allocation** (`taskRef.ts`) must move to a Postgres sequence or a
-   locked counter per project+phase, otherwise concurrent creation can duplicate
-   `task_ref`.
+3. **Reference allocation** — this is the one place where the platform's limits
+   are real. Base44 has no compare-and-swap and no unique index on a field
+   (measured, see `docs/REFERENCE_ALLOCATION.md`), so simultaneous writers can
+   both claim a number. The allocator arbitrates instead: the earliest claim
+   keeps the number, a loser is re-issued, and a created task that lost a shared
+   number is corrected immediately and recorded as `Reference Correction`.
+   Postgres deletes the problem outright — one sequence per prefix, or
+   `insert ... on conflict (task_ref) do nothing returning`, plus
+   `unique (task_ref)`. Do this early in the migration and the arbitration code
+   goes with it.
 4. **Audit trail integrity** — `TaskHistory` is written from trusted before/after
    values. Keep it append-only; never recompute history from the tasks table,
    because history records what was true at a point in time.
@@ -164,7 +176,8 @@ All date logic uses Asia/Kolkata.
    database. Expect a scripted import: entities in dependency order (projects →
    phases → locations → contractors → disciplines → work packages → contractor
    defaults → memberships → tasks → daily updates → dependencies → baselines →
-   history), then
+   ref allocations → history), then set each reference counter from the ledger
+   (`setval`), then
    re-point membership `user_id`s by email after inviting users into Supabase Auth.
 9. **Screens are not portable** — pages use shadcn/ui + Tailwind and are the
    cheapest part to keep; the SDK calls, RLS and the auth pages are what change.
