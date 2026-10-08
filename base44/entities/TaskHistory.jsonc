@@ -1,7 +1,7 @@
 {
   "name": "TaskHistory",
   "type": "object",
-  "description": "Immutable audit trail. Written only by trusted server-side operations; no application user can create, edit or delete entries.",
+  "description": "Immutable audit trail. Written only by trusted server-side operations; no application user can create, edit or delete entries, so the record of what happened survives every later change.",
   "properties": {
     "task_id": {
       "type": "string"
@@ -60,18 +60,14 @@
     },
     "create": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
     "update": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "delete": false
   }
 }
