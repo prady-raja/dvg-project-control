@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
-import { base44 } from '@/api/base44Client';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 export default function WorkPackageTab({ cat }) {
   const [projectId, setProjectId] = useState(cat.projects[0]?.id || '');
@@ -53,8 +53,8 @@ export default function WorkPackageTab({ cat }) {
         sort_order: form.sort_order === '' ? null : Number(form.sort_order),
         active: form.active !== false,
       };
-      if (editing) await base44.entities.WorkPackage.update(editing.id, payload);
-      else await base44.entities.WorkPackage.create(payload);
+      if (editing) await updateRecord('WorkPackage', editing.id, payload);
+      else await createRecord('WorkPackage', payload);
       await cat.refresh();
       setOpen(false);
     } catch (e) {
@@ -65,7 +65,7 @@ export default function WorkPackageTab({ cat }) {
   };
 
   const setActive = async (workPackage, active) => {
-    await base44.entities.WorkPackage.update(workPackage.id, { active });
+    await updateRecord('WorkPackage', workPackage.id, { active });
     await cat.refresh();
   };
 

@@ -4,9 +4,8 @@ import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { base44 } from '@/api/base44Client';
 import { PHASE_STATUSES } from '@/lib/constants';
-import { nullify } from '@/lib/dataHelpers';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 const empty = { name: '', code: '', planned_villa_count: '', status: 'Not Started', sort_order: '', notes: '' };
 
@@ -40,10 +39,10 @@ export default function PhaseDialog({ open, onOpenChange, phase, projectId, cat,
     setSaving(true);
     setError('');
     try {
-      const payload = nullify({ ...form, project_id: projectId, code: (form.code || '').trim().toUpperCase() });
-      const saved = phase
-        ? await base44.entities.Phase.update(phase.id, payload)
-        : await base44.entities.Phase.create(payload);
+      const payload = { ...form, project_id: projectId, code: (form.code || '').trim().toUpperCase() };
+      const { record: saved } = phase
+        ? await updateRecord('Phase', phase.id, payload)
+        : await createRecord('Phase', payload);
       await cat.refresh();
       onSaved?.(saved);
       onOpenChange(false);

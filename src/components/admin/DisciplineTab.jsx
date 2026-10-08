@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
-import { base44 } from '@/api/base44Client';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 const empty = { name: '', code: '', sort_order: '', active: true };
 
@@ -40,8 +40,8 @@ export default function DisciplineTab({ cat }) {
         code: form.code.trim().toUpperCase(),
         sort_order: form.sort_order === '' ? null : Number(form.sort_order),
       };
-      if (editing) await base44.entities.Discipline.update(editing.id, payload);
-      else await base44.entities.Discipline.create(payload);
+      if (editing) await updateRecord('Discipline', editing.id, payload);
+      else await createRecord('Discipline', payload);
       await cat.refresh();
       setOpen(false);
     } catch (e) {
@@ -52,7 +52,7 @@ export default function DisciplineTab({ cat }) {
   };
 
   const setActive = async (discipline, active) => {
-    await base44.entities.Discipline.update(discipline.id, { active });
+    await updateRecord('Discipline', discipline.id, { active });
     await cat.refresh();
   };
 

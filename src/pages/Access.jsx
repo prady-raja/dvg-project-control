@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
+import { updateRecord } from '@/lib/recordService';
 import PageHeader from '@/components/common/PageHeader';
 import Pill from '@/components/common/Pill';
 import MembershipDialog from '@/components/access/MembershipDialog';
@@ -30,7 +31,7 @@ export default function Access() {
   }, []);
 
   const setActive = async (record, active) => {
-    await base44.entities.ProjectMembership.update(record.id, { active });
+    await updateRecord('ProjectMembership', record.id, { active });
     load();
   };
 

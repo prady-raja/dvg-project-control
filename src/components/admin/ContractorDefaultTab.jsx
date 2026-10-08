@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
-import { base44 } from '@/api/base44Client';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 export default function ContractorDefaultTab({ cat }) {
   const [open, setOpen] = useState(false);
@@ -42,8 +42,8 @@ export default function ContractorDefaultTab({ cat }) {
     setSaving(true);
     try {
       const payload = { ...form, active: true };
-      if (editing) await base44.entities.ContractorDefault.update(editing.id, payload);
-      else await base44.entities.ContractorDefault.create(payload);
+      if (editing) await updateRecord('ContractorDefault', editing.id, payload);
+      else await createRecord('ContractorDefault', payload);
       await cat.refresh();
       setOpen(false);
     } catch (e) {
@@ -54,7 +54,7 @@ export default function ContractorDefaultTab({ cat }) {
   };
 
   const setActive = async (record, active) => {
-    await base44.entities.ContractorDefault.update(record.id, { active });
+    await updateRecord('ContractorDefault', record.id, { active });
     await cat.refresh();
   };
 

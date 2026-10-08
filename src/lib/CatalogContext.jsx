@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useAccess } from '@/lib/AccessContext';
 import { byId, items } from '@/lib/dataHelpers';
 
 const CatalogContext = createContext(null);
@@ -20,6 +21,7 @@ const EMPTY = {
  * signed-in session and refreshed after any administrative change.
  */
 export function CatalogProvider({ children }) {
+  const access = useAccess();
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
 
@@ -46,9 +48,12 @@ export function CatalogProvider({ children }) {
     setLoading(false);
   }, []);
 
+  // Access resolves first: a membership recorded against this person's email is
+  // claimed and mirrored onto the project's records before anything is read.
   useEffect(() => {
+    if (access.loading) return;
     refresh();
-  }, [refresh]);
+  }, [access.loading, refresh]);
 
   const value = useMemo(() => {
     const maps = {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, LogOut } from 'lucide-react';
 import { CatalogProvider } from '@/lib/CatalogContext';
+import { AccessProvider } from '@/lib/AccessContext';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -21,8 +22,9 @@ export default function AppLayout() {
   };
 
   return (
-    <CatalogProvider>
-      <div className="min-h-screen bg-background">
+    <AccessProvider>
+      <CatalogProvider>
+        <div className="min-h-screen bg-background">
         <DesktopSidebar />
 
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-sidebar-border bg-sidebar px-4 lg:hidden">
@@ -58,12 +60,13 @@ export default function AppLayout() {
           <div className="w-9" />
         </header>
 
-        <div className="lg:pl-[264px]">
-          <div className="mx-auto w-full max-w-[1500px] px-4 pb-20 pt-5 sm:px-6 lg:px-8 lg:pt-8">
-            <Outlet />
+          <div className="lg:pl-[264px]">
+            <div className="mx-auto w-full max-w-[1500px] px-4 pb-20 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+              <Outlet />
+            </div>
           </div>
         </div>
-      </div>
-    </CatalogProvider>
+      </CatalogProvider>
+    </AccessProvider>
   );
 }

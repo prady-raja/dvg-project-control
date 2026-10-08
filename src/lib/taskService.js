@@ -1,46 +1,44 @@
-import React from 'react';
 import { base44 } from '@/api/base44Client';
-import { nullify } from '@/lib/dataHelpers';
 
-export async function allocateTaskRef(projectId, phaseId) {
-  const res = await base44.functions.invoke('nextTaskRef', {
-    project_id: projectId,
-    phase_id: phaseId || '',
-  });
-  const ref = res?.data?.task_ref;
-  if (!ref) throw new Error('Could not allocate a task reference.');
-  return ref;
+/**
+ * Every task write goes through the server, which decides permission from the
+ * signed-in session and records the change history. The interface never writes
+ * a task record directly.
+ */
+
+const invoke = async (name, payload) => {
+  try {
+    const res = await base44.functions.invoke(name, payload);
+    return res?.data || {};
+  } catch (error) {
+    const message =
+      error?.response?.data?.error ||
+      error?.data?.error ||
+      (typeof error?.message === 'string' && !error.message.includes('SDK Error') ? error.message : '') ||
+      'The action was refused.';
+    throw new Error(message);
+  }
+};
+
+export async function createTask(payload) {
+  const data = await invoke('taskWrite', { action: 'create', changes: payload });
+  if (!data.task) throw new Error('The task could not be created.');
+  return data.task;
 }
 
-const actorName = (user) => user?.full_name || user?.email || '';
-
-export async function createTask(payload, user) {
-  const task_ref = await allocateTaskRef(payload.project_id, payload.phase_id);
-  return base44.entities.Task.create(
-    nullify({
-      ...payload,
-      task_ref,
-      created_by_name: actorName(user),
-      is_demo: false,
-      archived: false,
-    }),
-  );
+export async function updateTask(id, changes, options = {}) {
+  const data = await invoke('taskWrite', { action: 'update', id, changes });
+  return data.task || null;
 }
 
-export async function updateTask(id, payload, user) {
-  return base44.entities.Task.update(
-    id,
-    nullify({
-      ...payload,
-      updated_by_name: actorName(user),
-    }),
-  );
-}
+export const quickUpdateTask = (id, changes) => updateTask(id, changes);
 
-/** Quick on-site update used from the register and the task view. */
-export async function quickUpdateTask(id, changes, user) {
-  return updateTask(id, changes, user);
-}
+export const archiveTask = (id) => invoke('taskWrite', { action: 'archive', id });
 
-export const archiveTask = (id) => base44.entities.Task.update(id, { archived: true });
-export const restoreTask = (id) => base44.entities.Task.update(id, { archived: false });
+export const restoreTask = (id) => invoke('taskWrite', { action: 'restore', id });
+
+/** One Villa Work activity across one, several or all active villas of a phase. */
+export const createVillaWork = (payload) => invoke('villaWorkCreate', payload);
+
+/** Baseline drafts, approval and rebaselining. */
+export const runBaselineAction = (payload) => invoke('baselineAction', payload);

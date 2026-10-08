@@ -4,9 +4,8 @@ import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { base44 } from '@/api/base44Client';
 import { ACTIVE_STATUSES, LOCATION_TYPES, POSSESSION_STATUSES, WORKS_STAGES } from '@/lib/constants';
-import { nullify } from '@/lib/dataHelpers';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 const empty = {
   villa_code: '',
@@ -67,10 +66,10 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
     setSaving(true);
     setError('');
     try {
-      const payload = nullify({ ...form, project_id: projectId, phase_id: phaseId, villa_code: form.villa_code.trim() });
-      const saved = location
-        ? await base44.entities.Location.update(location.id, payload)
-        : await base44.entities.Location.create(payload);
+      const payload = { ...form, project_id: projectId, phase_id: phaseId, villa_code: form.villa_code.trim() };
+      const { record: saved } = location
+        ? await updateRecord('Location', location.id, payload)
+        : await createRecord('Location', payload);
       await cat.refresh();
       onSaved?.(saved);
       onOpenChange(false);

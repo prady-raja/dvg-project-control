@@ -5,9 +5,8 @@ import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { base44 } from '@/api/base44Client';
 import { PROJECT_STATUSES } from '@/lib/constants';
-import { nullify } from '@/lib/dataHelpers';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 const empty = {
   name: '',
@@ -58,10 +57,10 @@ export default function ProjectDialog({ open, onOpenChange, project, cat, onSave
     setSaving(true);
     setError('');
     try {
-      const payload = nullify({ ...form, code: form.code.trim().toUpperCase() });
-      const saved = project
-        ? await base44.entities.Project.update(project.id, payload)
-        : await base44.entities.Project.create(payload);
+      const payload = { ...form, code: form.code.trim().toUpperCase() };
+      const { record: saved } = project
+        ? await updateRecord('Project', project.id, payload)
+        : await createRecord('Project', payload);
       await cat.refresh();
       onSaved?.(saved);
       onOpenChange(false);

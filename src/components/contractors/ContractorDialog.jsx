@@ -5,9 +5,8 @@ import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { base44 } from '@/api/base44Client';
 import { CONTRACTOR_CLASSIFICATIONS } from '@/lib/constants';
-import { nullify } from '@/lib/dataHelpers';
+import { createRecord, updateRecord } from '@/lib/recordService';
 
 const empty = {
   name: '',
@@ -39,9 +38,9 @@ export default function ContractorDialog({ open, onOpenChange, contractor, cat, 
     setSaving(true);
     setError('');
     try {
-      const saved = contractor
-        ? await base44.entities.Contractor.update(contractor.id, nullify(form))
-        : await base44.entities.Contractor.create(nullify(form));
+      const { record: saved } = contractor
+        ? await updateRecord('Contractor', contractor.id, form)
+        : await createRecord('Contractor', form);
       await cat.refresh();
       onSaved?.(saved);
       onOpenChange(false);
