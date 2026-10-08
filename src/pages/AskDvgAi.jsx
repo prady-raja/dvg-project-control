@@ -6,6 +6,7 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import EmptyState from '@/components/common/EmptyState';
 import AiPanel from '@/components/ai/AiPanel';
+import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bot } from 'lucide-react';
 
@@ -94,6 +95,10 @@ export default function AskDvgAi() {
             : 'AI is not configured yet — an administrator adds the OpenAI key in Secrets. Everything else keeps working.'}
         </p>
       </div>
+
+      <section className="mt-5">
+        <AiAssistantPanel projectId={projectId} phaseId={phaseId} date={date} />
+      </section>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <AiPanel

@@ -192,6 +192,19 @@ export default async function (req) {
     const appAdmin = isAppAdmin(user);
     const permission = canUseAi(settings, { appAdmin, rank: scope.rank, role });
 
+    // Declared here, before every branch, so any branch may record its request.
+    const logUsage = (entry) =>
+      recordUsage(svc, {
+        user_id: user.id,
+        user_name: user.full_name || user.email || '',
+        day,
+        action,
+        project_id: scope.projectId,
+        model: action === 'parse_update' ? 'deterministic' : settings.model,
+        asked_at: new Date().toISOString(),
+        ...entry,
+      });
+
     if (action === 'status') {
       return Response.json({
         configured,
@@ -500,18 +513,6 @@ export default async function (req) {
       commitments: true,
       snags: true,
     });
-
-    const logUsage = (entry) =>
-      recordUsage(svc, {
-        user_id: user.id,
-        user_name: user.full_name || user.email || '',
-        day,
-        action,
-        project_id: scope.projectId,
-        model: action === 'parse_update' ? 'deterministic' : settings.model,
-        asked_at: new Date().toISOString(),
-        ...entry,
-      });
 
     /* ------------------------------------------- natural-language site update */
     if (action === 'parse_update') {

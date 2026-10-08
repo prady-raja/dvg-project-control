@@ -35,6 +35,7 @@ import Handover from '@/pages/Handover';
 import SiteWide from '@/pages/SiteWide';
 import VillaExecution from '@/pages/VillaExecution';
 import AskDvgAi from '@/pages/AskDvgAi';
+import NeedsAttention from '@/pages/NeedsAttention';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -83,6 +84,7 @@ const AuthenticatedApp = () => {
           <Route path="/handover" element={<Handover />} />
           <Route path="/site-wide" element={<SiteWide />} />
           <Route path="/ai" element={<AskDvgAi />} />
+          <Route path="/attention" element={<NeedsAttention />} />
           <Route path="/import" element={<WorkImport />} />
           <Route path="/tasks" element={<TaskRegister />} />
           <Route path="/tasks/new" element={<TaskEditor />} />

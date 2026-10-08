@@ -27,6 +27,11 @@ export const IMPORT_COLUMNS = [
   { key: 'work_category', label: 'Work category', aliases: ['work category', 'category', 'work scope', 'scope'] },
   { key: 'discipline', label: 'Discipline', aliases: ['discipline', 'discipline code', 'trade'] },
   { key: 'work_package', label: 'Work package', aliases: ['work package', 'package', 'sub package'] },
+  // Where inside the villa the work is. Optional on every row: the older
+  // template has none of these and imports exactly as it did before.
+  { key: 'floor', label: 'Floor', aliases: ['floor', 'level', 'storey', 'floor name'] },
+  { key: 'area', label: 'Area/Room', aliases: ['area/room', 'area', 'room', 'rooms', 'room/area', 'space', 'location within villa'] },
+  { key: 'scope_type', label: 'Scope type', aliases: ['scope type', 'task scope', 'extent', 'coverage'] },
   { key: 'name', label: 'Task description', aliases: ['task description', 'description', 'task', 'task name', 'work description'] },
   { key: 'contractor', label: 'Contractor', aliases: ['contractor', 'contractor name', 'agency'] },
   { key: 'responsible_engineer', label: 'Responsible engineer', aliases: ['responsible engineer', 'engineer', 'site engineer', 'responsible dvg coordinator', 'dvg coordinator', 'coordinator'] },
@@ -36,6 +41,9 @@ export const IMPORT_COLUMNS = [
   { key: 'baseline_finish', label: 'Baseline finish', aliases: ['baseline finish', 'finish date', 'planned finish'] },
   { key: 'current_forecast_finish', label: 'Forecast finish', aliases: ['forecast finish', 'forecast', 'forecast date'] },
   { key: 'progress_percent', label: 'Progress percentage', aliases: ['progress percentage', 'progress %', 'progress', '% complete', 'percent complete', 'completed percentage'] },
+  { key: 'planned_quantity', label: 'Quantity', aliases: ['quantity', 'planned quantity', 'qty', 'quantity planned'] },
+  { key: 'measurement_unit', label: 'Unit', aliases: ['unit', 'measurement unit', 'units', 'uom'] },
+  { key: 'acceptance_criterion', label: 'Acceptance criterion', aliases: ['acceptance criterion', 'acceptance criteria', 'acceptance', 'inspection criterion', 'quality criterion'] },
   { key: 'estimated_manhours', label: 'Estimated man-hours', aliases: ['estimated man-hours', 'estimated manhours', 'man-hours', 'manhours', 'estimated hours'] },
   { key: 'blocker_description', label: 'Blocker description', aliases: ['blocker description', 'blocker', 'blockers', 'blocking issue'] },
   { key: 'remarks', label: 'Remarks', aliases: ['remarks', 'notes', 'remarks/notes'] },
@@ -58,10 +66,25 @@ const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8,
 
 export const OVERRIDE_KEYS = [
   'project', 'phase', 'phase_id', 'villa_code', 'location_id', 'work_category', 'discipline',
-  'work_package', 'name', 'contractor', 'contractor_id', 'responsible_engineer', 'priority', 'status',
+  'work_package', 'floor', 'area', 'scope_type', 'name', 'contractor', 'contractor_id',
+  'responsible_engineer', 'priority', 'status',
   'baseline_start', 'baseline_finish', 'current_forecast_finish', 'progress_percent',
+  'planned_quantity', 'measurement_unit', 'acceptance_criterion',
   'estimated_manhours', 'blocker_description', 'remarks', 'source_reference',
 ];
+
+/**
+ * One villa + its floor/room scope. The same wording in two different rooms is
+ * not the same work, so the duplicate check keys on the scope as well.
+ */
+export const scopeKeyOf = (record) => {
+  const areas = [...(record?.area_ids || [])].filter(Boolean).sort();
+  if (areas.length) return `rooms:${areas.join('+')}`;
+  if (record?.floor_id) return `floor:${record.floor_id}`;
+  return 'whole';
+};
+
+const UNIT_VALUES = ['Nos', 'Sqm', 'Sqft', 'Rmt', 'Cum', 'Kg', 'LS', 'Set', 'Litre'];
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -315,41 +338,12 @@ export function defaultContractorId(defaults, phaseId, disciplineCode) {
  * possible villa is reported as ambiguous — never guessed.
  */
 export function resolveLocation(raw, ctx, phaseIdHint) {
-  const text = cleanText(raw);
-  if (!text) return { status: 'blank' };
-
-  const direct = ctx.index.byCode.get(normalizeCode(text)) || ctx.index.byLoose.get(looseKey(text));
-  if (direct) return { status: 'matched', location: direct, via: 'code' };
-
-  const inPhase = (list) => (phaseIdHint ? list.filter((l) => !l.phase_id || l.phase_id === phaseIdHint) : list);
-  const parts = normalizeCode(text).split('-');
-  const letter = parts.length > 1 ? parts[0] : '';
-  const fromCode = letter
-    ? inPhase(
-        ctx.locations.filter((location) => {
-          if (location.location_type !== 'Villa') return false;
-          const lparts = normalizeCode(location.villa_code).split('-');
-          if (lparts[0] !== letter) return false;
-          const tokens = parts.slice(1).map((part) => part.replace(/[A-Z]+$/, ''));
-          const components = lparts.slice(1).map((part) => part.replace(/[A-Z]+$/, ''));
-          return tokens.length > 0 && tokens.every((token) => components.includes(token));
-        }),
-      )
-    : [];
-
-  const numbers = (text.match(/\d+/g) || []).map(Number);
-  const fromPlot = [];
-  numbers.forEach((number) => {
-    inPhase(ctx.index.plots.get(number) || []).forEach((location) => {
-      if (!fromPlot.some((x) => x.id === location.id)) fromPlot.push(location);
-    });
-  });
-
-  const pool = [...fromCode, ...fromPlot.filter((location) => !fromCode.some((x) => x.id === location.id))];
-  if (pool.length === 1) {
-    return { status: 'matched', location: pool[0], via: fromCode.length ? 'component' : 'plot' };
-  }
-  if (pool.length > 1) return { status: 'ambiguous', candidates: pool };
+  // Read by the one villa-mapping authority, so an import, a site message and a
+  // task all turn the same written reference into the same villa.
+  const found = resolveVillaCode(raw, ctx.villaIndex, phaseIdHint || null);
+  if (found.status === 'matched') return { status: 'matched', location: found.location, via: found.via };
+  if (found.status === 'ambiguous') return { status: 'ambiguous', candidates: found.candidates };
+  if (found.status === 'blank') return { status: 'blank' };
   return { status: 'unknown' };
 }
 
@@ -357,10 +351,12 @@ export function resolveLocation(raw, ctx, phaseIdHint) {
 
 async function loadProjectData(base44, projectId) {
   const svc = base44.asServiceRole.entities;
-  const [projectRes, phasesRes, locationsRes] = await Promise.all([
+  const [projectRes, phasesRes, locationsRes, areasRes, floorsRes] = await Promise.all([
     svc.Project.filter({ id: projectId }, { limit: 1 }),
     svc.Phase.filter({ project_id: projectId }, { limit: 100 }),
     svc.Location.filter({ project_id: projectId }, { limit: 500 }),
+    svc.VillaArea.filter({ project_id: projectId }, { limit: 500 }),
+    svc.VillaFloor.filter({ project_id: projectId }, { limit: 300 }),
   ]);
   const [disciplinesRes, contractorsRes, defaultsRes, packagesRes, tasksRes] = await Promise.all([
     svc.Discipline.filter({}, { limit: 200 }),
@@ -380,6 +376,8 @@ async function loadProjectData(base44, projectId) {
     project: listOf(projectRes)[0],
     phases: listOf(phasesRes),
     locations: listOf(locationsRes),
+    areas: listOf(areasRes),
+    floors: listOf(floorsRes),
     disciplines: listOf(disciplinesRes),
     contractors: listOf(contractorsRes),
     defaults: listOf(defaultsRes),
@@ -392,24 +390,22 @@ export async function loadImportContext(base44, projectId) {
   const data = await loadProjectData(base44, projectId);
   if (!data.project) throw new Error('That project was not found.');
 
-  const byCode = new Map();
-  const byLoose = new Map();
-  const plots = new Map();
   const locationCodeById = new Map();
+  const villaIndex = buildVillaIndex(data.locations);
 
   data.locations.forEach((location) => {
-    byCode.set(normalizeCode(location.villa_code), location);
-    const loose = looseKey(location.villa_code);
-    if (!byLoose.has(loose)) byLoose.set(loose, location);
     locationCodeById.set(location.id, location.villa_code);
-    plotNumbersOf(location).forEach((number) => {
-      plots.set(number, [...(plots.get(number) || []), location]);
-    });
   });
 
   // Existing work, so a repeat import can be seen before it creates anything.
   const work = data.tasks.filter((task) => task.is_villa_work_parent !== true);
-  const dupIndex = { byFileRow: new Map(), bySource: new Map(), byNameDiscipline: new Map(), byName: new Map() };
+  const dupIndex = {
+    byFileRow: new Map(),
+    bySource: new Map(),
+    byNameDiscipline: new Map(),
+    byNameAreaDiscipline: new Map(),
+    byName: new Map(),
+  };
   work.forEach((task) => {
     if (task.import_source_file) {
       dupIndex.byFileRow.set(`${looseKey(task.import_source_file)}|${task.import_row_number}`, task);
@@ -430,7 +426,8 @@ export async function loadImportContext(base44, projectId) {
 
   return {
     ...data,
-    index: { byCode, byLoose, plots },
+    index: { byCode: villaIndex.byCode, byLoose: villaIndex.byLoose, plots: villaIndex.plots },
+    villaIndex,
     dupIndex,
     locationCodeById,
     phaseById,
@@ -474,9 +471,21 @@ function detectDuplicate({ rowNumber, fileName, values, resolved, ctx }) {
 
   const name = looseKey(resolved.name);
   if (name && resolved.discipline) {
+    // The same wording in the same villa is only the same work when it is in the
+    // same room or floor — otherwise it is offered as a possible duplicate.
+    const scopeKey = scopeKeyOf({ area_ids: resolved.area_ids, floor_id: resolved.floor_id });
+    const areaKey = `${name}|${resolved.discipline}|${resolved.location_id || 'site'}|${scopeKey}`;
+    (ctx.dupIndex.byNameAreaDiscipline.get(areaKey) || []).forEach((task) => {
+      consider(task, 'confident', scopeKey === 'whole'
+        ? 'Same villa, discipline and description'
+        : 'Same villa, discipline, room/area and description');
+    });
     (ctx.dupIndex.byNameDiscipline.get(`${name}|${resolved.discipline}`) || []).forEach((task) => {
       const samePlace = (task.location_id || '') === (resolved.location_id || '');
-      consider(task, samePlace ? 'confident' : 'possible', samePlace ? 'Same villa, discipline and description' : 'Same discipline and description elsewhere on this project');
+      if (samePlace && scopeKeyOf(task) === scopeKey) return;
+      consider(task, 'possible', samePlace
+        ? 'Same villa, discipline and description in a different room/area — not the same work unless you decide so'
+        : 'Same discipline and description elsewhere on this project');
     });
   }
   if (name && resolved.location_id) {
@@ -511,6 +520,10 @@ export function buildTaskPayload(result, extra = {}) {
     project_id: r.project_id,
     phase_id: r.phase_id || null,
     location_id: r.location_id || null,
+    floor_id: r.floor_id || null,
+    area_ids: r.area_ids || [],
+    area_label: r.area_label || null,
+    scope_type: r.scope_type || (r.location_id ? 'Entire Villa' : 'Site-wide'),
     discipline: r.discipline,
     work_package: r.work_package || null,
     name: r.name,
@@ -519,6 +532,9 @@ export function buildTaskPayload(result, extra = {}) {
     contractor_id: r.contractor_id || null,
     responsible_engineer: cleanText(values.responsible_engineer) || null,
     progress_percent: r.progress_percent,
+    planned_quantity: r.planned_quantity,
+    measurement_unit: r.measurement_unit || null,
+    acceptance_criterion: r.acceptance_criterion,
     estimated_manhours: r.estimated_manhours,
     baseline_start: r.baseline_start,
     baseline_finish: r.baseline_finish,
@@ -550,6 +566,15 @@ function validateOneRow(row, ctx, override) {
     location_label: '',
     location_state: '',
     candidates: [],
+    floor_id: '',
+    area_ids: [],
+    area_label: '',
+    scope_type: '',
+    scope_hint: '',
+    scope_unassigned: false,
+    planned_quantity: null,
+    measurement_unit: '',
+    acceptance_criterion: null,
     phase_id: '',
     phase_code: 'GEN',
     phase_label: '',
@@ -704,6 +729,85 @@ function validateOneRow(row, ctx, override) {
     }
   }
 
+  /* floor and room ------------------------------------------------------ */
+  // The room register of this villa decides. A floor or room that is not
+  // registered is left unassigned and reported — never matched to something with
+  // a similar name, and never guessed from the wording of the activity.
+  const floorText = cleanText(values.floor);
+  const areaText = cleanText(values.area);
+  const scopeText = cleanText(values.scope_type);
+  const villaRooms = location ? ctx.areas.filter((area) => area.location_id === location.id) : [];
+  const villaFloors = location ? ctx.floors.filter((floor) => floor.location_id === location.id) : [];
+
+  if (scopeText) {
+    const key = looseKey(scopeText);
+    const exact = SCOPE_TYPES.find((item) => looseKey(item) === key);
+    const loose = key.startsWith('room') || key.startsWith('single') ? 'Specific Room/Area'
+      : key.startsWith('multi') ? 'Multiple Rooms/Areas'
+        : key.startsWith('floor') ? 'Entire Floor'
+          : key.startsWith('villa') || key.startsWith('whole') ? 'Entire Villa'
+            : key.startsWith('site') ? 'Site-wide' : '';
+    if (exact || loose) resolved.scope_hint = exact || loose;
+    else add('warning', 'scope_unknown', `Scope type “${scopeText}” is not one of: ${SCOPE_TYPES.join(', ')} — the floor and room columns decide instead.`);
+  }
+
+  if (location && (floorText || areaText)) {
+    if (floorText) {
+      const key = looseKey(floorText);
+      const hit = villaFloors.find((floor) => looseKey(floor.floor_name) === key || looseKey(floor.floor_code) === key);
+      if (hit) resolved.floor_id = hit.id;
+      else {
+        const partial = villaFloors.filter((floor) => looseKey(floor.floor_name).startsWith(key));
+        if (partial.length === 1) {
+          resolved.floor_id = partial[0].id;
+          add('warning', 'floor_matched', `Floor “${floorText}” was matched to ${partial[0].floor_name}.`);
+        } else {
+          resolved.scope_unassigned = true;
+          add('warning', 'floor_unassigned', `Floor “${floorText}” is not registered on ${location.villa_code} — the task imports without it and is listed in Needs Attention.`);
+        }
+      }
+    }
+
+    const unmatched = [];
+    areaText.split(/[,;/|]+/).map(cleanText).filter(Boolean).forEach((roomName) => {
+      const key = normalizeAreaName(roomName);
+      const hits = villaRooms.filter((room) => areaKeys(room).includes(key));
+      if (hits.length === 1) {
+        if (!resolved.area_ids.includes(hits[0].id)) resolved.area_ids.push(hits[0].id);
+        return;
+      }
+      if (hits.length > 1) {
+        add('warning', 'area_ambiguous', `“${roomName}” matches ${hits.length} rooms of ${location.villa_code} (${hits.map((room) => room.area_name).join(', ')}) — that room is left unassigned until someone decides.`);
+      }
+      unmatched.push(roomName);
+    });
+
+    if (unmatched.length) {
+      resolved.scope_unassigned = true;
+      add('warning', 'area_unassigned', `${unmatched.join(', ')} ${unmatched.length === 1 ? 'is' : 'are'} not in the room register of ${location.villa_code} — imported unassigned and listed in Needs Attention.`);
+    }
+  }
+
+  if (location) {
+    const described = describeScope({
+      scope_type: resolved.scope_hint,
+      area_ids: resolved.area_ids,
+      floor_id: resolved.floor_id,
+      location_id: location.id,
+      areas: villaRooms,
+      floors: villaFloors,
+    });
+    resolved.area_ids = described.area_ids;
+    resolved.floor_id = described.floor_id || resolved.floor_id;
+    resolved.area_label = described.area_label;
+    resolved.scope_type = described.scope_type;
+    // A villa row is never silently site-wide: an unregistered floor or room
+    // stays an entire-villa row and is reported instead.
+    if (resolved.scope_type === 'Site-wide') resolved.scope_type = 'Entire Villa';
+  } else {
+    resolved.scope_type = 'Site-wide';
+  }
+
   /* contractor ---------------------------------------------------------- */
   const contractorText = cleanText(values.contractor);
   if (override.contractor_id) {
@@ -767,6 +871,22 @@ function validateOneRow(row, ctx, override) {
   if (progress.error) add('error', 'progress_invalid', `Progress: ${progress.error}`);
   else resolved.progress_percent = progress.value;
 
+  /* quantity, unit, acceptance criterion -------------------------------- */
+  const quantity = parseImportNumber(values.planned_quantity, { min: 0 });
+  if (quantity.error) add('error', 'quantity_invalid', `Quantity: ${quantity.error}`);
+  else if (quantity.value !== null && quantity.value !== undefined) resolved.planned_quantity = quantity.value;
+
+  const unitText = cleanText(values.measurement_unit);
+  if (unitText) {
+    const hit = UNIT_VALUES.find((unit) => looseKey(unit) === looseKey(unitText));
+    if (hit) resolved.measurement_unit = hit;
+    else {
+      resolved.measurement_unit = unitText;
+      add('warning', 'unit_nonstandard', `Unit “${unitText}” is not one of the standard units — it is imported as written.`);
+    }
+  }
+  resolved.acceptance_criterion = cleanText(values.acceptance_criterion) || null;
+
   const manhours = parseImportNumber(values.estimated_manhours, { min: 0 });
   if (manhours.error) add('error', 'manhours_invalid', `Estimated man-hours: ${manhours.error}`);
   else resolved.estimated_manhours = manhours.value;
@@ -809,7 +929,7 @@ function flagInFileDuplicates(results) {
     const names = [
       sourceKey ? `source:${sourceKey}` : '',
       nameKey && row.resolved.discipline
-        ? `work:${row.resolved.location_id || 'site'}|${row.resolved.discipline}|${nameKey}`
+        ? `work:${row.resolved.location_id || 'site'}|${row.resolved.discipline}|${scopeKeyOf({ area_ids: row.resolved.area_ids, floor_id: row.resolved.floor_id })}|${nameKey}`
         : '',
     ].filter(Boolean);
     if (!names.length) return;
@@ -895,5 +1015,6 @@ export function missingInfoFor(result) {
   if (!result.resolved.baseline_start) missing.push('Baseline start');
   if (!result.resolved.baseline_finish) missing.push('Baseline finish');
   if (result.resolved.progress_percent === null) missing.push('Progress');
+  if (result.resolved.scope_unassigned) missing.push('Room/area not in the register');
   return missing;
 }

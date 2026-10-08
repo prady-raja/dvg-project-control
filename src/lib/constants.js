@@ -59,6 +59,7 @@ export const NAV_ITEMS = [
   { label: 'Planning', to: '/planning', icon: 'CalendarRange', group: 'Execution' },
   { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck', group: 'Execution' },
   { label: 'Blockers', to: '/blockers', icon: 'ShieldAlert', group: 'Execution' },
+  { label: 'Needs Attention', to: '/attention', icon: 'ClipboardCheck', group: 'Execution' },
   { label: 'Handover & Snagging', to: '/handover', icon: 'ClipboardCheck', group: 'Execution' },
   { label: 'Site-wide Works', to: '/site-wide', icon: 'Construction', group: 'Execution' },
   { label: 'Contractor Dashboard', to: '/contractor-board', icon: 'HardHat', group: 'Teams' },

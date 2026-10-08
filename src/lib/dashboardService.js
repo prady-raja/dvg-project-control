@@ -19,5 +19,6 @@ export const DASHBOARD_VIEWS = [
   'meeting',
   'handover',
   'sitewide',
+  'attention',
   'tasks',
 ];
