@@ -812,18 +812,24 @@ function flagInFileDuplicates(results) {
     if (row.blocking) return;
     const sourceKey = looseKey(row.values.source_reference);
     const nameKey = looseKey(row.resolved.name);
-    const key = sourceKey
-      ? `source:${sourceKey}`
-      : nameKey && row.resolved.discipline
+    const names = [
+      sourceKey ? `source:${sourceKey}` : '',
+      nameKey && row.resolved.discipline
         ? `work:${row.resolved.location_id || 'site'}|${row.resolved.discipline}|${nameKey}`
-        : '';
-    if (!key) return;
+        : '',
+    ].filter(Boolean);
+    if (!names.length) return;
 
-    const first = seen.get(key);
+    // Either the same source reference or the same work in the same villa —
+    // the later row is the one that needs a decision.
+    const first = names.map((name) => seen.get(name)).find(Boolean);
     if (!first) {
-      seen.set(key, row);
+      names.forEach((name) => seen.set(name, row));
       return;
     }
+    names.forEach((name) => {
+      if (!seen.has(name)) seen.set(name, row);
+    });
 
     row.issues.push({
       severity: 'warning',
