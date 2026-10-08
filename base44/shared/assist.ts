@@ -399,6 +399,7 @@ export function buildProposal({ text, data, scope, asOf, options = {} }) {
       areas,
       floors,
       match,
+      unresolvedRoom: match.unresolved.length > 0,
       described,
       scope_type: described.scope_type,
       scope_label: scopeSummary({
@@ -435,11 +436,19 @@ export function buildProposal({ text, data, scope, asOf, options = {} }) {
       const villaScope = scopeFor(villa);
       const pool = taskPool(villaScope);
       const named = pool.filter((task) => taskMatchesWords(task, message));
-      const wholeVilla = pool.filter((task) => (task.scope_type === 'Entire Villa' && taskMatchesWords(task, message)));
+      // A task whose room was named in its source list but never registered is
+      // not confirmed whole-villa work: it is never read as one.
+      const wholeVilla = pool.filter(
+        (task) => task.scope_type === 'Entire Villa' && task.scope_unresolved !== true && taskMatchesWords(task, message),
+      );
 
       let chosen = [];
       let mode = '';
-      if (villaScope.described.area_ids.length) {
+      if (villaScope.unresolvedRoom) {
+        // A room was named that the register does not hold. The wording cannot
+        // choose the work, so no action is proposed for this villa at all.
+        mode = '';
+      } else if (villaScope.described.area_ids.length) {
         if (pool.length === 1) {
           chosen = pool;
           mode = 'single';

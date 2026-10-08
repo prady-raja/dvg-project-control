@@ -7,7 +7,7 @@ import { MEMBERSHIP_ROLES } from '@/lib/constants';
 import { createRecord } from '@/lib/recordService';
 
 export default function MembershipDialog({ open, onOpenChange, cat, user, onSaved }) {
-  const [form, setForm] = useState({ user_email: '', user_name: '', project_id: '', role: 'Site Engineer' });
+  const [form, setForm] = useState({ user_email: '', user_name: '', project_id: '', role: 'Project Editor' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -17,7 +17,7 @@ export default function MembershipDialog({ open, onOpenChange, cat, user, onSave
         user_email: '',
         user_name: '',
         project_id: cat.projects[0]?.id || '',
-        role: 'Site Engineer',
+        role: 'Project Editor',
       });
       setError('');
     }
@@ -51,7 +51,7 @@ export default function MembershipDialog({ open, onOpenChange, cat, user, onSave
       open={open}
       onOpenChange={onOpenChange}
       title="Add project member"
-      description="Records who belongs to the project. No invitation is sent and no access is granted until Step 1B."
+      description="Records who belongs to the project and at what level. Access begins when they sign in with the invited address. Only an application administrator may change membership."
       onSubmit={save}
       submitting={saving}
       error={error}

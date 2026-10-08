@@ -309,7 +309,7 @@ export default async function (req) {
               action_id: item.action_id,
               summary: item.summary,
               reason: item.type === 'link_dependency'
-                ? 'Recording a dependency needs a Project Manager or an administrator.'
+                ? 'Recording a dependency needs a Project Editor or an administrator.'
                 : 'Your project role is read-only.',
             });
             continue;

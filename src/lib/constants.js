@@ -47,7 +47,7 @@ export const POSSESSION_STATUSES = ['Handed Over', 'Not Handed Over'];
 export const WORKS_STAGES = ['Not Started', 'Under Construction', 'Works Pending', 'Completed'];
 export const ACTIVE_STATUSES = ['Active', 'On Hold'];
 export const CONTRACTOR_CLASSIFICATIONS = ['Internal Execution Team', 'External Contractor'];
-export const MEMBERSHIP_ROLES = ['Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor', 'Viewer'];
+export const MEMBERSHIP_ROLES = ['Project Editor', 'Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor', 'Viewer'];
 
 export const WORK_PACKAGE_REQUIRED_DISCIPLINES = ['Finishes'];
 

@@ -118,12 +118,14 @@ export default async function (req) {
     let projectId = entityName === 'Project' ? existing?.id || '' : payload.project_id || existing?.project_id || '';
 
     /* ------------------------------------------------------------ permissions */
-    if (entityName === 'Contractor' || entityName === 'Discipline' || entityName === 'AiSettings') {
+    if (entityName === 'Contractor' || entityName === 'Discipline' || entityName === 'AiSettings' || entityName === 'ProjectMembership') {
       if (!appAdmin) {
         throw fail(
           entityName === 'AiSettings'
             ? 'Only an application administrator can change the AI controls.'
-            : 'Only an application administrator can change company-wide lists.',
+            : entityName === 'ProjectMembership'
+              ? 'Only an application administrator can change project membership.'
+              : 'Only an application administrator can change company-wide lists.',
           403,
         );
       }
@@ -140,14 +142,7 @@ export default async function (req) {
       if (!projectId) throw fail('A project is required.');
       const rank = await resolveRank(base44, projectId, user);
       if (!canManageProject(rank)) {
-        throw fail('Only a Project Manager or an administrator can change this record.', 403);
-      }
-      if (entityName === 'ProjectMembership' && action !== 'delete') {
-        const nextRole = String(payload.role || existing?.role || 'Site Engineer');
-        if (!MEMBERSHIP_ROLES.includes(nextRole)) throw fail('Unknown project role.');
-        if (!appAdmin && rankForRole(nextRole) > rank) {
-          throw fail('You cannot grant a role above your own on this project.', 403);
-        }
+        throw fail('Only a Project Editor or an administrator can change this record.', 403);
       }
     }
 

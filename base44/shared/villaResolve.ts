@@ -115,7 +115,19 @@ export function resolveVillaCode(raw, index, phaseIdHint) {
       });
     });
 
-  const pool = uniqueById([...fromCode, ...fromPlot]);
+  let pool = uniqueById([...fromCode, ...fromPlot]);
+
+  // A letter on the reference settles a split villa: "Villa 14A" is B-14A even
+  // though B-14A and B-14B both carry plot 14. Only used when it narrows the
+  // field to one villa — otherwise the reference stays ambiguous.
+  const suffix = (text.match(/([a-z])\s*$/i) || [])[1];
+  if (suffix && pool.length > 1) {
+    const narrowed = pool.filter((location) =>
+      normalizeCode(location.villa_code).endsWith(suffix.toUpperCase()),
+    );
+    if (narrowed.length) pool = narrowed;
+  }
+
   if (pool.length === 1) return { status: 'matched', location: pool[0], via: fromCode.length ? 'component' : 'plot' };
   if (pool.length > 1) return { status: 'ambiguous', candidates: pool };
   return { status: 'unknown' };

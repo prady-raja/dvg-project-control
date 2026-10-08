@@ -12,8 +12,9 @@
       "items": {
         "type": "string"
       },
-      "description": "Project roles allowed to use AI, e.g. Project Manager, Site Engineer, Viewer. An application administrator is always allowed.",
+      "description": "Project roles allowed to use AI, e.g. Project Editor, Project Manager, Site Engineer, Viewer. An application administrator is always allowed.",
       "default": [
+        "Project Editor",
         "Project Admin",
         "Project Manager"
       ]

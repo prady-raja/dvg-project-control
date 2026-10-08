@@ -524,6 +524,11 @@ export function buildTaskPayload(result, extra = {}) {
     area_ids: r.area_ids || [],
     area_label: r.area_label || null,
     scope_type: r.scope_type || (r.location_id ? 'Entire Villa' : 'Site-wide'),
+    // The words used in the source list are kept, and a row whose room was named
+    // but never registered is flagged: it must never be read as confirmed
+    // whole-villa work, and it never takes part in a villa-wide completion.
+    source_location_text: [r.floor_text, r.area_text].filter(Boolean).join(' · ') || null,
+    scope_unresolved: r.scope_unassigned === true,
     discipline: r.discipline,
     work_package: r.work_package || null,
     name: r.name,
@@ -572,6 +577,8 @@ function validateOneRow(row, ctx, override) {
     scope_type: '',
     scope_hint: '',
     scope_unassigned: false,
+    floor_text: '',
+    area_text: '',
     planned_quantity: null,
     measurement_unit: '',
     acceptance_criterion: null,
@@ -735,6 +742,8 @@ function validateOneRow(row, ctx, override) {
   // a similar name, and never guessed from the wording of the activity.
   const floorText = cleanText(values.floor);
   const areaText = cleanText(values.area);
+  resolved.floor_text = floorText;
+  resolved.area_text = areaText;
   const scopeText = cleanText(values.scope_type);
   const villaRooms = location ? ctx.areas.filter((area) => area.location_id === location.id) : [];
   const villaFloors = location ? ctx.floors.filter((floor) => floor.location_id === location.id) : [];

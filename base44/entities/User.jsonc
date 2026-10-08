@@ -7,6 +7,10 @@
         "admin",
         "user"
       ]
+    },
+    "designation": {
+      "type": "string",
+      "description": "Job designation shown beside the person's name, e.g. Site Engineer, MEP Engineer, Procurement, Planning, Management. A label only: it never changes what the person may do \u2014 that comes from their project membership role."
     }
   },
   "required": [

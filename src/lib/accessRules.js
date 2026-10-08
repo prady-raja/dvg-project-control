@@ -8,6 +8,10 @@ export const ROLE_RANK = {
   Viewer: 0,
   Supervisor: 1,
   'Site Engineer': 1,
+  // The one operational level used by the site, MEP, procurement, planning and
+  // management users. Job designations are labels and never change access.
+  'Project Editor': 2,
+  // Legacy levels, kept so older records still resolve.
   'Project Manager': 2,
   'Project Admin': 3,
 };
@@ -24,8 +28,9 @@ export const CAPABILITY_RANK = {
   manage_project: 2,
   approve: 2,
   baselines: 2,
-  members: 2,
   lifecycle: 2,
+  // Only the application administrator manages people and permissions.
+  members: APP_ADMIN_RANK,
   projects: APP_ADMIN_RANK,
 };
 
@@ -34,10 +39,11 @@ export const can = (rank, capability) => rank >= (CAPABILITY_RANK[capability] ??
 export const NO_ACCESS_MESSAGE = 'You do not have access to this project yet.';
 
 export const ROLE_GUIDE = [
-  { role: 'Project Admin', detail: 'Full control of the project, including who else is on it.' },
-  { role: 'Project Manager', detail: 'Schedules, forecast dates, approvals, baselines, membership and archiving.' },
-  { role: 'Site Engineer', detail: 'Creates and updates permitted tasks. Cannot approve, close, change an approved baseline, manage users or archive.' },
-  { role: 'Supervisor', detail: 'Same as Site Engineer for task entry.' },
+  { role: 'Project Editor', detail: 'The operational level used by every staff user: tasks, daily reports, imports and exports, snags, drawings, meeting commitments, forecast revisions, approvals of other people’s work, dashboards and the AI assistant.' },
+  { role: 'Project Admin', detail: 'Legacy level. Same operational rights as a Project Editor; managing users and permissions is reserved for the application administrator.' },
+  { role: 'Project Manager', detail: 'Legacy level, kept for records written before Project Editor. Same operational rights as a Project Editor.' },
+  { role: 'Site Engineer', detail: 'Legacy read-and-update level. Creates and updates permitted tasks; cannot approve, close, change an approved baseline or archive.' },
+  { role: 'Supervisor', detail: 'Legacy level, same as Site Engineer for task entry.' },
   { role: 'Viewer', detail: 'Read-only.' },
 ];
 

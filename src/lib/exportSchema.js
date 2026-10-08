@@ -48,13 +48,15 @@ export const EXPORT_ENTITIES = [
     name: 'ProjectMembership',
     label: 'Project memberships',
     fields: ['id', 'user_id', 'user_email', 'user_name', 'project_id', 'role', 'active', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
-    note: 'user_id is empty until that person has signed in once; user_email is how a pre-recorded membership is matched. This is the table that becomes project_memberships with row level security.',
+    note: 'user_id is empty until that person has signed in once; user_email is how a pre-recorded membership is matched. Project Editor is the single operational level used by the staff users; Project Admin / Project Manager / Site Engineer / Supervisor are legacy levels kept so older rows still resolve. This is the table that becomes project_memberships with row level security.',
   },
   {
     name: 'Task',
     label: 'Tasks',
     fields: [
-      'id', 'task_ref', 'project_id', 'phase_id', 'location_id', 'discipline', 'work_package',
+      'id', 'task_ref', 'project_id', 'phase_id', 'location_id', 'floor_id', 'area_ids', 'area_label',
+      'scope_type', 'acceptance_criterion', 'source_location_text', 'scope_unresolved',
+      'discipline', 'work_package',
       'parent_task_id', 'is_villa_work_parent', 'villa_work_key', 'child_villa_count',
       'name', 'description', 'priority', 'status', 'contractor_id', 'responsible_engineer',
       'progress_percent', 'planned_quantity', 'completed_quantity', 'measurement_unit',
@@ -69,7 +71,7 @@ export const EXPORT_ENTITIES = [
       'created_by_name', 'updated_by_name', 'archived', 'is_demo', 'member_ids',
       'created_date', 'updated_date', 'created_by_id',
     ],
-    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted. import_batch_id / import_source_file / import_row_number / source_reference record the CSV row a task came from, and are written only by the import operation.',
+    note: 'task_ref is permanent and unique, issued from the RefAllocation ledger and never derived from the tasks that currently exist. floor_id → VillaFloor.id and area_ids → VillaArea.id[] carry the room-level scope; scope_type states which of Specific Room/Area, Multiple Rooms/Areas, Entire Floor, Entire Villa or Site-wide it is, and area_label is the readable form (e.g. "First Floor · Master Bedroom"). source_location_text keeps the floor and room words exactly as the source list wrote them, and scope_unresolved is true when such words were named but never registered — those rows are flagged in Needs Attention and are never read as confirmed whole-villa work. parent_task_id links a villa task to its Villa Work container (is_villa_work_parent true), which holds no work of its own so parent and children are never double counted. import_batch_id / import_source_file / import_row_number / source_reference record the CSV row a task came from, and are written only by the import operation.',
   },
   {
     name: 'DailyUpdate',
@@ -120,13 +122,13 @@ export const EXPORT_ENTITIES = [
   {
     name: 'User',
     label: 'User profiles (no credentials)',
-    fields: ['id', 'email', 'full_name', 'role', 'created_date'],
-    note: 'Profile only — passwords, tokens and sessions are never exported because they are not stored in app data.',
+    fields: ['id', 'email', 'full_name', 'role', 'designation', 'created_date'],
+    note: 'Profile only — passwords, tokens and sessions are never exported because they are not stored in app data. designation is a descriptive job label (Site Engineer, MEP Engineer, Procurement, Planning, Management) and never grants any capability; access comes from the project membership role.',
   },
   {
     name: 'Snag',
     label: 'Snags',
-    fields: ['id', 'snag_ref', 'project_id', 'phase_id', 'location_id', 'task_id', 'title', 'description', 'discipline', 'work_package', 'contractor_id', 'status', 'severity', 'raised_date', 'raised_by_id', 'raised_by_name', 'target_date', 'reinspection_date', 'closed_date', 'closed_by_name', 'handover_blocker', 'photo_uris', 'notes', 'is_demo', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    fields: ['id', 'snag_ref', 'project_id', 'phase_id', 'location_id', 'floor_id', 'area_ids', 'area_label', 'task_id', 'title', 'description', 'discipline', 'work_package', 'contractor_id', 'status', 'severity', 'raised_date', 'raised_by_id', 'raised_by_name', 'target_date', 'reinspection_date', 'closed_date', 'closed_by_name', 'handover_blocker', 'photo_uris', 'notes', 'is_demo', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
     note: 'Snag references (SN-…) come from the same append-only ledger as task references, so a snag number is never reused either.',
   },
   {
@@ -146,6 +148,30 @@ export const EXPORT_ENTITIES = [
     label: 'AI usage log',
     fields: ['id', 'user_id', 'user_name', 'day', 'action', 'project_id', 'model', 'question', 'ok', 'error', 'prompt_tokens', 'completion_tokens', 'asked_at'],
     note: 'Audit of AI requests: who asked, when, which action and model, tokens used, and the outcome. Questions are truncated.',
+  },
+  {
+    name: 'VillaFloor',
+    label: 'Villa floors',
+    fields: ['id', 'project_id', 'phase_id', 'location_id', 'floor_code', 'floor_name', 'level_order', 'active', 'notes', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'One row per floor of one villa. location_id → Location.id ties the floor to its physical villa, floor_code is what references use, level_order is blank when unknown rather than guessed.',
+  },
+  {
+    name: 'VillaArea',
+    label: 'Rooms & areas',
+    fields: ['id', 'project_id', 'phase_id', 'location_id', 'floor_id', 'area_code', 'area_name', 'normalized_name', 'aliases', 'source_name', 'area_type', 'sort_order', 'active', 'source', 'notes', 'is_demo', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'The room register: floor_id → VillaFloor.id and location_id → Location.id fix each room to its villa. normalized_name is the matching key used by the importer and the assistant, aliases lists only what has been approved, and source_name preserves the wording used in the uploaded document. Tasks point here through area_ids.',
+  },
+  {
+    name: 'Drawing',
+    label: 'Drawing register',
+    fields: ['id', 'project_id', 'phase_id', 'location_id', 'floor_id', 'title', 'drawing_type', 'revision', 'revision_date', 'uploaded_date', 'file_uri', 'file_name', 'status', 'superseded_by_id', 'supersedes_id', 'uploaded_by_id', 'uploaded_by_name', 'notes', 'is_demo', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'file_uri is a private storage reference, not a public URL: the drawing files themselves must be copied across separately and their access follows project membership. Each revision is its own row; superseded_by_id / supersedes_id link the chain so a task can always be traced to the revision it was read from.',
+  },
+  {
+    name: 'AiProposal',
+    label: 'AI assistant proposals',
+    fields: ['id', 'external_id', 'project_id', 'phase_id', 'user_id', 'user_name', 'message', 'intent', 'source', 'model', 'actions', 'questions', 'status', 'results', 'proposed_at', 'confirmed_at', 'error', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'external_id is the idempotency key: a repeated confirmation of the same proposal is recognised from this row instead of being applied twice. actions, questions and results are nested lists carried in full by the JSON bundle; a CSV holds them as JSON text.',
   },
 ];
 

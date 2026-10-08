@@ -306,3 +306,35 @@ The full detail lives in `docs/DASHBOARDS_AND_AI.md`. In summary, for migration:
    (`v_task_facts`, `v_contractor_summary`, `v_villa_attention`) that keep the
    digest SQL-side. The prompt scaffolding and deterministic task matching in
    `base44/shared/ai.ts` carry across unchanged.
+
+## Phase 1 final additions (location, drawings, AI proposals, designations)
+
+Four entity tables were added after this document was first written, and are part
+of the full export (`base44/functions/dataExport` → entity list, and the column
+order in `src/lib/exportSchema.js`):
+
+| Entity | Purpose | Key relationships |
+| --- | --- | --- |
+| `VillaFloor` | One floor of one villa | `location_id → Location.id`, `phase_id → Phase.id` |
+| `VillaArea` | The room register (names, aliases, `normalized_name`) | `location_id → Location.id`, `floor_id → VillaFloor.id` |
+| `Drawing` | Drawing register, one row per revision, private files | `location_id → Location.id`, `floor_id → VillaFloor.id`, `supersedes_id` / `superseded_by_id` chain |
+| `AiProposal` | Assistant proposals with their idempotency key and per-action results | `project_id`, `phase_id`, `user_id` |
+
+Changes to existing tables:
+
+- `Task` gains `floor_id`, `area_ids[]`, `area_label`, `scope_type`,
+  `acceptance_criterion`, `source_location_text` and `scope_unresolved`. The last
+  two are what make imported work honest: the floor/room words are preserved as
+  written, and a row whose room was named but never registered is flagged instead
+  of passing as confirmed whole-villa work.
+- `Snag` gains `floor_id`, `area_ids[]`, `area_label`.
+- `User` gains `designation` — a descriptive job label only (Site Engineer, MEP
+  Engineer, Procurement, Planning, Management). It never grants a capability.
+- `ProjectMembership.role` gains **Project Editor**, the single operational level
+  used by the five staff users. `Project Admin`, `Project Manager`, `Site
+  Engineer`, `Supervisor` and `Viewer` remain valid so older rows still resolve.
+
+In Supabase terms: `project_editor` maps to the same operational rights that
+`project_manager` had, except that membership management now requires the
+application administrator — the `members` capability is no longer satisfied by any
+project role.

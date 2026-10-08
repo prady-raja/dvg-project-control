@@ -5,6 +5,7 @@ const ENTITIES = [
   'Project', 'Phase', 'Location', 'Contractor', 'ContractorDefault', 'WorkPackage', 'Discipline',
   'ProjectMembership', 'Task', 'TaskDependency', 'RefAllocation', 'TaskHistory', 'DailyUpdate',
   'BaselineVersion', 'ImportBatch', 'Snag', 'MeetingCommitment', 'AiSettings', 'AiUsage',
+  'VillaFloor', 'VillaArea', 'Drawing', 'AiProposal',
 ];
 
 /**
@@ -63,6 +64,10 @@ export default async function (req) {
       MeetingCommitment: svc.MeetingCommitment,
       AiSettings: svc.AiSettings,
       AiUsage: svc.AiUsage,
+      VillaFloor: svc.VillaFloor,
+      VillaArea: svc.VillaArea,
+      Drawing: svc.Drawing,
+      AiProposal: svc.AiProposal,
     };
 
     const options = { sort: '-created_date', limit };

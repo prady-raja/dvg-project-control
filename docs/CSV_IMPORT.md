@@ -122,3 +122,44 @@ back as duplicates to decide on.
   a correction stays consumed.
 - It never applies a partly corrected row: rows with blocking problems stop until
   they are fixed or skipped.
+
+## Added columns (all optional — the original template still works)
+
+| Column | Accepted headings | Effect |
+| --- | --- | --- |
+| Floor | `floor`, `floor name` | Matched against the villa's registered floors (name or code). |
+| Area/Room | `area`, `room`, `area/room`, `room name` | Matched against the villa's room register by `normalized_name` and approved aliases. Several rooms may be listed, separated by `, ; / \|`. |
+| Scope type | `scope type`, `task scope`, `extent`, `coverage` | Overrides the derived scope. One of Specific Room/Area, Multiple Rooms/Areas, Entire Floor, Entire Villa, Site-wide. |
+| Quantity / Unit | `quantity`, `planned quantity` / `unit`, `measurement unit`, `uom` | Planned quantity and its unit. |
+| Acceptance criterion | `acceptance criterion`, `acceptance` | What must be true for the work to be accepted. |
+| Responsible DVG coordinator | `responsible engineer`, `engineer`, `site engineer`, `responsible dvg coordinator`, `dvg coordinator`, `coordinator` | Stored as written — never guessed from a similar name. |
+
+## A room that is named but not registered
+
+When the file names a floor or a room that the villa's register does not hold, the
+row is **not** converted into confirmed whole-villa work:
+
+- the imported task keeps the original words in `source_location_text`,
+- it is marked `scope_unresolved`,
+- it is listed in **Needs Attention** as an unresolved location, and
+- it never takes part in a villa-wide completion read by the AI assistant.
+
+Blank floor and room columns stay a different thing entirely: the work is
+genuinely whole-villa or unspecified, it imports without a flag, and it is not
+reported as unresolved. A named-but-unregistered room and a deliberately blank
+one therefore never look the same afterwards.
+
+The row can be corrected before import through the row editor (choose the right
+room), or afterwards by registering the room on the villa page and importing the
+row again — the file's own wording is preserved either way.
+
+## Plot references and combined villas
+
+Villa resolution goes through `base44/shared/villaResolve.ts` for every path.
+Within a phase, a plot reference resolves to the physical villa that carries it:
+plots 5 and 6 are villa B-05-06, plots 7, 8 and 9 are B-07-08-09, plots 15 and 16
+are B-15-16, and 14A / 14B are B-14A and B-14B. Several references to one villa
+collapse to one task — a combined villa never produces a task per plot. Where a
+plot number exists in both Phase A and Phase B and the phase is not stated, the
+row asks for the phase instead of guessing; set the phase on the import (or on
+the screen) and the same reference resolves directly.

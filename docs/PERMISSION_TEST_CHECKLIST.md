@@ -81,3 +81,29 @@ Record for each line: who did it, what happened, and the exact message shown.
 
 - Everything above: role refusals, cross-user visibility, and revocation.
 - That a viewer cannot see another project's data through a direct link.
+
+## Project Editor level (Phase 1 final)
+
+The five staff users all hold **Project Editor**. On a project they are members of
+they may: read all operational data, create/edit/update/archive tasks, file daily
+reports with manpower, progress and blockers, work at villa/floor/room level,
+manage site-wide activities, import CSVs, export operational reports, raise and
+close snags, upload drawings, record meeting commitments, revise forecast dates
+with a reason, approve or verify another person's completed work, and use the AI
+assistant. They cannot invite users, change anyone's permission level, switch
+project access off, change company-wide lists or AI settings, create or delete a
+project, or run a migration export.
+
+Run these five checks with genuinely separate sign-ins once the accounts exist:
+
+1. A Project Editor creates a task and a daily report on Imagine Villas, and
+   imports a small CSV — all should succeed.
+2. The same user tries to invite a user, change a role and run the migration
+   export — all three must be refused.
+3. The same user is removed from Imagine Villas (membership switched off) and
+   reloads: tasks, reports, snags, drawings, commitments and assistant history
+   disappear with it.
+4. Two Project Editors: A completes execution on a task; B approves it (allowed);
+   then B tries to approve B's own completion (must be refused).
+5. A Project Editor opens a project they are not a member of by direct link — no
+   records are returned.

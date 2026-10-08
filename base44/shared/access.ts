@@ -11,6 +11,10 @@ export const ROLE_RANK = {
   Viewer: 0,
   Supervisor: 1,
   'Site Engineer': 1,
+  // The operational permission level: every site, MEP, procurement, planning and
+  // management user works at this one level, whatever their designation says.
+  'Project Editor': 2,
+  // Legacy levels, kept so records written before Project Editor still resolve.
   'Project Manager': 2,
   'Project Admin': 3,
 };
@@ -35,8 +39,11 @@ export const canManageProject = (rank) => rank >= 2;
 export const canApproveWork = (rank) => rank >= 2;
 /** Edit a draft or replace an approved baseline. */
 export const canEditBaselines = (rank) => rank >= 2;
-/** Add or change project members. */
-export const canManageMembers = (rank) => rank >= 2;
+/**
+ * Add or change project members. Application administrator only: a project role
+ * — including the legacy Project Admin — never carries this.
+ */
+export const canManageMembers = (rank) => rank >= APP_ADMIN_RANK;
 /** Archive or restore records. Engineers may not delete records. */
 export const canManageRecordLifecycle = (rank) => rank >= 2;
 /** Create or delete a project — application administrator only. */

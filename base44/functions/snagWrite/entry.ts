@@ -109,7 +109,7 @@ export default async function (req) {
     if (!existing) throw fail('That snag no longer exists.', 404);
 
     if (action === 'delete') {
-      if (!canManageProject(rank)) throw fail('Only a Project Manager or an administrator can remove a snag.', 403);
+      if (!canManageProject(rank)) throw fail('Only a Project Editor or an administrator can remove a snag.', 403);
       await svc.Snag.delete(existing.id);
       return Response.json({ ok: true, deleted: existing.id });
     }

@@ -210,3 +210,30 @@ reason rules as a typed report.
 
 The prompt scaffolding and the deterministic candidate matching in
 `base44/shared/ai.ts` move across unchanged — neither touches the database.
+
+## Assistant rules confirmed in the final batch
+
+- **One operational level.** `AiSettings.allowed_roles` now includes **Project
+  Editor**, the level all five staff users hold. An application administrator is
+  always allowed. The check is by role name, never by job designation.
+- **A room named but not registered proposes nothing.** If the message names a
+  room the villa's register does not hold, the assistant raises the question and
+  proposes no action for that villa — the wording is not enough to choose work.
+  Enforced in the proposal builder, so there is nothing to confirm.
+- **Unresolved scope is never whole-villa work.** A task with
+  `scope_unresolved` is excluded from the "one clearly identified whole-villa
+  task" read, so an imported row whose room was never registered cannot be
+  completed by a villa-wide message.
+- **Nothing is written before confirmation,** and the confirmation is
+  server-checked: an action whose task changed after the proposal was prepared is
+  refused, a proposal already answered is never applied twice (the proposal key is
+  the idempotency key), and approval never follows automatically from a reported
+  execution — a task reported complete becomes Execution Complete, not Approved.
+- **Provider state.** The OpenAI key is configured and the app reaches the
+  provider; the account currently returns *"You have no credits remaining"*
+  (HTTP 429), so genuine model interpretation is **NOT TESTED**. The rule-based
+  reading of site messages is exercised and verified independently of the model.
+  Base44's own included AI integration was tested from this app and answered
+  successfully, so it is available as an alternative provider — it has not been
+  switched on, because the OpenAI implementation stays the preferred one until
+  that decision is taken deliberately.

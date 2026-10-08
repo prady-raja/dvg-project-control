@@ -17,13 +17,14 @@
     "role": {
       "type": "string",
       "enum": [
+        "Project Editor",
         "Project Admin",
         "Project Manager",
         "Site Engineer",
         "Supervisor",
         "Viewer"
       ],
-      "default": "Site Engineer"
+      "default": "Project Editor"
     },
     "active": {
       "type": "boolean",
