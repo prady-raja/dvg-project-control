@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { fail } from '../../shared/records.ts';
 import { heldLocationIds, metricTasks, taskRow, todayIst } from '../../shared/dashboardCore.ts';
+import { actionFor } from '../../shared/dashboardCore.ts';
 import { contractorBoardView, executiveView, planningView, villaExecutionView } from '../../shared/dashboardViews.ts';
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
@@ -93,7 +94,10 @@ export default async function (req) {
           ...header,
           metric,
           total: list.length,
-          rows: list.slice(0, options.itemLimit).map((t) => taskRow(t, ix, asOf)),
+          rows: list.slice(0, options.itemLimit).map((task) => {
+            const row = taskRow(task, ix, asOf);
+            return { ...row, action: actionFor(row) };
+          }),
         });
       }
       default:

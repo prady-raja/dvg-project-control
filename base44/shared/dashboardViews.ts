@@ -17,9 +17,12 @@ const priorityRow = (task, ix, asOf) => {
   return { ...row, action: actionFor(row), score: priorityScore(row) };
 };
 
-export function villaInventory(locations, tasks, heldIds, asOf) {
-  const villas = locations.filter((l) => l.location_type === 'Villa');
-  const common = locations.filter((l) => l.location_type !== 'Villa');
+export function villaInventory(locations, tasks, heldIds, asOf, options = {}) {
+  const inScope = locations.filter(
+    (l) => (!options.projectId || l.project_id === options.projectId) && (!options.phaseId || l.phase_id === options.phaseId),
+  );
+  const villas = inScope.filter((l) => l.location_type === 'Villa');
+  const common = inScope.filter((l) => l.location_type !== 'Villa');
   const openByVilla = new Map();
   tasks.filter(isOutstanding).forEach((task) => {
     if (!task.location_id) return;
@@ -109,7 +112,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
   return {
     as_of: asOf,
     scope: { project_id: options.projectId || '', phase_id: options.phaseId || '' },
-    inventory: villaInventory(villas, active, heldIds, asOf),
+    inventory: villaInventory(locations, active, heldIds, asOf, options),
     metrics,
     progress,
     priorities,

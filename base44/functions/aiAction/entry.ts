@@ -246,7 +246,19 @@ export default async function (req) {
         });
       } catch (error) {
         await logUsage({ ok: false, question: text.slice(0, 200), error: String(error.message).slice(0, 300) });
-        throw error;
+        // The provider refused or is unreachable. The engineer can still record
+        // the update: the fields come from a mechanical reading of their own
+        // words, the error is stated, and the task and every value must still be
+        // confirmed by hand before the guarded writer is called.
+        return Response.json({
+          configured: true,
+          source: 'deterministic',
+          provider_error: error.message,
+          candidates,
+          proposed: deterministicProposal(text, candidates),
+          message: `The AI provider could not be reached (${error.message}). The fields below were read mechanically from your words — check every one, and the update is still recorded through the normal guarded daily-update path.`,
+          data_date: asOf,
+        });
       }
     }
 
