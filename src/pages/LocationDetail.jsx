@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus, Activity } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
@@ -86,6 +86,11 @@ export default function LocationDetail() {
           <>
             <Pill value={location.possession_status} />
             <Pill value={location.active_status} />
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to={`/locations/${location.id}/execution`}>
+                <Activity className="h-3.5 w-3.5" /> Execution dashboard
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>

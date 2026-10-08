@@ -73,7 +73,7 @@ export default function ProjectDetail() {
       <div className="rounded-xl border border-border bg-card p-8 text-center">
         <p className="font-display text-lg font-semibold">Project not found</p>
         <Button asChild variant="outline" size="sm" className="mt-4">
-          <Link to="/">Back to projects</Link>
+          <Link to="/projects">Back to projects</Link>
         </Button>
       </div>
     );
@@ -91,8 +91,7 @@ export default function ProjectDetail() {
   return (
     <>
       <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
-        <Link to="/">
-          <ArrowLeft className="h-4 w-4" /> All projects
+        <Link to="/projects">          <ArrowLeft className="h-4 w-4" /> All projects
         </Link>
       </Button>
 

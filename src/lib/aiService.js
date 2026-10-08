@@ -32,6 +32,14 @@ export async function aiParseUpdate({ projectId, phaseId, text, date }) {
   return res?.data || {};
 }
 
+/** The models an administrator may choose between. */
+export const AI_MODELS = [
+  { value: 'gpt-4o-mini', label: 'gpt-4o-mini — lowest cost, good for summaries' },
+  { value: 'gpt-4o', label: 'gpt-4o — stronger reasoning, higher cost' },
+  { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini — balanced' },
+  { value: 'gpt-4.1', label: 'gpt-4.1 — highest quality, highest cost' },
+];
+
 export const SUGGESTED_QUESTIONS = [
   'What are the most important issues requiring attention today?',
   'Which contractor has the most outstanding works?',

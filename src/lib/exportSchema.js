@@ -123,6 +123,30 @@ export const EXPORT_ENTITIES = [
     fields: ['id', 'email', 'full_name', 'role', 'created_date'],
     note: 'Profile only — passwords, tokens and sessions are never exported because they are not stored in app data.',
   },
+  {
+    name: 'Snag',
+    label: 'Snags',
+    fields: ['id', 'snag_ref', 'project_id', 'phase_id', 'location_id', 'task_id', 'title', 'description', 'discipline', 'work_package', 'contractor_id', 'status', 'severity', 'raised_date', 'raised_by_id', 'raised_by_name', 'target_date', 'reinspection_date', 'closed_date', 'closed_by_name', 'handover_blocker', 'photo_uris', 'notes', 'is_demo', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'Snag references (SN-…) come from the same append-only ledger as task references, so a snag number is never reused either.',
+  },
+  {
+    name: 'MeetingCommitment',
+    label: 'Meeting commitments',
+    fields: ['id', 'project_id', 'phase_id', 'contractor_id', 'task_id', 'task_ref', 'meeting_date', 'commitment', 'responsible_person', 'promised_date', 'status', 'fulfilled_date', 'remarks', 'recorded_by_id', 'recorded_by_name', 'member_ids', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'One row per promise. A later meeting adds rows; the earlier commitment is preserved and only its status changes.',
+  },
+  {
+    name: 'AiSettings',
+    label: 'AI settings',
+    fields: ['id', 'enabled', 'allowed_roles', 'model', 'daily_request_limit', 'context_item_limit', 'instructions', 'notes', 'updated_by_name', 'created_date', 'updated_date', 'created_by_id'],
+    note: 'Configuration only. The provider key is a server-side secret and is never stored in app data.',
+  },
+  {
+    name: 'AiUsage',
+    label: 'AI usage log',
+    fields: ['id', 'user_id', 'user_name', 'day', 'action', 'project_id', 'model', 'question', 'ok', 'error', 'prompt_tokens', 'completion_tokens', 'asked_at'],
+    note: 'Audit of AI requests: who asked, when, which action and model, tokens used, and the outcome. Questions are truncated.',
+  },
 ];
 
 export const NOT_EXPORTED_YET = [
@@ -131,6 +155,9 @@ export const NOT_EXPORTED_YET = [
 ];
 
 export const RELATIONSHIPS = [
+  'Snag.location_id → Location.id; Snag.task_id → Task.id (optional); Snag.contractor_id → Contractor.id; Snag.project_id → Project.id',
+  'MeetingCommitment.project_id → Project.id; MeetingCommitment.task_id → Task.id; MeetingCommitment.contractor_id → Contractor.id',
+  'AiUsage.user_id → User.id; AiUsage.project_id → Project.id',
   'Project 1—* Phase (Phase.project_id)',
   'Project 1—* Location (Location.project_id); Phase 1—* Location (Location.phase_id)',
   'Project 1—* ProjectMembership (ProjectMembership.project_id) — User *—* Project',

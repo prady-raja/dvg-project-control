@@ -255,3 +255,54 @@ Limitations carried into the migration:
    transaction.
 5. **Excel is not read.** Work lists are cleaned, consolidated and saved as CSV
    outside the app.
+
+---
+
+## Management dashboards and AI (development batch 2)
+
+The full detail lives in `docs/DASHBOARDS_AND_AI.md`. In summary, for migration:
+
+1. **Every management figure is computed on the server** by
+   `base44/shared/dashboardCore.ts`, `dashboardViews.ts` and `dashboardBoards.ts`,
+   and read through `base44/functions/dashboardData`. No screen and no AI model
+   calculates a number of its own, so moving the engine moves every figure with it.
+2. **Calculation rules that must survive the migration**: the scheduled date is the
+   forecast finish falling back to the baseline; overdue applies only to work still
+   to be executed; on-hold villas stay in inventory but out of active execution
+   figures; villa-work parent rows are never counted, only their children;
+   site-wide work counts at project level and is reported separately; demo records
+   are excluded from operational figures unless an administrator switches them on;
+   a completion percentage appears only when every outstanding task in the set is
+   measured, weighted by estimated man-hours.
+3. **New entities**: `Snag` (defects, separate from tasks, `SN-` references from the
+   same ledger), `MeetingCommitment` (one promise per record against an existing
+   task), `AiSettings` (single settings row), `AiUsage` (one row per AI request).
+   All four are in `base44/functions/dataExport` and in `src/lib/exportSchema.js`.
+4. **Meeting commitments** never create tasks and are never overwritten: a later
+   meeting adds rows. Status moves between `Open`, `Fulfilled`, `Missed` and
+   `Cancelled`; the promise text is not rewritten.
+5. **AI retrieval** runs through `base44/functions/aiAction`, which builds the
+   permitted scope from `ProjectMembership` on the server, computes the digest with
+   the dashboard engine, and sends only that bounded digest to OpenAI. Owner,
+   contact and file data are never sent; a browser-supplied filter can never widen
+   the scope.
+6. **AI configuration**: `OPENAI_API_KEY` as an app secret (server-side only), plus
+   an `AiSettings` row for enabled, allowed roles, model, daily request limit and
+   context limit. With no key, the AI screens show *AI Setup Required* and the rest
+   of the application is unaffected.
+7. **API provider dependency**: OpenAI chat completions over plain `fetch` with a
+   timeout — no SDK, so the call ports to any runtime. Provider failures reach the
+   user and are logged to `AiUsage`; they are never replaced with invented answers.
+8. **Permissions**: dashboards need an active project membership; the demo view and
+   the AI controls are application-administrator only; AI use needs the caller's
+   project role in `allowed_roles` and stays inside the daily limit; snags may be
+   raised by a Site Engineer and above; meeting commitments by a Project Manager and
+   above. The AI cannot approve, close, move a baseline, change permissions or write
+   to a record — a proposed site update is confirmed by a human and written through
+   `base44/functions/dailyUpdate`.
+9. **Supabase equivalents**: RLS policies on `member_ids` for the new entities,
+   `nextval` sequences per reference prefix, a single-row `ai_settings` table, an
+   `ai_usage` insert log with a `(user_id, day)` index, and SQL views
+   (`v_task_facts`, `v_contractor_summary`, `v_villa_attention`) that keep the
+   digest SQL-side. The prompt scaffolding and deterministic task matching in
+   `base44/shared/ai.ts` carry across unchanged.

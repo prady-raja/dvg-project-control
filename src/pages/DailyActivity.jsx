@@ -11,6 +11,7 @@ import EmptyState from '@/components/common/EmptyState';
 import DailyUpdateCard from '@/components/daily/DailyUpdateCard';
 import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
 import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
+import AiUpdatePanel from '@/components/ai/AiUpdatePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -168,6 +169,15 @@ export default function DailyActivity() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <AiUpdatePanel
+          projectId={projectId}
+          date={date}
+          canReport={canReport}
+          onSaved={() => setRefresh((n) => n + 1)}
+        />
       </div>
 
       <div className="mt-6">

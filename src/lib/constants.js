@@ -52,14 +52,22 @@ export const MEMBERSHIP_ROLES = ['Project Admin', 'Project Manager', 'Site Engin
 export const WORK_PACKAGE_REQUIRED_DISCIPLINES = ['Finishes'];
 
 export const NAV_ITEMS = [
-  { label: 'Projects', to: '/', icon: 'Building2' },
-  { label: 'Villas & Locations', to: '/locations', icon: 'MapPin' },
-  { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck' },
-  { label: 'Task Register', to: '/tasks', icon: 'ClipboardList' },
-  { label: 'Import Works', to: '/import', icon: 'Upload' },
-  { label: 'Contractors', to: '/contractors', icon: 'HardHat' },
-  { label: 'Administration', to: '/admin', icon: 'Settings2' },
-  { label: 'Users & Access', to: '/access', icon: 'UsersRound' },
+  { label: 'Dashboard', to: '/', icon: 'LayoutDashboard', group: 'Overview' },
+  { label: 'Projects', to: '/projects', icon: 'Building2', group: 'Overview' },
+  { label: 'Villas & Locations', to: '/locations', icon: 'MapPin', group: 'Overview' },
+  { label: 'Task Register', to: '/tasks', icon: 'ClipboardList', group: 'Execution' },
+  { label: 'Planning', to: '/planning', icon: 'CalendarRange', group: 'Execution' },
+  { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck', group: 'Execution' },
+  { label: 'Blockers', to: '/blockers', icon: 'ShieldAlert', group: 'Execution' },
+  { label: 'Handover & Snagging', to: '/handover', icon: 'ClipboardCheck', group: 'Execution' },
+  { label: 'Site-wide Works', to: '/site-wide', icon: 'Construction', group: 'Execution' },
+  { label: 'Contractor Dashboard', to: '/contractor-board', icon: 'HardHat', group: 'Teams' },
+  { label: 'Contractors', to: '/contractors', icon: 'UsersRound', group: 'Teams' },
+  { label: 'Meetings', to: '/meetings', icon: 'CalendarClock', group: 'Teams' },
+  { label: 'Ask DVG AI', to: '/ai', icon: 'Bot', group: 'Intelligence' },
+  { label: 'Import Works', to: '/import', icon: 'Upload', group: 'Data' },
+  { label: 'Administration', to: '/admin', icon: 'Settings2', group: 'Setup' },
+  { label: 'Users & Access', to: '/access', icon: 'UserCog', group: 'Setup' },
 ];
 
 /* ---------------------------------------------------------------- seed data */

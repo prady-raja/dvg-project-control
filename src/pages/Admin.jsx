@@ -7,6 +7,7 @@ import DisciplineTab from '@/components/admin/DisciplineTab';
 import WorkPackageTab from '@/components/admin/WorkPackageTab';
 import ContractorDefaultTab from '@/components/admin/ContractorDefaultTab';
 import ExportPanel from '@/components/admin/ExportPanel';
+import AiSettingsTab from '@/components/admin/AiSettingsTab';
 import { useAccess } from '@/lib/AccessContext';
 
 export default function Admin() {
@@ -46,6 +47,7 @@ export default function Admin() {
             <TabsTrigger value="work-packages">Work packages</TabsTrigger>
             <TabsTrigger value="defaults">Contractor defaults</TabsTrigger>
             <TabsTrigger value="export">Export</TabsTrigger>
+            <TabsTrigger value="ai">AI assistant</TabsTrigger>
           </TabsList>
 
           <TabsContent value="disciplines" className="mt-5">
@@ -59,6 +61,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="export" className="mt-5">
             <ExportPanel />
+          </TabsContent>
+          <TabsContent value="ai" className="mt-5">
+            <AiSettingsTab />
           </TabsContent>
         </Tabs>
       )}

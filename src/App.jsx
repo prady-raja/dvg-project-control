@@ -26,6 +26,15 @@ import Admin from '@/pages/Admin';
 import Access from '@/pages/Access';
 import DailyActivity from '@/pages/DailyActivity';
 import WorkImport from '@/pages/WorkImport';
+import Dashboard from '@/pages/Dashboard';
+import Planning from '@/pages/Planning';
+import BlockerBoard from '@/pages/BlockerBoard';
+import ContractorBoard from '@/pages/ContractorBoard';
+import Meetings from '@/pages/Meetings';
+import Handover from '@/pages/Handover';
+import SiteWide from '@/pages/SiteWide';
+import VillaExecution from '@/pages/VillaExecution';
+import AskDvgAi from '@/pages/AskDvgAi';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -60,11 +69,20 @@ const AuthenticatedApp = () => {
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Projects />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/locations" element={<Locations />} />
           <Route path="/locations/:locationId" element={<LocationDetail />} />
+          <Route path="/locations/:locationId/execution" element={<VillaExecution />} />
           <Route path="/daily" element={<DailyActivity />} />
+          <Route path="/planning" element={<Planning />} />
+          <Route path="/blockers" element={<BlockerBoard />} />
+          <Route path="/contractor-board" element={<ContractorBoard />} />
+          <Route path="/meetings" element={<Meetings />} />
+          <Route path="/handover" element={<Handover />} />
+          <Route path="/site-wide" element={<SiteWide />} />
+          <Route path="/ai" element={<AskDvgAi />} />
           <Route path="/import" element={<WorkImport />} />
           <Route path="/tasks" element={<TaskRegister />} />
           <Route path="/tasks/new" element={<TaskEditor />} />
