@@ -1,0 +1,10 @@
+Project,Phase,Villa/location code,Work category,Discipline,Work package,Floor,Area/Room,Scope type,Task description,Contractor,Responsible engineer,Priority,Status,Baseline start,Baseline finish,Forecast finish,Progress percentage,Quantity,Unit,Acceptance criterion,Estimated man-hours,Blocker description,Remarks,Source reference
+Imagine,B,B-14A,Villa Work,FIN,Painting,First Floor,Master Bedroom,Specific Room/Area,Paint master bedroom ceiling,,Coordinator A,Medium,In Progress,2026-10-10,2026-10-20,,40,120,Sqm,"Even finish, no visible joints",,,XLSX verification row,XLSX-EX-01
+Imagine,B,B-15-16,Villa Work,CIVIL,,,,Entire Villa,Flooring for the whole villa,,,High,Not Started,,,,,,,,,,,XLSX-EX-02
+Imagine,B,,Site-Wide Work,INFRA,,,,Site-wide,Repair the common paver walkway,,,Medium,Not Started,,,,,,,,,,,XLSX-EX-03
+Imagine,B,B-14A,Villa Work,FIN,Painting,First Floor,Servant Room,Specific Room/Area,Paint servant room walls,,,Medium,Not Started,,,,,,,,,,,XLSX-EX-04
+Imagine,B,Plots 5 & 6,Villa Work,ELEC,Concealed wiring,,,Entire Villa,Concealed electrical wiring through the villa,,,High,Not Started,,,,,,,,,,,XLSX-EX-05
+Imagine,B,B-14A,Villa Work,FIN,Painting,First Floor,Master Bedroom,Specific Room/Area,Paint master bedroom ceiling,,Coordinator A,Medium,In Progress,,,,,,,,,,,XLSX-EX-06
+Imagine,B,B-01,Villa Work,FIN,Painting,,,Entire Villa,Percent formatted progress check,,,Medium,In Progress,,,,35,,,,,,,XLSX-EX-07
+
+Imagine,B,B-03,Villa Work,FIN,Painting,,,Entire Villa,Row numbering after the blank row,,,Low,Not Started,,,,,,,,,,,XLSX-EX-09
