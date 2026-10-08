@@ -24,6 +24,8 @@ export const SERVER_OWNED_FIELDS = [
   'task_ref', 'member_ids', 'is_villa_work_parent', 'villa_work_key', 'child_villa_count',
   'baseline_locked', 'baseline_version_id', 'execution_completed_by_id', 'execution_completed_by_name',
   'approved_by_id', 'approved_by_name', 'approved_at', 'created_by_name', 'updated_by_name', 'is_demo',
+  // Import provenance: written once by the import operation, never by a screen.
+  'import_batch_id', 'import_source_file', 'import_row_number',
 ];
 
 export const BASELINE_FIELDS = ['baseline_start', 'baseline_finish'];
@@ -113,4 +115,28 @@ export async function writeTaskHistory(base44, { task, projectId, memberIds, use
   if (!rows.length) return 0;
   await base44.asServiceRole.entities.TaskHistory.bulkCreate(rows);
   return rows.length;
+}
+
+/**
+ * The "Task Created" trail rows for one or many tasks, in the same shape
+ * `writeTaskHistory` produces. The CSV import creates tasks in blocks, so it
+ * needs the rows without a per-task round trip.
+ */
+export function createdHistoryRows({ tasks, projectId, memberIds, user, note }) {
+  const stamp = new Date().toISOString();
+  return (tasks || [])
+    .filter((task) => task?.id)
+    .map((task) => ({
+      task_id: task.id,
+      project_id: projectId || task.project_id,
+      member_ids: memberIds || task.member_ids || [],
+      change_type: 'Task Created',
+      field_changed: 'task_ref',
+      old_value: '',
+      new_value: task.task_ref || '',
+      changed_by_id: user?.id || '',
+      changed_by_name: user?.full_name || user?.email || 'Unknown user',
+      changed_at: stamp,
+      note: note || 'Task created',
+    }));
 }

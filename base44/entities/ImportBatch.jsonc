@@ -1,0 +1,114 @@
+{
+  "name": "ImportBatch",
+  "type": "object",
+  "description": "One CSV work import: the file it came from, who ran it, what it created and the per-row outcome. Written only by the trusted import operation, so the reconciliation of an import cannot be rewritten afterwards.",
+  "properties": {
+    "batch_ref": {
+      "type": "string",
+      "description": "Human identifier for the batch, e.g. IMP-20261008-1345"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string",
+      "description": "Set only when the whole file was for a single phase"
+    },
+    "source_file": {
+      "type": "string",
+      "description": "Name of the CSV file as uploaded"
+    },
+    "source_checksum": {
+      "type": "string",
+      "description": "Fingerprint of the file contents, used to warn when the same file is imported again"
+    },
+    "row_count": {
+      "type": "number"
+    },
+    "created_count": {
+      "type": "number"
+    },
+    "skipped_count": {
+      "type": "number"
+    },
+    "linked_count": {
+      "type": "number",
+      "description": "Rows matched to a task already on the register \u2014 no new task was created"
+    },
+    "failed_count": {
+      "type": "number"
+    },
+    "attention_count": {
+      "type": "number",
+      "description": "Rows that could not be imported and still need attention"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Importing",
+        "Completed",
+        "Completed with exceptions",
+        "Failed"
+      ],
+      "default": "Importing"
+    },
+    "imported_by_id": {
+      "type": "string"
+    },
+    "imported_by_name": {
+      "type": "string"
+    },
+    "imported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "report": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "One entry per row: row number, outcome, task reference, villa, contractor and any issue"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "batch_ref",
+    "project_id",
+    "source_file",
+    "imported_at"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "delete": false
+  }
+}

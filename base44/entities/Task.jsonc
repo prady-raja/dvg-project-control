@@ -221,6 +221,22 @@
     "attachment_ref": {
       "type": "string"
     },
+    "source_reference": {
+      "type": "string",
+      "description": "Reference carried over from the source work list (an Excel row id, consultant reference or contract item). Never invented."
+    },
+    "import_batch_id": {
+      "type": "string",
+      "description": "The Import Works batch that created this task. Set only by the import operation."
+    },
+    "import_source_file": {
+      "type": "string",
+      "description": "Name of the CSV the task came from. Set only by the import operation."
+    },
+    "import_row_number": {
+      "type": "number",
+      "description": "Row of the source CSV the task came from. Set only by the import operation."
+    },
     "execution_completed_by_id": {
       "type": "string"
     },
