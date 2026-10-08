@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { secrets } from 'base44:runtime';
-import { isAppAdmin, resolveRole } from '../../shared/access.ts';
-import { fail } from '../../shared/records.ts';
+import { activeMembers, isAppAdmin, resolveRole } from '../../shared/access.ts';
+import { fail, getOne, listAll } from '../../shared/records.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import {
   AI_MODELS, BLOCKER_CATEGORIES, OPENAI_KEY_SECRET, TASK_STATUSES, buildDigest, callOpenAi,
@@ -9,6 +9,8 @@ import {
   parseUpdatePrompt, askPrompt, recordUsage, systemPrompt, usageToday,
 } from '../../shared/ai.ts';
 import { loadProjectData, scopeFor } from '../../shared/projectData.ts';
+import { buildProposal, mergeModelRefinement } from '../../shared/assist.ts';
+import { canEditTasks, canManageProject } from '../../shared/access.ts';
 
 /**
  * Ask DVG AI.
@@ -26,6 +28,68 @@ import { loadProjectData, scopeFor } from '../../shared/projectData.ts';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_QUESTION = 1200;
+/**
+ * Long enough to cover a day's work at the site, short enough that a refusal is
+ * not retried on every single message.
+ */
+const PROVIDER_COOLDOWN_MINUTES = 30;
+const ASSISTANCE = 'edit_tasks';
+const MANAGE = 'manage_project';
+
+const newKey = () => {
+  try {
+    return `PR-${crypto.randomUUID()}`;
+  } catch {
+    return `PR-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+  }
+};
+
+/**
+ * The provider refused the last request recently — most often no credits. The
+ * assistant keeps reading the words by rule and says why, instead of making the
+ * same chargeable request again on every message.
+ */
+async function providerCoolingDown(svc, projectId) {
+  const res = await svc.AiUsage.filter({ project_id: projectId, ok: false }, { sort: '-asked_at', limit: 3 });
+  const rows = (res?.items || res || []).filter((row) => row.error);
+  const recent = rows.find((row) => {
+    const at = Date.parse(row.asked_at || '');
+    return Number.isFinite(at) && Date.now() - at < PROVIDER_COOLDOWN_MINUTES * 60000;
+  });
+  return recent ? recent.error : '';
+}
+
+/** The model may only tidy what the rules already resolved. */
+const refinePrompt = (text, proposal) => `A site message has already been read by deterministic rules into the proposal below.
+
+Message: "${text}"
+
+Proposal resolved by the rules (the only records that exist for this scope):
+${JSON.stringify({
+  intent: proposal.intent,
+  villas: proposal.villas,
+  questions: proposal.questions,
+  candidates: proposal.candidates,
+  actions: proposal.actions.map((action) => ({
+    action_id: action.action_id,
+    type: action.type,
+    task_ref: action.review?.task_ref || '',
+    task_name: action.review?.task_name || '',
+    villa: action.review?.villa || '',
+    scope: action.review?.scope_label || action.review?.scope_type || '',
+    status: action.review?.task_status || '',
+  })),
+})}
+
+Reply with JSON only, in this shape:
+{
+  "task_ref": "<one ref from the actions above that the message is really about, or empty if it is not clear>",
+  "work_done": "<one clear line of what was done, in the engineer's own words, or empty>",
+  "status": "<one of: ${TASK_STATUSES.join(', ')}, or empty if the message does not imply a status>",
+  "blocker_category": "<one of: ${BLOCKER_CATEGORIES.join(', ')}, or empty>",
+  "needs_clarification": ["<what cannot be determined from the message>"]
+}
+Never name a villa, a task, a person or a number that is not in the proposal above. Never state progress the message does not state.`;
 const WORD_NUMBERS = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, fifteen: 15, twenty: 20,
@@ -142,6 +206,277 @@ export default async function (req) {
         available_models: AI_MODELS,
         settings_record_id: settings.record_id || '',
         key_name: OPENAI_KEY_SECRET,
+      });
+    }
+
+    /* ------------------------------------------------- the AI site assistant */
+    /*
+     * The assistant is usable by the site team, not only by the roles the
+     * administrator allowed to use the model: the reading of the message is done
+     * by rule on the server. The model is only asked to tidy that reading, and
+     * only when AI is permitted, configured and not out of budget.
+     *
+     * No message writes anything. A proposal is stored with an idempotency key,
+     * the review screen confirms it, and the writes themselves are made by the
+     * same guarded functions the ordinary screens use. Confirming twice is
+     * answered from the stored proposal.
+     */
+    if (['assist', 'assist_confirm', 'assist_finish', 'assist_cancel'].includes(action)) {
+      if (!scope.allowed) throw fail('You are not a member of this project.', 403);
+      if (!scope.projectId) throw fail('Choose a project first.', 400);
+
+      const proposalOf = async (key) => {
+        const res = await svc.AiProposal.filter({ external_id: key }, { limit: 1 });
+        return listAll(res)[0] || null;
+      };
+      const permissionForWrite = (type) =>
+        (type === 'link_dependency' ? canManageProject(scope.rank) : canEditTasks(scope.rank));
+
+      if (action !== 'assist') {
+        const key = String(body?.key || '').trim();
+        if (!key) throw fail('The proposal could not be identified.');
+        const found = await proposalOf(key);
+        if (!found) throw fail('That proposal is no longer available — ask again.', 404);
+        if (found.user_id !== user.id) throw fail('Only the person who asked can answer this proposal.', 403);
+        if (found.project_id !== scope.projectId) throw fail('That proposal belongs to a different project.', 403);
+
+        if (action === 'assist_cancel') {
+          if (found.status === 'Proposed') await svc.AiProposal.update(found.id, { status: 'Cancelled' });
+          return Response.json({ key, status: found.status === 'Proposed' ? 'Cancelled' : found.status, written: 0 });
+        }
+
+        if (action === 'assist_finish') {
+          const raw = Array.isArray(body?.results) ? body.results.slice(0, 40) : [];
+          const results = raw.map((entry) => ({
+            action_id: String(entry?.action_id || '').slice(0, 20),
+            summary: String(entry?.summary || '').slice(0, 220),
+            ok: entry?.ok === true,
+            error: String(entry?.error || '').slice(0, 300),
+            task_ref: String(entry?.task_ref || '').slice(0, 40),
+            task_id: String(entry?.task_id || '').slice(0, 60),
+          }));
+          const written = results.filter((row) => row.ok).length;
+          const status = results.length && written === results.length ? 'Applied' : written ? 'Partial' : 'Failed';
+          await svc.AiProposal.update(found.id, { status, results, confirmed_at: new Date().toISOString() });
+          return Response.json({
+            key,
+            status,
+            attempted: results.length,
+            written,
+            results,
+            failed: results.filter((row) => !row.ok),
+            message: status === 'Applied'
+              ? `${written} action(s) written and each one recorded in the change trail.`
+              : `${written} of ${results.length} action(s) were written. The rest were refused — read the reasons and ask again if needed.`,
+          });
+        }
+
+        // assist_confirm — an already-answered proposal is never applied twice.
+        if (['Applied', 'Partial', 'Failed', 'Cancelled', 'Applying'].includes(found.status)) {
+          return Response.json({
+            key,
+            status: found.status,
+            replay: true,
+            results: found.results || [],
+            message: 'This proposal has already been confirmed, so nothing was written a second time.',
+          });
+        }
+
+        const requested = (found.actions || []).filter(
+          (item) => !Array.isArray(body?.action_ids) || body.action_ids.includes(item.action_id),
+        );
+        if (!requested.length) throw fail('Select at least one action to confirm.');
+
+        const edits = body?.edits && typeof body.edits === 'object' ? body.edits : {};
+        const accepted = [];
+        const refused = [];
+        for (const item of requested) {
+          if (!permissionForWrite(item.type)) {
+            refused.push({
+              action_id: item.action_id,
+              summary: item.summary,
+              reason: item.type === 'link_dependency'
+                ? 'Recording a dependency needs a Project Manager or an administrator.'
+                : 'Your project role is read-only.',
+            });
+            continue;
+          }
+          if (item.guard?.task_id) {
+            const task = await getOne(svc.Task, item.guard.task_id);
+            if (!task || task.project_id !== scope.projectId || task.archived === true) {
+              refused.push({ action_id: item.action_id, summary: item.summary, reason: 'That task no longer exists on this project.' });
+              continue;
+            }
+            // Version check: a record changed after the review was prepared is
+            // never overwritten from a stale screen.
+            if (item.guard.updated_date && task.updated_date && task.updated_date !== item.guard.updated_date) {
+              refused.push({
+                action_id: item.action_id,
+                summary: item.summary,
+                reason: 'That task changed after this proposal was prepared — open it, check the new values, and confirm again.',
+              });
+              continue;
+            }
+          }
+          const patch = edits[item.action_id] && typeof edits[item.action_id] === 'object' ? edits[item.action_id] : null;
+          accepted.push(patch ? { ...item, payload: { ...item.payload, ...patch } } : item);
+        }
+
+        await svc.AiProposal.update(found.id, {
+          status: accepted.length ? 'Applying' : 'Failed',
+          results: refused,
+          confirmed_at: new Date().toISOString(),
+          error: accepted.length ? '' : 'Every selected action was refused.',
+        });
+
+        return Response.json({
+          key,
+          status: accepted.length ? 'Applying' : 'Failed',
+          intent: found.intent,
+          source: found.source,
+          actions: accepted,
+          refused,
+        });
+      }
+
+      /* ------------------------------------------------------------ assist */
+      const text = String(body?.text || '').trim().slice(0, MAX_QUESTION);
+      if (!text) throw fail('Type what happened on site.');
+      const key = String(body?.key || '').trim().slice(0, 80) || newKey();
+      const already = await proposalOf(key);
+      if (already && already.user_id === user.id) {
+        return Response.json({
+          key,
+          replay: true,
+          intent: already.intent,
+          source: already.source,
+          actions: already.actions || [],
+          questions: already.questions || [],
+          notes: [],
+          villas: [],
+          status: already.status,
+          message: 'This proposal was already prepared; it is shown again and nothing new was stored.',
+        });
+      }
+
+      const assistOptions = {
+        projectId: scope.projectId,
+        phaseId: String(body?.phaseId || ''),
+        itemLimit: Math.min(Math.max(Number(settings.context_item_limit) || 40, 10), 120),
+        includeDemo: false,
+      };
+      const data = await loadProjectData(base44, user, {
+        projectIds: scope.projectIds,
+        projectId: scope.projectId,
+        asOf,
+        dependencies: true,
+        updates: true,
+        snags: true,
+      });
+      const [areasRes, floorsRes, defaultsRes, packagesRes] = await Promise.all([
+        svc.VillaArea.filter({ project_id: scope.projectId }, { sort: 'sort_order', limit: 500 }),
+        svc.VillaFloor.filter({ project_id: scope.projectId }, { sort: 'level_order', limit: 300 }),
+        svc.ContractorDefault.filter({ project_id: scope.projectId, active: true }, { limit: 300 }),
+        svc.WorkPackage.filter({ project_id: scope.projectId, active: true }, { limit: 500 }),
+      ]);
+
+      const proposal = buildProposal({
+        text,
+        data: {
+          ...data,
+          areas: listAll(areasRes),
+          floors: listAll(floorsRes),
+          defaults: listAll(defaultsRes),
+          workPackages: listAll(packagesRes),
+        },
+        scope: { projectId: scope.projectId, phaseId: assistOptions.phaseId },
+        asOf,
+        options: { rank: scope.rank, itemLimit: assistOptions.itemLimit },
+      });
+
+      const aiAllowed = canUseAi(settings, { appAdmin, rank: scope.rank, role });
+      const budgetLeft = limit <= 0 || remaining > 0;
+      const cooling = await providerCoolingDown(svc, scope.projectId);
+      const worthRefining = aiAllowed.ok && configured && budgetLeft && !cooling
+        && ['update_progress', 'unknown'].includes(proposal.intent)
+        && (proposal.actions.length > 0 || proposal.candidates.length > 0);
+
+      let finalProposal = proposal;
+      let source = 'deterministic';
+      let modelUsed = '';
+      let providerError = cooling;
+
+      if (worthRefining) {
+        try {
+          const { content, usage } = await callOpenAi({
+            apiKey,
+            model: settings.model,
+            system: systemPrompt({
+              user,
+              settings,
+              mode: 'assist',
+              scopeLabel: `${data.ix.projectName(scope.projectId)}${assistOptions.phaseId ? ` / ${data.ix.phaseName(assistOptions.phaseId)}` : ''}`,
+              asOf,
+              digest: { note: 'No figures are sent for this request; the proposal is already resolved by the rules.' },
+            }),
+            user: refinePrompt(text, proposal),
+            json: true,
+            maxTokens: 600,
+          });
+          finalProposal = mergeModelRefinement(proposal, parseJson(content), TASK_STATUSES);
+          source = 'ai';
+          modelUsed = settings.model;
+          await logUsage({
+            ok: true,
+            question: text.slice(0, 200),
+            prompt_tokens: usage?.prompt_tokens || 0,
+            completion_tokens: usage?.completion_tokens || 0,
+          });
+        } catch (error) {
+          providerError = error.message;
+          await logUsage({ ok: false, question: text.slice(0, 200), error: String(error.message).slice(0, 300) });
+        }
+      } else {
+        await logUsage({ ok: true, question: text.slice(0, 200) });
+      }
+
+      const memberIds = listAll(await activeMembers(base44, scope.projectId)).map((member) => member.user_id).filter(Boolean);
+      const stored = await svc.AiProposal.create({
+        external_id: key,
+        project_id: scope.projectId,
+        phase_id: assistOptions.phaseId || '',
+        user_id: user.id,
+        user_name: user.full_name || user.email || '',
+        message: text.slice(0, 1200),
+        intent: finalProposal.intent,
+        source,
+        model: modelUsed,
+        actions: finalProposal.actions,
+        questions: finalProposal.questions,
+        status: 'Proposed',
+        results: [],
+        proposed_at: new Date().toISOString(),
+        member_ids: [...new Set(memberIds)],
+      });
+
+      return Response.json({
+        ...finalProposal,
+        key,
+        proposal_id: stored.id,
+        source,
+        model: modelUsed,
+        configured,
+        ai_permitted: aiAllowed.ok,
+        ai_reason: aiAllowed.ok ? '' : aiAllowed.reason,
+        provider_error: providerError,
+        remaining_today: remaining,
+        ai_note: !configured
+          ? 'No AI model is configured, so your words were read by rule on the server. Nothing was guessed, and nothing has been written — the proposal needs your confirmation.'
+          : providerError
+            ? `The AI provider is not answering (${providerError}), so your words were read by rule on the server. Nothing has been written — the proposal needs your confirmation.`
+            : source === 'ai'
+              ? 'The model tidied the reading of a proposal the rules had already resolved. Every record, value and permission was decided on the server. Nothing has been written yet.'
+              : 'Read by rule on the server. Nothing has been written — the proposal needs your confirmation.',
       });
     }
 

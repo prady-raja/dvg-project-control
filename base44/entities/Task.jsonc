@@ -15,6 +15,36 @@
     "location_id": {
       "type": "string"
     },
+    "floor_id": {
+      "type": "string",
+      "description": "VillaFloor this work belongs to. Optional; a task may cover a whole villa."
+    },
+    "area_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "VillaArea ids this one task covers. Several rooms are one task with several ids, never duplicate task rows."
+    },
+    "area_label": {
+      "type": "string",
+      "description": "Readable scope, derived server-side from the floor and areas, e.g. 'First Floor \u00b7 Master Bedroom'. Empty while the scope is not registered."
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": [
+        "Specific Room/Area",
+        "Multiple Rooms/Areas",
+        "Entire Floor",
+        "Entire Villa",
+        "Site-wide"
+      ],
+      "description": "How much of the villa this task covers. Derived from the floor and area ids when they are given."
+    },
+    "acceptance_criterion": {
+      "type": "string",
+      "description": "What must be true for this work to be accepted, e.g. 'Even finish, no visible joints, level checked with spirit level'."
+    },
     "discipline": {
       "type": "string",
       "description": "Discipline code"
@@ -70,7 +100,8 @@
       "type": "string"
     },
     "responsible_engineer": {
-      "type": "string"
+      "type": "string",
+      "description": "The DVG engineer or coordinator responsible for this work. Left blank when the source list does not say, and reported as a data-quality gap."
     },
     "progress_percent": {
       "type": "number",

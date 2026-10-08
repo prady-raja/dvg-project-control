@@ -17,6 +17,21 @@
       "type": "string",
       "description": "Empty for a site-wide snag"
     },
+    "floor_id": {
+      "type": "string",
+      "description": "VillaFloor the snag was raised on, when it was stated"
+    },
+    "area_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "VillaArea ids the snag was raised against, when they were identified"
+    },
+    "area_label": {
+      "type": "string",
+      "description": "Readable room scope, derived server-side, e.g. 'Ground Floor \u00b7 Kitchen'"
+    },
     "task_id": {
       "type": "string",
       "description": "The task the snag was raised against, when it came from one"

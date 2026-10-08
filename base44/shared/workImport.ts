@@ -12,6 +12,14 @@
  * configured default for that discipline and phase.
  */
 
+import { buildVillaIndex, normalizeCode, plotNumbersOf, resolveVillaCode } from './villaResolve.ts';
+import { SCOPE_TYPES, areaKeys, describeScope, normalizeAreaName } from './villaAreas.ts';
+
+// Villa and plot resolution lives in one module so that every path meeting a
+// villa reference — import, assistant, task creation, reports, snags — reads it
+// the same way.
+export { normalizeCode, plotNumbersOf };
+
 export const IMPORT_COLUMNS = [
   { key: 'project', label: 'Project', aliases: ['project', 'project name', 'development'] },
   { key: 'phase', label: 'Phase', aliases: ['phase', 'phase code', 'phase name'] },
@@ -21,7 +29,7 @@ export const IMPORT_COLUMNS = [
   { key: 'work_package', label: 'Work package', aliases: ['work package', 'package', 'sub package'] },
   { key: 'name', label: 'Task description', aliases: ['task description', 'description', 'task', 'task name', 'work description'] },
   { key: 'contractor', label: 'Contractor', aliases: ['contractor', 'contractor name', 'agency'] },
-  { key: 'responsible_engineer', label: 'Responsible engineer', aliases: ['responsible engineer', 'engineer', 'site engineer'] },
+  { key: 'responsible_engineer', label: 'Responsible engineer', aliases: ['responsible engineer', 'engineer', 'site engineer', 'responsible dvg coordinator', 'dvg coordinator', 'coordinator'] },
   { key: 'priority', label: 'Priority', aliases: ['priority'] },
   { key: 'status', label: 'Status', aliases: ['status'] },
   { key: 'baseline_start', label: 'Baseline start', aliases: ['baseline start', 'start date', 'planned start'] },
@@ -64,21 +72,7 @@ export const cleanText = (value) => (value === null || value === undefined ? '' 
 /** Case, spaces and punctuation all ignored — for matching names and codes. */
 export const looseKey = (value) => cleanText(value).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-/** `b 05 06`, `B-5-6` and `B-05-06` all become `B-05-06`. */
-export function normalizeCode(value) {
-  let text = cleanText(value).toUpperCase().replace(/[–—]/g, '-').replace(/[\/_,]+/g, '-').replace(/\s+/g, '');
-  text = text.replace(/-+/g, '-').replace(/^-|-$/g, '');
-  if (/^[A-Z]+\d/.test(text) && !text.includes('-')) text = text.replace(/^([A-Z]+)(?=\d)/, '$1-');
-  const parts = text.split('-');
-  if (parts.length > 1 && /^[A-Z]+$/.test(parts[0])) {
-    return [parts[0], ...parts.slice(1).map((part) => (/^\d+$/.test(part) ? part.padStart(2, '0') : part))].join('-');
-  }
-  return text;
-}
 
-/** `IMG-A-0001` -> `IMG-A-`; a villa code `B-05-06` keeps its own shape. */
-export const plotNumbersOf = (location) =>
-  [...new Set((cleanText(location?.plot_numbers).match(/\d+/g) || []).map(Number))];
 
 export const labelOfLocation = (location) =>
   location ? `${location.villa_code}${location.location_type === 'Villa' ? '' : ` (${location.location_type})`}` : '';

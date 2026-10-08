@@ -1,0 +1,128 @@
+{
+  "name": "Drawing",
+  "type": "object",
+  "description": "The drawing register. A floor plan, layout or elevation filed against the villa it belongs to, with its revision kept as its own row: a new revision supersedes the previous one instead of overwriting it, so a task can always be traced back to the drawing it was read from. Files are stored privately; the register holds the private reference only.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "The villa or location the drawing belongs to"
+    },
+    "floor_id": {
+      "type": "string",
+      "description": "Set when the drawing covers one floor"
+    },
+    "title": {
+      "type": "string"
+    },
+    "drawing_type": {
+      "type": "string",
+      "enum": [
+        "Floor Plan",
+        "Furniture Layout",
+        "Electrical Layout",
+        "Plumbing Layout",
+        "Elevation",
+        "Section",
+        "Site Plan",
+        "Detail",
+        "Other"
+      ],
+      "default": "Floor Plan"
+    },
+    "revision": {
+      "type": "string",
+      "description": "Revision as written on the drawing, e.g. R0, Rev B"
+    },
+    "revision_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "uploaded_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "Private storage reference. Never a public URL."
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Current",
+        "Superseded"
+      ],
+      "default": "Current"
+    },
+    "superseded_by_id": {
+      "type": "string",
+      "description": "The newer revision of the same drawing"
+    },
+    "supersedes_id": {
+      "type": "string",
+      "description": "The revision this one replaces"
+    },
+    "uploaded_by_id": {
+      "type": "string"
+    },
+    "uploaded_by_name": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "project_id",
+    "title",
+    "file_uri"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

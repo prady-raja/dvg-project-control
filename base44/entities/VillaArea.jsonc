@@ -1,0 +1,125 @@
+{
+  "name": "VillaArea",
+  "type": "object",
+  "description": "One room or area inside a villa or location: the room register that turns a plan and a work list into the same set of places. Names are normalised for matching and aliases are recorded deliberately (Master Bedroom / Main Bedroom), never guessed when two areas could match. The name used in the uploaded construction documents is kept in source_name.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "The villa or location this room belongs to"
+    },
+    "floor_id": {
+      "type": "string",
+      "description": "The floor this room sits on. Optional: a room may be registered before floors are listed."
+    },
+    "area_code": {
+      "type": "string",
+      "description": "Short code used in references, e.g. F1-MBR"
+    },
+    "area_name": {
+      "type": "string",
+      "description": "The name shown everywhere, e.g. Master Bedroom"
+    },
+    "normalized_name": {
+      "type": "string",
+      "description": "Matching key derived from the name: lower case, punctuation and filler words removed. Used for exact and candidate matching."
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Other names accepted for this room, e.g. Main Bedroom. Only what has been configured or approved is listed."
+    },
+    "source_name": {
+      "type": "string",
+      "description": "The name exactly as it appeared in the uploaded construction document or work list, preserved as written."
+    },
+    "area_type": {
+      "type": "string",
+      "enum": [
+        "Room",
+        "Bathroom",
+        "Kitchen",
+        "Living",
+        "Balcony",
+        "Terrace",
+        "Exterior",
+        "Utility",
+        "Staircase",
+        "Common",
+        "Other"
+      ],
+      "default": "Room"
+    },
+    "sort_order": {
+      "type": "number"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Manual",
+        "Drawing review"
+      ],
+      "default": "Manual",
+      "description": "How the room entered the register"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "project_id",
+    "location_id",
+    "area_name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

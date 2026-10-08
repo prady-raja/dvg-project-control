@@ -4,8 +4,10 @@ import { heldLocationIds, metricTasks, taskRow, todayIst } from '../../shared/da
 import { actionFor } from '../../shared/dashboardCore.ts';
 import { contractorBoardView, executiveView, planningView, villaExecutionView } from '../../shared/dashboardViews.ts';
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
+import { attentionFor } from '../../shared/attention.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
+import { listAll } from '../../shared/records.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -19,8 +21,8 @@ import { isAppAdmin } from '../../shared/access.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover'].includes(view),
-  dependencies: ['blockers', 'meeting', 'villa'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention'].includes(view),
+  dependencies: ['blockers', 'meeting', 'villa', 'attention'].includes(view),
   commitments: ['meeting'].includes(view),
   snags: ['handover', 'villa'].includes(view),
 });
@@ -87,6 +89,28 @@ export default async function (req) {
         return Response.json({ ...header, ...handoverBoardView({ ...common, snags: data.snags }) });
       case 'sitewide':
         return Response.json({ ...header, ...siteWideView(common) });
+      case 'attention': {
+        // The review view that goes with the register: what is missing, what is
+        // contradictory, and what is ready. Read-only by design.
+        const [areasRes, floorsRes] = await Promise.all([
+          base44.asServiceRole.entities.VillaArea.filter({ project_id: scope.projectId }, { limit: 500 }),
+          base44.asServiceRole.entities.VillaFloor.filter({ project_id: scope.projectId }, { limit: 300 }),
+        ]);
+        return Response.json({
+          ...header,
+          ...attentionFor({
+            tasks: data.tasks,
+            locations: data.locations,
+            areas: listAll(areasRes),
+            floors: listAll(floorsRes),
+            dependencies: data.dependencies,
+            updates: data.updates,
+            asOf,
+            ix,
+            options,
+          }),
+        });
+      }
       case 'tasks': {
         const metric = String(body?.metric || 'open');
         const list = metricTasks(data.tasks, metric, asOf, { locations: data.locations, heldIds });

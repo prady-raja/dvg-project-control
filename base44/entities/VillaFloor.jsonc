@@ -1,0 +1,77 @@
+{
+  "name": "VillaFloor",
+  "type": "object",
+  "description": "A floor of one villa or location. Floors are created by authorised managers as drawings are reviewed, never generated in bulk for the whole development. Immutable internal id; the code is what people say on site ('First Floor').",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "The villa or location this floor belongs to"
+    },
+    "floor_code": {
+      "type": "string",
+      "description": "Short code used in references, e.g. F1, GF, TF"
+    },
+    "floor_name": {
+      "type": "string",
+      "description": "What the floor is called on site, e.g. Ground Floor, First Floor"
+    },
+    "level_order": {
+      "type": "number",
+      "description": "Stacking order, lowest floor first. Blank when unknown rather than guessed."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "project_id",
+    "location_id",
+    "floor_name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

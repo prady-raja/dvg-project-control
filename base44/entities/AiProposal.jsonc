@@ -1,0 +1,125 @@
+{
+  "name": "AiProposal",
+  "type": "object",
+  "description": "One conversation with the AI site assistant that produced proposed actions, kept as its own row so a repeated confirmation cannot write twice. The proposal key is the idempotency key: the same key is answered from this record instead of applying its actions again. Written only by the trusted assistant function.",
+  "properties": {
+    "external_id": {
+      "type": "string",
+      "description": "The proposal key. Unique, so a repeated confirmation of the same proposal is recognised."
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string",
+      "description": "What the user typed, kept for the audit trail"
+    },
+    "intent": {
+      "type": "string",
+      "description": "What the assistant understood: update_progress, create_tasks, raise_snag, link_dependency, query, meeting_brief, daily_brief or unknown"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "deterministic",
+        "ai"
+      ],
+      "default": "deterministic",
+      "description": "deterministic = read from the words by the rules; ai = the model refined the reading of an already-resolved proposal"
+    },
+    "model": {
+      "type": "string"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "The actions shown for review, with their resolved records and proposed values"
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What could not be determined and must be answered before anything is written"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Proposed",
+        "Applying",
+        "Applied",
+        "Partial",
+        "Failed",
+        "Cancelled"
+      ],
+      "default": "Proposed"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "One entry per action: what was written, or why it was refused"
+    },
+    "proposed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "external_id",
+    "project_id",
+    "user_id",
+    "intent"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "delete": false
+  }
+}

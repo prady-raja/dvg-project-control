@@ -7,6 +7,8 @@
 
 export const TASK_FIELDS = [
   'project_id', 'phase_id', 'location_id', 'discipline', 'work_package', 'parent_task_id',
+  // Where inside the villa the work is, and what "acceptable" means for it.
+  'floor_id', 'area_ids', 'area_label', 'scope_type', 'acceptance_criterion',
   'name', 'description', 'priority', 'status',
   'contractor_id', 'responsible_engineer',
   'progress_percent', 'planned_quantity', 'completed_quantity', 'measurement_unit',
