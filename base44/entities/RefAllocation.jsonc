@@ -1,0 +1,101 @@
+{
+  "name": "RefAllocation",
+  "type": "object",
+  "description": "Append-only ledger of every task reference ever issued. One row per reference, created before the task exists and never deleted, so a number stays consumed even when its task is deleted, archived or corrected. Next references are read from the highest sequence in this ledger plus any reference already present on a task or in the change trail, never from the highest currently existing task.",
+  "properties": {
+    "external_id": {
+      "type": "string",
+      "description": "Claim key: the task reference itself, e.g. IMG-A-0001. Unique, so a simultaneous writer cannot claim the same number."
+    },
+    "prefix": {
+      "type": "string",
+      "description": "Reference prefix, e.g. IMG-A-. Each prefix keeps its own sequence."
+    },
+    "sequence": {
+      "type": "number",
+      "description": "The number issued within the prefix"
+    },
+    "task_ref": {
+      "type": "string",
+      "description": "Full reference as issued, e.g. IMG-A-0001"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "Set for a villa reference when the reference was issued for one villa"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Filled in once the task is written. The number stays consumed even while this is blank, or if the task is later deleted."
+    },
+    "claim_id": {
+      "type": "string",
+      "description": "Identifier of the allocation that claimed this number, used to detect and arbitrate simultaneous claims"
+    },
+    "allocated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "allocated_by_id": {
+      "type": "string"
+    },
+    "allocated_by_name": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "allocation",
+        "backfill"
+      ],
+      "default": "allocation",
+      "description": "allocation = issued by the allocator; backfill = recovered from an existing task or the change trail"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "external_id",
+    "prefix",
+    "sequence",
+    "task_ref"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "delete": false
+  }
+}
