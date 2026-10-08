@@ -1,0 +1,71 @@
+{
+  "name": "AiUsage",
+  "type": "object",
+  "description": "One row per AI request, used to enforce the daily limit and to see what the assistant was asked. Written only by the trusted AI function.",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "day": {
+      "type": "string",
+      "description": "Asia/Kolkata day the request belongs to, YYYY-MM-DD"
+    },
+    "action": {
+      "type": "string",
+      "description": "ask, daily_brief, meeting_brief or parse_update"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string",
+      "description": "Truncated question for the audit trail"
+    },
+    "ok": {
+      "type": "boolean",
+      "default": true
+    },
+    "error": {
+      "type": "string"
+    },
+    "prompt_tokens": {
+      "type": "number"
+    },
+    "completion_tokens": {
+      "type": "number"
+    },
+    "asked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_id",
+    "day",
+    "action"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "delete": false
+  }
+}

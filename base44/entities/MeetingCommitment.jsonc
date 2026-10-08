@@ -1,0 +1,100 @@
+{
+  "name": "MeetingCommitment",
+  "type": "object",
+  "description": "One promise recorded in a contractor meeting, tied to an existing task. Every commitment is its own record, so a later meeting adds to the record instead of overwriting what was promised before. Meeting notes never create construction tasks.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "contractor_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "The existing task this commitment belongs to"
+    },
+    "task_ref": {
+      "type": "string",
+      "description": "Snapshot of the task reference at the time of the meeting"
+    },
+    "meeting_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "commitment": {
+      "type": "string",
+      "description": "What was promised, in the contractor's own words"
+    },
+    "responsible_person": {
+      "type": "string"
+    },
+    "promised_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Open",
+        "Fulfilled",
+        "Missed",
+        "Cancelled"
+      ],
+      "default": "Open"
+    },
+    "fulfilled_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "remarks": {
+      "type": "string"
+    },
+    "recorded_by_id": {
+      "type": "string"
+    },
+    "recorded_by_name": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "project_id",
+    "contractor_id",
+    "meeting_date",
+    "commitment"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": false
+  }
+}

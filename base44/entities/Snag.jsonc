@@ -1,0 +1,141 @@
+{
+  "name": "Snag",
+  "type": "object",
+  "description": "One snag or defect raised against a villa or a site-wide area. Raised by the site team and reinspected until closed; photographs stay optional so a routine snag can be logged in seconds. Written through the guarded record service, never straight from the browser.",
+  "properties": {
+    "snag_ref": {
+      "type": "string",
+      "description": "Permanent reference, e.g. SN-B-0001"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "Empty for a site-wide snag"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "The task the snag was raised against, when it came from one"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "discipline": {
+      "type": "string",
+      "description": "Discipline code"
+    },
+    "work_package": {
+      "type": "string"
+    },
+    "contractor_id": {
+      "type": "string",
+      "description": "Contractor responsible for rectification"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Open",
+        "Awaiting Reinspection",
+        "Closed"
+      ],
+      "default": "Open"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "Minor",
+        "Major",
+        "Critical"
+      ],
+      "default": "Minor"
+    },
+    "raised_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "raised_by_id": {
+      "type": "string"
+    },
+    "raised_by_name": {
+      "type": "string"
+    },
+    "target_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "reinspection_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "closed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "closed_by_name": {
+      "type": "string"
+    },
+    "handover_blocker": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the snag must be closed before the villa is handed over"
+    },
+    "photo_uris": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Private storage references. Always optional."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "snag_ref",
+    "project_id",
+    "title"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": false
+  }
+}

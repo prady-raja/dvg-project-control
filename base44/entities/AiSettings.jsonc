@@ -1,0 +1,62 @@
+{
+  "name": "AiSettings",
+  "type": "object",
+  "description": "Administrative controls for the AI assistant. A single record configures the whole application; when it is missing the safe defaults below apply. Never holds an API key - that lives in server-side secrets only.",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "allowed_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Project roles allowed to use AI, e.g. Project Manager, Site Engineer, Viewer. An application administrator is always allowed.",
+      "default": [
+        "Project Admin",
+        "Project Manager"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "default": "gpt-4o-mini",
+      "description": "OpenAI model used for every request"
+    },
+    "daily_request_limit": {
+      "type": "number",
+      "default": 40,
+      "description": "Maximum AI requests per user per day (Asia/Kolkata day)"
+    },
+    "context_item_limit": {
+      "type": "number",
+      "default": 40,
+      "description": "Maximum records of each kind sent to the provider, to bound cost and exposure"
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Optional standing instructions appended to every AI request"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "updated_by_name": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": false
+  }
+}
