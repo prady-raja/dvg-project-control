@@ -1,0 +1,197 @@
+{
+  "name": "DailyUpdate",
+  "type": "object",
+  "description": "One site report: what was done on a task on a given day. Many per task per day are allowed, and none of them is ever overwritten, so the day-by-day record of a villa survives every later change. Rows are written only by the trusted server operation that also moves the task, so the report, the task and the change trail always agree.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "Empty for site-wide infrastructure work that belongs to no single villa"
+    },
+    "work_scope": {
+      "type": "string",
+      "enum": [
+        "Villa",
+        "Site-wide"
+      ],
+      "default": "Villa",
+      "description": "Villa work is tied to one location; site-wide work is not"
+    },
+    "site_area": {
+      "type": "string",
+      "description": "Where site-wide work was done, e.g. Main gate, STP, internal road"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "task_ref": {
+      "type": "string",
+      "description": "Snapshot of the task reference at the time of this report"
+    },
+    "task_name": {
+      "type": "string",
+      "description": "Snapshot of the task name at the time of this report"
+    },
+    "villa_code": {
+      "type": "string",
+      "description": "Snapshot of the villa or location code at the time of this report"
+    },
+    "discipline": {
+      "type": "string",
+      "description": "Discipline code, snapshot from the task"
+    },
+    "update_date": {
+      "type": "string",
+      "format": "date",
+      "description": "The site day this report belongs to, in Asia/Kolkata"
+    },
+    "reported_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Server timestamp of the report"
+    },
+    "reported_by_id": {
+      "type": "string",
+      "description": "The authenticated user, recorded server-side from the session"
+    },
+    "reported_by_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Not Started",
+        "In Progress",
+        "Blocked",
+        "Execution Complete",
+        "Under Inspection",
+        "Approved",
+        "Closed"
+      ]
+    },
+    "progress_percent": {
+      "type": "number",
+      "description": "Leave blank when progress is unknown"
+    },
+    "work_done": {
+      "type": "string",
+      "description": "What was completed today"
+    },
+    "plan_tomorrow": {
+      "type": "string"
+    },
+    "manpower_total": {
+      "type": "number",
+      "description": "Total manpower deployed, the sum of manpower_items"
+    },
+    "manpower_items": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Optional breakdown: [{ discipline, count }]"
+    },
+    "blocker_reported": {
+      "type": "boolean",
+      "default": false
+    },
+    "blocker_category": {
+      "type": "string",
+      "enum": [
+        "Previous Work Incomplete",
+        "Materials Pending",
+        "Client Selection Pending",
+        "Owner Access Pending",
+        "Drawing / Design Clarification",
+        "Contractor Manpower",
+        "DVG Approval",
+        "External Utility / Authority",
+        "Other"
+      ]
+    },
+    "blocker_description": {
+      "type": "string"
+    },
+    "blocker_responsible_party": {
+      "type": "string"
+    },
+    "expected_resolution_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "blocker_cleared": {
+      "type": "boolean",
+      "default": false,
+      "description": "Set when this report cleared an existing blocker"
+    },
+    "forecast_previous": {
+      "type": "string",
+      "format": "date"
+    },
+    "forecast_new": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_revision_reason": {
+      "type": "string",
+      "description": "Why the forecast finish moved in this report"
+    },
+    "photo_uris": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Private storage references for site photos. Always optional."
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "project_id",
+    "task_id",
+    "update_date"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

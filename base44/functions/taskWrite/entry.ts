@@ -1,7 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import {
   activeMembers,
-  canApproveWork,
   canEditTasks,
   canManageProject,
   memberIdsOf,
@@ -15,6 +14,7 @@ import {
   writeTaskHistory,
 } from '../../shared/history.ts';
 import { allocateTaskRefs } from '../../shared/taskRef.ts';
+import { deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne, pick } from '../../shared/records.ts';
 
 /**
@@ -115,49 +115,10 @@ export default async function (req) {
       // A reason must accompany THIS revision — one recorded earlier does not
       // authorise a later date change.
       const reason = String(changes.date_revision_reason || '').trim();
-      const manager = canManageProject(rank);
 
-      entries.forEach((entry) => {
-        const field = entry.field_changed;
-        if (field === 'archived' && !manager) {
-          throw fail('Only a Project Manager or an administrator can archive or restore a task.', 403);
-        }
-        if ((field === 'project_id' || field === 'phase_id') && !manager) {
-          throw fail('Only a Project Manager or an administrator can move a task between phases.', 403);
-        }
-        if (BASELINE_FIELDS.includes(field) && !manager) {
-          if (task.baseline_locked === true || task.baseline_approval_status === 'Approved') {
-            throw fail(
-              'This task is covered by an approved baseline. Only a Project Manager or an administrator can change baseline dates.',
-              403,
-            );
-          }
-        }
-      });
-
-      const statusEntry = entries.find((e) => e.field_changed === 'status');
-      if (statusEntry) {
-        const next = statusEntry.new_value;
-        if (next === 'Approved' || next === 'Closed') {
-          if (!canApproveWork(rank)) {
-            throw fail('Only a Project Manager or an administrator can approve or close work.', 403);
-          }
-          if (task.execution_completed_by_id && task.execution_completed_by_id === user.id) {
-            throw fail('You cannot approve or close work you marked Execution Complete yourself.', 403);
-          }
-        }
-      }
-
-      const forecastEntry = entries.find((e) => e.field_changed === 'current_forecast_finish');
-      if (forecastEntry && !reason) {
-        throw fail('A forecast date change needs a date revision reason.');
-      }
-
-      const progressEntry = entries.find((e) => e.field_changed === 'progress_percent');
-      if (progressEntry && progressEntry.new_value !== null) {
-        const value = Number(progressEntry.new_value);
-        if (value < 0 || value > 100) throw fail('Progress must be between 0 and 100.');
-      }
+      // Permission, the baseline lock, the approval separation and the reason
+      // rule are decided once, for every write path into a task.
+      guardTaskChanges({ task, entries, rank, user, reason });
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 
@@ -166,45 +127,12 @@ export default async function (req) {
         patch[entry.field_changed] = entry.new_value;
       });
 
-      const derived = [];
-      if (statusEntry) {
-        const next = statusEntry.new_value;
-        if (next === 'Execution Complete' || next === 'Under Inspection') {
-          patch.execution_completed_by_id = user.id;
-          patch.execution_completed_by_name = actorName(user);
-          derived.push({
-            change_type: 'Status Change',
-            field_changed: 'execution_completed_by',
-            old_value: task.execution_completed_by_name || '',
-            new_value: actorName(user),
-            note: 'Marked Execution Complete',
-          });
-        } else if (next === 'Not Started' || next === 'In Progress' || next === 'Blocked') {
-          if (task.execution_completed_by_id) {
-            patch.execution_completed_by_id = null;
-            patch.execution_completed_by_name = null;
-            derived.push({
-              change_type: 'Status Change',
-              field_changed: 'execution_completed_by',
-              old_value: task.execution_completed_by_name || '',
-              new_value: '',
-              note: 'Reopened — previous Execution Complete stamp cleared',
-            });
-          }
-        } else if (next === 'Approved' || next === 'Closed') {
-          patch.approved_by_id = user.id;
-          patch.approved_by_name = actorName(user);
-          patch.approved_at = new Date().toISOString();
-          derived.push({
-            change_type: 'Approval',
-            field_changed: 'approved_by',
-            old_value: task.approved_by_name || '',
-            new_value: actorName(user),
-            note: next === 'Closed' ? 'Work closed' : 'Work approved',
-          });
-        }
-      }
-      // Progress reaching 100% never closes a task: no derived status change here.
+      // Server-owned stamps, and the separation of duties, travel with the change.
+      const effects = deriveTaskEffects({ task, entries, user });
+      Object.assign(patch, effects.patch);
+      const derived = effects.derived;
+
+      const forecastEntry = entries.find((e) => e.field_changed === 'current_forecast_finish');
 
       patch.updated_by_name = actorName(user);
       patch.member_ids = memberIds;

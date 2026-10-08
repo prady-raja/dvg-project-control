@@ -3,7 +3,7 @@ import { isAppAdmin } from '../../shared/access.ts';
 
 const ENTITIES = [
   'Project', 'Phase', 'Location', 'Contractor', 'ContractorDefault', 'WorkPackage', 'Discipline',
-  'ProjectMembership', 'Task', 'TaskDependency', 'TaskHistory', 'BaselineVersion',
+  'ProjectMembership', 'Task', 'TaskDependency', 'TaskHistory', 'DailyUpdate', 'BaselineVersion',
 ];
 
 /**
@@ -54,6 +54,7 @@ export default async function (req) {
       Task: svc.Task,
       TaskDependency: svc.TaskDependency,
       TaskHistory: svc.TaskHistory,
+      DailyUpdate: svc.DailyUpdate,
       BaselineVersion: svc.BaselineVersion,
     };
 

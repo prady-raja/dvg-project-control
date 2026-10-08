@@ -95,6 +95,7 @@ export async function syncProjectMemberIds(base44, projectId, memberIds) {
   const targets = [
     svc.Task,
     svc.TaskHistory,
+    svc.DailyUpdate,
     svc.BaselineVersion,
     svc.Location,
     svc.Phase,
