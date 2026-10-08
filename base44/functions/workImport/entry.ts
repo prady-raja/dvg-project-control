@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
+import { secrets } from 'base44:runtime';
 import { activeMembers, canManageProject, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { createdHistoryRows } from '../../shared/history.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
@@ -12,22 +13,34 @@ import {
   readImportFile,
   validateImportRows,
 } from '../../shared/workImport.ts';
+import { reconcileRows } from '../../shared/reconcile.ts';
+import { aiHintsFor } from '../../shared/reconcileAi.ts';
+import { reconciledWorkbook } from '../../shared/reconcileSheets.ts';
+import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
+import { aiKeyPresent, loadAiSettings, OPENAI_KEY_SECRET, usageToday } from '../../shared/ai.ts';
 
 /**
- * CSV work import. Preview and import run the same validation, so what the
- * screen reports is what a confirmed import creates.
+ * Work import — Excel or CSV in, reconciled and reviewed changes out.
  *
- * Two things this function deliberately does not do: it never overwrites an
- * existing task, and it never invents a value the file left blank. A row that
- * cannot be resolved is refused rather than guessed at.
+ * Nothing is written by an upload. A preview reads the file, resolves every value
+ * against the project's own registers, compares each row with the work already on
+ * the register and states what it would create, change or leave alone. Only the
+ * rows a person has decided on are written, and each agreed change to an existing
+ * task goes through the same permission, baseline and audit rules as the editor.
+ *
+ * Two things this function deliberately never does: it never overwrites a value
+ * the file left blank, and it never invents the value of a villa, room, reference,
+ * percentage, contractor or date.
  */
 
 const CHUNK = 25;
 
+/** The decisions a reviewer can make about one row. */
+const DECISIONS = ['import', 'update', 'link', 'skip', 'defer'];
+
 const decisionOf = (value) => {
   const text = String(value || '').toLowerCase();
-  if (text === 'skip' || text === 'link' || text === 'import') return text;
-  return '';
+  return DECISIONS.includes(text) ? text : '';
 };
 
 const tally = (rows) => {
@@ -42,6 +55,26 @@ const batchRefFor = (date) => {
   const iso = date.toISOString();
   return `IMP-${iso.slice(0, 10).replace(/-/g, '')}-${iso.slice(11, 16).replace(':', '')}`;
 };
+
+/**
+ * The comparison needs the stored value of every field a file may change, so the
+ * tasks a row matched are read in full — and only those, so scanning a large
+ * register stays cheap. The reconciliation then runs again against the full
+ * records, so an "existing" figure in the review screen is the record's own.
+ */
+async function reconcileWithDetails({ svc, validated, ctx, links }) {
+  const first = reconcileRows({ rows: validated.rows, ctx, links });
+  const ids = [...new Set(first.rows.map((row) => row.reconcile.match.task_id).filter(Boolean))];
+  if (!ids.length) return first;
+
+  const full = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    full.push(...listAll(await svc.Task.filter({ id: { $in: ids.slice(i, i + 100) } }, { limit: 100 })));
+  }
+  const byId = new Map(full.map((task) => [task.id, task]));
+  ctx.tasks = ctx.tasks.map((task) => byId.get(task.id) || task);
+  return reconcileRows({ rows: validated.rows, ctx, links });
+}
 
 export default async function (req) {
   try {
@@ -58,11 +91,15 @@ export default async function (req) {
     const overrides = body?.overrides && typeof body.overrides === 'object' ? body.overrides : {};
     const decisions = body?.decisions && typeof body.decisions === 'object' ? body.decisions : {};
     const links = body?.links && typeof body.links === 'object' ? body.links : {};
+    const reasons = body?.reasons && typeof body.reasons === 'object' ? body.reasons : {};
+    const edits = body?.edits && typeof body.edits === 'object' ? body.edits : {};
     // Which worksheet the rows were read from, and the row each one sits on. Both
     // are provenance only — the file text is still the single source of truth, and
     // a row number list that does not line up is ignored rather than trusted.
     const sourceSheet = String(body?.source_sheet || '').trim().slice(0, 80);
     const rowNumbers = Array.isArray(body?.row_numbers) ? body.row_numbers.slice(0, MAX_IMPORT_ROWS + 1) : [];
+    const useAi = body?.use_ai === true;
+    const aiNote = String(body?.ai_status || '').slice(0, 400);
 
     if (!projectId) throw fail('Choose the project this file belongs to.');
     if (!fileText) throw fail('Choose a CSV file to import.');
@@ -87,16 +124,64 @@ export default async function (req) {
     }
 
     const validated = validateImportRows({ rows: file.rows, ctx, overrides, fileName });
+    const reconciled = await reconcileWithDetails({ svc, validated, ctx, links });
+
+    /* ------------------------------------------------------------------ preview */
 
     if (action === 'preview') {
+      // Interpretation is asked for deliberately, for one preview at a time: every
+      // override re-runs the preview, and a provider call on each of those would
+      // be both costly and pointless.
+      let ai = {
+        available: false,
+        requested: useAi,
+        note: 'Interpretation was not requested. Press “Interpret unclear rows” to ask OpenAI about the rows the columns could not settle.',
+        error: '',
+        model: '',
+        rows_helped: 0,
+      };
+      if (useAi) {
+        const settings = await loadAiSettings(svc);
+        if (!aiKeyPresent()) {
+          ai = { ...ai, requested: true, error: 'No OpenAI key is configured.', note: 'OpenAI is not configured on this app, so interpretation was skipped. Every row was read from its own columns.' };
+        } else {
+          const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+          const used = await usageToday(svc, user.id, day);
+          const limit = Number(settings.daily_request_limit) || 40;
+          if (used >= limit) {
+            ai = { ...ai, requested: true, note: `The daily AI request limit (${limit}) is reached for today. Every row was read from its own columns.` };
+          } else {
+            const result = await aiHintsFor({
+              apiKey: secrets.get(OPENAI_KEY_SECRET) || '',
+              base44,
+              settings,
+              rows: reconciled.rows,
+              ctx,
+            });
+            ai = {
+              available: result.available,
+              requested: true,
+              note: result.note,
+              error: result.error,
+              model: settings.model,
+              rows_helped: result.hints.size,
+            };
+            reconciled.rows.forEach((row) => {
+              row.reconcile.ai_suggestion = result.hints.get(row.row_number) || null;
+            });
+          }
+        }
+      }
+
       const priorBatches = checksum
         ? listAll(
-            await svc.ImportBatch.filter(
-              { project_id: projectId, source_checksum: checksum },
-              { sort: '-imported_at', limit: 5 },
-            ),
-          )
+          await svc.ImportBatch.filter(
+            { project_id: projectId, source_checksum: checksum },
+            { sort: '-imported_at', limit: 5 },
+          ),
+        )
         : [];
+
       return Response.json({
         project: { id: ctx.project.id, name: ctx.project.name, code: ctx.project.code },
         file: {
@@ -108,13 +193,23 @@ export default async function (req) {
           unmapped: file.unmapped,
         },
         summary: validated.summary,
-        rows: validated.rows,
+        reconciliation: reconciled.summary,
+        rows: reconciled.rows,
+        ai,
+        workbook: reconciledWorkbook({
+          rows: reconciled.rows,
+          ctx,
+          file: { name: fileName, sheet: sourceSheet },
+          batchRef: '',
+          userName: actorName(user),
+        }),
         prior_batches: priorBatches.map((batch) => ({
           batch_ref: batch.batch_ref,
           imported_at: batch.imported_at,
           imported_by_name: batch.imported_by_name,
           source_file: batch.source_file,
           created_count: batch.created_count || 0,
+          updated_count: batch.updated_count || 0,
           skipped_count: batch.skipped_count || 0,
           failed_count: batch.failed_count || 0,
           status: batch.status,
@@ -126,35 +221,41 @@ export default async function (req) {
 
     /* ------------------------------------------------------------------ commit */
 
-    const plan = validated.rows.map((row) => {
+    // A row that already holds the information needs no decision; a row that would
+    // change an existing task is only written when a person accepts it.
+    const plan = reconciled.rows.map((row) => {
       const asked = decisionOf(decisions[row.row_number]);
-      return { row, decision: asked || (row.duplicate ? '' : 'import') };
+      const outcome = row.reconcile.outcome;
+      const fallback = outcome === 'create' ? 'import' : outcome === 'unchanged' ? 'unchanged' : '';
+      return { row, decision: asked || fallback, outcome };
     });
 
-    const attention = plan.filter(
-      ({ row, decision }) => (row.blocking && decision !== 'skip') || (!row.blocking && !decision),
-    );
+    const attention = plan.filter(({ decision }) => !decision);
     if (attention.length) {
       return Response.json(
         {
-          error: `${attention.length} row(s) still need attention. Correct them or mark them as skipped, then import again.`,
+          error: `${attention.length} row(s) still need a decision. Accept, reject or defer them, then import again.`,
           attention: attention.map(({ row }) => ({
             row_number: row.row_number,
-            issues: row.issues.map((issue) => issue.message),
+            issues: [
+              ...(row.reconcile.clarifications || []),
+              ...row.issues.map((issue) => issue.message),
+            ],
           })),
         },
         { status: 400 },
       );
     }
 
-    const badLink = plan.find(({ row, decision }) => decision === 'link' && !row.duplicate?.can_link);
+    const badLink = plan.find(({ row, decision }) => decision === 'link' && !row.duplicate?.can_link && !row.reconcile.match.task_id);
     if (badLink) {
-      throw fail(`Row ${badLink.row.row_number} cannot be linked — link only a confirmed match.`);
+      throw fail(`Row ${badLink.row.row_number} cannot be linked — link only a task you have chosen.`);
     }
 
     const memberIds = memberIdsOf(await activeMembers(base44, projectId));
     const startedAt = new Date();
     const batchRef = batchRefFor(startedAt);
+    const classification = reconciled.summary;
 
     const batch = await svc.ImportBatch.create({
       batch_ref: batchRef,
@@ -162,12 +263,17 @@ export default async function (req) {
       source_file: fileName,
       source_sheet: sourceSheet || null,
       source_checksum: checksum,
-      row_count: validated.rows.length,
+      row_count: reconciled.rows.length,
       created_count: 0,
+      updated_count: 0,
+      unchanged_count: 0,
       skipped_count: 0,
+      deferred_count: 0,
       linked_count: 0,
       failed_count: 0,
       attention_count: validated.summary.blocking,
+      classification,
+      ai_status: aiNote || null,
       status: 'Importing',
       imported_by_id: user.id,
       imported_by_name: actorName(user),
@@ -181,31 +287,49 @@ export default async function (req) {
     const entryFor = (row, outcome, extra = {}) => ({
       row_number: row.row_number,
       sheet: sourceSheet || '',
+      proposed: row.reconcile.outcome,
+      classification: row.reconcile.label,
       outcome,
       decision: extra.decision || '',
       task_id: extra.task_id || '',
-      task_ref: extra.task_ref || '',
+      task_ref: extra.task_ref || row.reconcile.match.task_ref || '',
       name: row.resolved.name,
       villa_code: row.resolved.villa_code || (row.resolved.category === 'Site-Wide Work' ? 'Site-wide' : ''),
       discipline: row.resolved.discipline,
       contractor: row.resolved.contractor_name || '',
+      changed: extra.changed || [],
       missing: extra.missing || [],
       issues: row.issues.map((issue) => issue.message),
       note: extra.note || '',
     });
 
+    const applied = {};
     const toCreate = [];
     for (const item of plan) {
       const { row, decision } = item;
+      const rec = row.reconcile;
+
       if (decision === 'skip') {
-        report.push(entryFor(row, 'skipped', { decision, note: 'Marked as skipped before import' }));
+        report.push(entryFor(row, 'rejected', { decision, note: 'Rejected on the review screen — nothing was written' }));
+        applied[row.row_number] = { outcome: 'rejected', note: 'Rejected on the review screen' };
+        continue;
+      }
+      if (decision === 'defer') {
+        report.push(entryFor(row, 'deferred', { decision, note: 'Deferred for a later review — nothing was written' }));
+        applied[row.row_number] = { outcome: 'deferred', note: 'Deferred for a later review' };
+        continue;
+      }
+      if (decision === 'unchanged') {
+        report.push(entryFor(row, 'unchanged', { decision, note: 'The register already held this information — nothing was written' }));
+        applied[row.row_number] = { outcome: 'unchanged', note: 'The register already held this information' };
         continue;
       }
       if (decision === 'link') {
-        const targetId = String(links[row.row_number] || row.duplicate.task_id);
+        const targetId = String(links[row.row_number] || rec.match.task_id || row.duplicate?.task_id || '');
         const target = await getOne(svc.Task, targetId);
         if (!target || target.project_id !== projectId) {
           report.push(entryFor(row, 'failed', { decision, note: 'The task to link to was not found.' }));
+          applied[row.row_number] = { outcome: 'failed', note: 'The task to link to was not found.' };
           continue;
         }
         await svc.TaskHistory.create({
@@ -219,20 +343,66 @@ export default async function (req) {
           changed_by_id: user.id,
           changed_by_name: actorName(user),
           changed_at: new Date().toISOString(),
-          note: `Row ${row.row_number} of ${fileName} matched this task (${row.duplicate.reason}) — no new task created`,
+          note: `Row ${row.row_number} of ${fileName} matched this task (${rec.match.reason || row.duplicate?.reason}) — no new task created and nothing changed`,
         });
         report.push(
           entryFor(row, 'linked', {
             decision,
             task_id: target.id,
             task_ref: target.task_ref,
-            note: `Matched ${target.task_ref} — no new task created`,
+            note: `Matched ${target.task_ref} — nothing on it was changed`,
           }),
         );
+        applied[row.row_number] = { outcome: 'linked', note: `Matched ${target.task_ref} — nothing changed` };
         continue;
       }
+
+      if (decision === 'update') {
+        const taskId = rec.match.task_id || String(links[row.row_number] || '');
+        const task = taskId ? await getOne(svc.Task, taskId) : null;
+        if (!task || task.project_id !== projectId) {
+          report.push(entryFor(row, 'failed', { decision, note: 'That row is not an agreed change to a task on this project.' }));
+          applied[row.row_number] = { outcome: 'failed', note: 'No matching task on this project' };
+          continue;
+        }
+        try {
+          // Revalidated here, against the stored record, immediately before it is
+          // written — never from the browser's own comparison.
+          const result = await applyTaskUpdate({
+            base44,
+            svc,
+            task,
+            row,
+            user,
+            memberIds,
+            rank,
+            reason: String(reasons[row.row_number] || '').trim(),
+            edits: edits[row.row_number] || {},
+            batchRef,
+            fileName,
+            expected: rec.match.updated_date || '',
+          });
+          report.push(
+            entryFor(row, result.outcome, {
+              decision,
+              task_id: task.id,
+              task_ref: task.task_ref,
+              note: result.note,
+              changed: result.changed,
+            }),
+          );
+          applied[row.row_number] = { outcome: result.outcome, note: result.note };
+        } catch (error) {
+          report.push(entryFor(row, 'failed', { decision, task_id: task.id, task_ref: task.task_ref, note: error.message }));
+          applied[row.row_number] = { outcome: 'failed', note: error.message };
+        }
+        continue;
+      }
+
+      // Everything left is a new task.
       if (row.blocking) {
         report.push(entryFor(row, 'failed', { decision, note: 'Row still has unresolved problems' }));
+        applied[row.row_number] = { outcome: 'failed', note: 'Row still has unresolved problems' };
         continue;
       }
       toCreate.push(row);
@@ -269,6 +439,8 @@ export default async function (req) {
               member_ids: memberIds,
               import_batch_id: batch.id,
               import_source_file: fileName,
+              // The worksheet is stored, not merely shown: a task can always be
+              // traced back to the sheet and the row it came from.
               import_source_sheet: sourceSheet || null,
               import_row_number: row.row_number,
             }),
@@ -316,33 +488,43 @@ export default async function (req) {
           chunk.forEach((row, index) => {
             const task = byRef.get(claims[index].ref);
             const fix = task ? corrections.find((correction) => correction.taskId === task.id) : null;
+            const note = fix ? `Reference re-issued after a simultaneous claim (was ${fix.from})` : '';
             report.push(
               entryFor(row, task ? 'created' : 'failed', {
                 decision: 'import',
                 task_id: task?.id || '',
                 task_ref: fix?.to || task?.task_ref || claims[index].ref,
                 missing: missingInfoFor(row),
-                note: fix ? `Reference re-issued after a simultaneous claim (was ${fix.from})` : '',
+                note,
               }),
             );
+            applied[row.row_number] = { outcome: task ? 'created' : 'failed', note: note || (task ? 'Created' : 'The task could not be written') };
           });
         } catch (error) {
           chunk.forEach((row) => {
             report.push(entryFor(row, 'failed', { decision: 'import', note: error.message }));
+            applied[row.row_number] = { outcome: 'failed', note: error.message };
           });
         }
       }
     }
 
-    const createdRows = report.filter((row) => row.outcome === 'created');
-    const skippedRows = report.filter((row) => row.outcome === 'skipped');
-    const linkedRows = report.filter((row) => row.outcome === 'linked');
-    const failedRows = report.filter((row) => row.outcome === 'failed');
-    const status = failedRows.length ? (createdRows.length ? 'Completed with exceptions' : 'Failed') : 'Completed';
+    const of = (outcome) => report.filter((row) => row.outcome === outcome);
+    const createdRows = of('created');
+    const updatedRows = of('updated');
+    const unchangedRows = of('unchanged');
+    const skippedRows = of('rejected');
+    const deferredRows = of('deferred');
+    const linkedRows = of('linked');
+    const failedRows = of('failed');
+    const status = failedRows.length ? (createdRows.length + updatedRows.length ? 'Completed with exceptions' : 'Failed') : 'Completed';
 
     const updated = await svc.ImportBatch.update(batch.id, {
       created_count: createdRows.length,
+      updated_count: updatedRows.length,
+      unchanged_count: unchangedRows.length,
       skipped_count: skippedRows.length,
+      deferred_count: deferredRows.length,
       linked_count: linkedRows.length,
       failed_count: failedRows.length,
       status,
@@ -353,25 +535,39 @@ export default async function (req) {
       batch: updated,
       batch_ref: batchRef,
       counts: {
-        rows: validated.rows.length,
+        rows: reconciled.rows.length,
         created: createdRows.length,
-        skipped: skippedRows.length,
+        updated: updatedRows.length,
+        unchanged: unchangedRows.length,
+        rejected: skippedRows.length,
+        deferred: deferredRows.length,
         linked: linkedRows.length,
         failed: failedRows.length,
         attention: validated.summary.blocking,
       },
       summary: validated.summary,
+      reconciliation: classification,
+      ai_status: aiNote,
       created: createdRows,
-      skipped: skippedRows,
+      updated: updatedRows,
+      unchanged: unchangedRows,
+      rejected: skippedRows,
+      deferred: deferredRows,
       linked: linkedRows,
       failed: failedRows,
-      by_villa: tally(
-        createdRows.map((row) => ({ label: row.villa_code || 'Site-wide' })),
-      ),
-      by_contractor: tally(
-        createdRows.map((row) => ({ label: row.contractor || 'Not assigned' })),
-      ),
+      by_villa: tally(createdRows.concat(updatedRows).map((row) => ({ label: row.villa_code || 'Site-wide' }))),
+      by_contractor: tally(createdRows.map((row) => ({ label: row.contractor || 'Not assigned' }))),
       needs_info: createdRows.filter((row) => (row.missing || []).length),
+      workbook: reconciledWorkbook({
+        rows: reconciled.rows,
+        ctx,
+        file: { name: fileName, sheet: sourceSheet },
+        batchRef,
+        userName: actorName(user),
+        applied,
+        decisions,
+        classification,
+      }),
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });

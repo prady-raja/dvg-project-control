@@ -48,6 +48,10 @@ export const IMPORT_COLUMNS = [
   { key: 'blocker_description', label: 'Blocker description', aliases: ['blocker description', 'blocker', 'blockers', 'blocking issue'] },
   { key: 'remarks', label: 'Remarks', aliases: ['remarks', 'notes', 'remarks/notes'] },
   { key: 'source_reference', label: 'Source reference', aliases: ['source reference', 'source ref', 'reference', 'source row', 'external reference'] },
+  // Optional, and only for a revised work list: naming the task this row already
+  // is turns the row into an agreed update of that task instead of a new one. A
+  // reference that is not on the project is reported, never guessed at.
+  { key: 'task_ref', label: 'Task reference', aliases: ['task reference', 'task ref', 'existing task reference', 'existing task ref'] },
 ];
 
 export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.map((column) => column.label);
@@ -70,7 +74,7 @@ export const OVERRIDE_KEYS = [
   'responsible_engineer', 'priority', 'status',
   'baseline_start', 'baseline_finish', 'current_forecast_finish', 'progress_percent',
   'planned_quantity', 'measurement_unit', 'acceptance_criterion',
-  'estimated_manhours', 'blocker_description', 'remarks', 'source_reference',
+  'estimated_manhours', 'blocker_description', 'remarks', 'source_reference', 'task_ref',
 ];
 
 /**

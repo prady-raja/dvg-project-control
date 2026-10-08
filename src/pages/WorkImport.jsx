@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import ImportUploadStep from '@/components/import/ImportUploadStep';
 import ImportSummary from '@/components/import/ImportSummary';
+import ImportClassification from '@/components/import/ImportClassification';
 import ImportRowTable from '@/components/import/ImportRowTable';
 import ImportConfirmDialog from '@/components/import/ImportConfirmDialog';
 import ImportResultPanel from '@/components/import/ImportResultPanel';
@@ -14,15 +15,18 @@ import {
   MAX_FILE_BYTES,
   checksumOf,
   downloadExcelTemplate,
+  downloadReconciledWorkbook,
   downloadReconciliation,
   downloadTemplate,
   runWorkImport,
 } from '@/lib/workImportService';
 
 /**
- * Import Works — reviewed CSV work lists in, permanent tasks out. Nothing is
- * written until the file has been previewed, corrected row by row and confirmed,
- * and every decision is re-checked on the server before it is applied.
+ * Import Works — a reviewed Excel or CSV work list in, new tasks, agreed changes
+ * to existing tasks and a record of what was left alone out. Nothing is written
+ * until the file has been read, compared with the register row by row and
+ * confirmed, and every accepted change is revalidated on the server before it is
+ * applied.
  */
 export default function WorkImport() {
   const cat = useCatalogs();
@@ -34,6 +38,8 @@ export default function WorkImport() {
   const [overrides, setOverrides] = useState({});
   const [decisions, setDecisions] = useState({});
   const [links, setLinks] = useState({});
+  const [reasons, setReasons] = useState({});
+  const [edits, setEdits] = useState({});
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState('');
@@ -61,20 +67,22 @@ export default function WorkImport() {
   );
 
   const previewFor = useCallback(
-    async (target, nextOverrides, pid) => {
-      if (!target?.text || !pid) return;
+    async (target, { nextOverrides, nextLinks, useAi } = {}) => {
+      if (!target?.text || !projectId) return;
       setBusy('preview');
       setError('');
       try {
         const data = await runWorkImport({
           action: 'preview',
-          project_id: pid,
+          project_id: projectId,
           file_name: target.name,
           source_sheet: target.sheet || '',
           row_numbers: target.rowNumbers || [],
           checksum: target.checksum,
           file_text: target.text,
-          overrides: nextOverrides,
+          overrides: nextOverrides || overrides,
+          links: nextLinks || links,
+          use_ai: useAi === true,
         });
         setPreview(data);
       } catch (caught) {
@@ -84,7 +92,7 @@ export default function WorkImport() {
         setBusy('');
       }
     },
-    [],
+    [projectId, overrides, links],
   );
 
   // A CSV arrives as text; an Excel workbook arrives already read from its Works
@@ -109,7 +117,9 @@ export default function WorkImport() {
     setOverrides({});
     setDecisions({});
     setLinks({});
-    await previewFor(target, {}, projectId);
+    setReasons({});
+    setEdits({});
+    await previewFor(target, { nextOverrides: {}, nextLinks: {} });
   };
 
   const handleProject = async (value) => {
@@ -117,16 +127,42 @@ export default function WorkImport() {
     setOverrides({});
     setDecisions({});
     setLinks({});
+    setReasons({});
+    setEdits({});
     setResult(null);
-    if (file?.text && value) await previewFor(file, {}, value);
-    else setPreview(null);
+    if (!file?.text || !value) {
+      setPreview(null);
+      return;
+    }
+    setBusy('preview');
+    setError('');
+    try {
+      const data = await runWorkImport({
+        action: 'preview',
+        project_id: value,
+        file_name: file.name,
+        source_sheet: file.sheet || '',
+        row_numbers: file.rowNumbers || [],
+        checksum: file.checksum,
+        file_text: file.text,
+        overrides: {},
+        links: {},
+        use_ai: false,
+      });
+      setPreview(data);
+    } catch (caught) {
+      setError(caught.message);
+      setPreview(null);
+    } finally {
+      setBusy('');
+    }
   };
 
   const applyOverride = async (rowNumber, patch) => {
     const next = { ...overrides, [rowNumber]: { ...(overrides[rowNumber] || {}), ...patch } };
     setOverrides(next);
     setBusyRow(rowNumber);
-    await previewFor(file, next, projectId);
+    await previewFor(file, { nextOverrides: next });
     setBusyRow(0);
     setDecisions((current) => ({ ...current, [rowNumber]: '' }));
   };
@@ -136,38 +172,55 @@ export default function WorkImport() {
     delete next[rowNumber];
     setOverrides(next);
     setBusyRow(rowNumber);
-    await previewFor(file, next, projectId);
+    await previewFor(file, { nextOverrides: next });
     setBusyRow(0);
+  };
+
+  // Choosing which task a row belongs to changes what that row would change, so
+  // the comparison is rebuilt from the server rather than adjusted on screen.
+  const linkRow = async (rowNumber, taskId) => {
+    const next = { ...links, [rowNumber]: taskId };
+    setLinks(next);
+    setBusyRow(rowNumber);
+    await previewFor(file, { nextLinks: next });
+    setBusyRow(0);
+    setDecisions((current) => ({ ...current, [rowNumber]: '' }));
   };
 
   const decide = (rowNumber, decision, linkId = '') => {
     setDecisions((current) => ({ ...current, [rowNumber]: decision }));
-    setLinks((current) => ({ ...current, [rowNumber]: linkId }));
+    if (linkId) setLinks((current) => ({ ...current, [rowNumber]: linkId }));
+  };
+
+  const setReason = (rowNumber, text) => setReasons((current) => ({ ...current, [rowNumber]: text }));
+
+  const setEdit = (rowNumber, field, value) =>
+    setEdits((current) => ({ ...current, [rowNumber]: { ...(current[rowNumber] || {}), [field]: value } }));
+
+  const acceptAllUpdates = () => {
+    const next = { ...decisions };
+    (preview?.rows || []).forEach((row) => {
+      if (row.reconcile?.outcome === 'update' && row.reconcile.match.task_id) next[row.row_number] = 'update';
+    });
+    setDecisions(next);
   };
 
   const counts = useMemo(() => {
     const rows = preview?.rows || [];
-    let created = 0;
-    let skipped = 0;
-    let linked = 0;
-    let attention = 0;
+    const total = { created: 0, updated: 0, unchanged: 0, rejected: 0, deferred: 0, linked: 0, attention: 0 };
     rows.forEach((row) => {
-      const decision = decisions[row.row_number] || '';
-      if (decision === 'skip') {
-        skipped += 1;
-        return;
-      }
-      if (decision === 'link') {
-        linked += 1;
-        return;
-      }
-      if (row.blocking || !decision) {
-        attention += 1;
-        return;
-      }
-      created += 1;
+      const outcome = row.reconcile?.outcome || 'create';
+      const decision = decisions[row.row_number] || (outcome === 'create' ? 'import' : outcome === 'unchanged' ? 'unchanged' : '');
+      if (decision === 'import') total.created += 1;
+      else if (decision === 'update') total.updated += 1;
+      else if (decision === 'link') total.linked += 1;
+      else if (decision === 'skip') total.rejected += 1;
+      else if (decision === 'defer') total.deferred += 1;
+      else if (decision === 'unchanged') total.unchanged += 1;
+      else total.attention += 1;
     });
-    return { created, skipped, linked, attention };
+    total.writing = total.created + total.updated + total.linked;
+    return total;
   }, [preview, decisions]);
 
   const commit = async () => {
@@ -185,6 +238,9 @@ export default function WorkImport() {
         overrides,
         decisions,
         links,
+        reasons,
+        edits,
+        ai_status: preview?.ai?.note || '',
       });
       setResult(data);
       setPreview(null);
@@ -202,6 +258,8 @@ export default function WorkImport() {
     setOverrides({});
     setDecisions({});
     setLinks({});
+    setReasons({});
+    setEdits({});
     setResult(null);
     setError('');
   };
@@ -213,6 +271,15 @@ export default function WorkImport() {
         villas,
         projectName: (projects.find((item) => item.id === projectId) || {}).name || '',
       });
+    } catch (caught) {
+      setError(caught.message);
+    }
+  };
+
+  const downloadReconciled = async (source) => {
+    setError('');
+    try {
+      await downloadReconciledWorkbook(source);
     } catch (caught) {
       setError(caught.message);
     }
@@ -243,7 +310,7 @@ export default function WorkImport() {
       <PageHeader
         eyebrow="Import Works"
         title="Import Works"
-        description="Upload a reviewed Excel workbook or CSV work list, check every row, and create the tasks with permanent references."
+        description="Upload a reviewed Excel workbook or CSV work list. Every row is compared with the register, and only the rows you decide on are written."
         actions={
           <>
             <Button className="gap-2" onClick={downloadWorkbook}>
@@ -263,6 +330,7 @@ export default function WorkImport() {
           result={result}
           projectName={project?.name || ''}
           onDownload={() => downloadReconciliation(result)}
+          onDownloadWorkbook={() => downloadReconciled(result)}
           onRestart={restart}
         />
       ) : (
@@ -279,6 +347,15 @@ export default function WorkImport() {
 
           {preview && (
             <>
+              <ImportClassification
+                reconciliation={preview.reconciliation}
+                ai={preview.ai}
+                busy={busy}
+                onUseAi={() => previewFor(file, { useAi: true })}
+                onDownloadWorkbook={() => downloadReconciled(preview)}
+                onAcceptUpdates={acceptAllUpdates}
+              />
+
               <ImportSummary summary={preview.summary} priorBatches={preview.prior_batches} />
 
               <ImportRowTable
@@ -286,22 +363,27 @@ export default function WorkImport() {
                 cat={cat}
                 projectId={projectId}
                 decisions={decisions}
+                reasons={reasons}
+                edits={edits}
                 busyRow={busyRow}
                 onOverride={applyOverride}
                 onClearOverride={clearOverride}
                 onDecision={decide}
+                onReason={setReason}
+                onEdit={setEdit}
+                onLink={linkRow}
               />
 
               <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-1 py-3 backdrop-blur">
                 <p className="text-xs text-muted-foreground">
-                  {counts.created} task(s) will be created · {counts.skipped} skipped · {counts.linked} linked ·{' '}
-                  {counts.attention} need attention
+                  {counts.created} new · {counts.updated} updated · {counts.unchanged} already correct · {counts.rejected}{' '}
+                  rejected · {counts.deferred} deferred · {counts.attention} need a decision
                   {preview.file?.sheet && <> · worksheet <span className="field-mono">{preview.file.sheet}</span></>}
                   {preview.file?.unmapped?.length > 0 && <> · ignored columns: {preview.file.unmapped.join(', ')}</>}
                 </p>
                 <Button
                   className="gap-2"
-                  disabled={!!busy || counts.created + counts.linked === 0}
+                  disabled={!!busy || counts.attention > 0 || counts.created + counts.updated + counts.linked + counts.rejected + counts.deferred === 0}
                   onClick={() => {
                     setError('');
                     setConfirmOpen(true);

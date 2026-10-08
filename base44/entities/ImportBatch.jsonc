@@ -1,7 +1,7 @@
 {
   "name": "ImportBatch",
   "type": "object",
-  "description": "One work import (Excel workbook or CSV): the file it came from, the worksheet its rows were read from, who ran it, what it created and the per-row outcome. Written only by the trusted import operation, so the reconciliation of an import cannot be rewritten afterwards.",
+  "description": "One work import (Excel workbook or CSV): the file it came from, the worksheet its rows were read from, who ran it, what it created and updated, and the per-row outcome. Written only by the trusted import operation, so the reconciliation of an import cannot be rewritten afterwards.",
   "properties": {
     "batch_ref": {
       "type": "string",
@@ -32,8 +32,20 @@
     "created_count": {
       "type": "number"
     },
+    "updated_count": {
+      "type": "number",
+      "description": "Rows applied as an agreed change to a task already on the register"
+    },
+    "unchanged_count": {
+      "type": "number",
+      "description": "Rows whose information the existing record already held \u2014 nothing was written and no audit event was raised"
+    },
     "skipped_count": {
       "type": "number"
+    },
+    "deferred_count": {
+      "type": "number",
+      "description": "Rows left for a later review \u2014 nothing was written"
     },
     "linked_count": {
       "type": "number",
@@ -45,6 +57,14 @@
     "attention_count": {
       "type": "number",
       "description": "Rows that could not be imported and still need attention"
+    },
+    "classification": {
+      "type": "object",
+      "description": "Counts by proposed action: create, update, unchanged, duplicate and clarify, as shown before confirmation"
+    },
+    "ai_status": {
+      "type": "string",
+      "description": "Whether model interpretation was available for this batch, and why not when it was not. The deterministic reading is unaffected."
     },
     "status": {
       "type": "string",
@@ -71,7 +91,7 @@
       "items": {
         "type": "object"
       },
-      "description": "One entry per row: row number, worksheet, outcome, task reference, villa, contractor and any issue"
+      "description": "One entry per row: row number, worksheet, proposed action, outcome, task reference, villa, contractor, the fields changed, and any issue"
     },
     "notes": {
       "type": "string"

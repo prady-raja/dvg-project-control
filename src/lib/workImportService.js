@@ -1,5 +1,5 @@
 import { base44 } from '@/api/base44Client';
-import { buildWorkbookTemplate } from '@/lib/xlsxImport';
+import { buildWorkbookFromSheets, buildWorkbookTemplate } from '@/lib/xlsxImport';
 
 /**
  * The client half of the CSV work import: the downloadable template, a file
@@ -37,6 +37,9 @@ export const IMPORT_TEMPLATE_HEADERS = [
   'Blocker description',
   'Remarks',
   'Source reference',
+  // Only a revised work list uses this: naming the task a row already is turns it
+  // into an agreed update of that task rather than a second copy of the work.
+  'Task reference',
 ];
 
 export const IMPORT_TEMPLATE_CSV = `${IMPORT_TEMPLATE_HEADERS.join(',')}\n`;
@@ -126,11 +129,14 @@ export async function downloadExcelTemplate({ villas = [], projectName = '' } = 
 
 /** The per-row reconciliation of an import, as a spreadsheet. */
 export function reconciliationCsv(result) {
-  const fields = ['row_number', 'sheet', 'outcome', 'decision', 'task_ref', 'name', 'villa_code', 'discipline', 'contractor', 'missing', 'issues', 'note'];
+  const fields = ['row_number', 'sheet', 'classification', 'proposed', 'outcome', 'decision', 'task_ref', 'name', 'villa_code', 'discipline', 'contractor', 'changed', 'missing', 'issues', 'note'];
   const rows = [
     ...(result.created || []),
+    ...(result.updated || []),
+    ...(result.unchanged || []),
+    ...(result.rejected || []),
+    ...(result.deferred || []),
     ...(result.linked || []),
-    ...(result.skipped || []),
     ...(result.failed || []),
   ].sort((a, b) => a.row_number - b.row_number);
 
@@ -164,6 +170,18 @@ export const downloadReconciliation = (result) =>
     reconciliationCsv(result),
     'text/csv;charset=utf-8',
   );
+
+/**
+ * The reconciled workbook the server prepared: Works, Proposed_Changes,
+ * Review_Only and Import_Summary. Before confirmation it states what would
+ * change; after it, what was written. The original upload is never altered.
+ */
+export async function downloadReconciledWorkbook(result) {
+  if (!result?.workbook) throw new Error('There is nothing to download yet.');
+  const blob = await buildWorkbookFromSheets(result.workbook);
+  const name = result.batch_ref ? `reconciled-work-${result.batch_ref}.xlsx` : 'reconciled-work-proposed.xlsx';
+  downloadBlob(name, blob);
+}
 
 /** One call into the server function; the server decides everything else. */
 export async function runWorkImport(payload) {

@@ -4,18 +4,33 @@ import Pill from '@/components/common/Pill';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Button } from '@/components/ui/button';
 import ImportRowFix from '@/components/import/ImportRowFix';
+import ImportProposal from '@/components/import/ImportProposal';
 import { cn } from '@/lib/utils';
 
-const FILTERS = ['All rows', 'Needing attention', 'Possible duplicates', 'Ready to import', 'Skipped'];
+const FILTERS = [
+  'All rows',
+  'Needing a decision',
+  'CREATE NEW',
+  'UPDATE EXISTING',
+  'UNCHANGED',
+  'POSSIBLE DUPLICATE',
+  'CLARIFICATION REQUIRED',
+];
 
-const toneOf = (row) => (row.issues.some((issue) => issue.severity === 'error') ? 'error' : row.duplicate ? 'warn' : 'ok');
+const OUTCOME_TONE = {
+  create: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  update: 'border-amber-200 bg-amber-50 text-amber-800',
+  unchanged: 'border-border bg-muted text-muted-foreground',
+  duplicate: 'border-amber-200 bg-amber-50 text-amber-800',
+  clarify: 'border-red-200 bg-red-50 text-red-700',
+};
 
 const IssueList = ({ issues }) => {
   if (!issues.length) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <ul className="space-y-0.5">
       {issues.slice(0, 3).map((issue) => (
-        <li key={`${issue.code}-${issue.message}`} className={cn('text-[11px] leading-snug', issue.severity === 'error' ? 'text-destructive' : 'text-warning')}>
+        <li key={`${issue.code}-${issue.message}`} className={cn('text-[11px] leading-snug', issue.severity === 'error' ? 'text-destructive' : 'text-amber-600')}>
           {issue.message}
         </li>
       ))}
@@ -24,18 +39,43 @@ const IssueList = ({ issues }) => {
   );
 };
 
-export default function ImportRowTable({ rows, cat, projectId, decisions, busyRow, onOverride, onClearOverride, onDecision }) {
+/**
+ * The reviewed file, row by row: what each row is proposed to do, what it would
+ * change on the register, and the decision a person makes about it. Nothing here
+ * writes: a decision is only carried out when the import is confirmed.
+ */
+export default function ImportRowTable({
+  rows,
+  cat,
+  projectId,
+  decisions,
+  reasons,
+  edits,
+  busyRow,
+  onOverride,
+  onClearOverride,
+  onDecision,
+  onReason,
+  onEdit,
+  onLink,
+}) {
   const [filter, setFilter] = useState('All rows');
   const [openRow, setOpenRow] = useState(0);
 
   const shown = useMemo(() => {
     const list = rows || [];
-    if (filter === 'Needing attention') return list.filter((row) => row.blocking);
-    if (filter === 'Possible duplicates') return list.filter((row) => row.duplicate);
-    if (filter === 'Ready to import') return list.filter((row) => !row.blocking && !row.duplicate);
-    if (filter === 'Skipped') return list.filter((row) => decisions[row.row_number] === 'skip');
-    return list;
-  }, [rows, filter, decisions]);
+    if (filter === 'Needing a decision') {
+      return list.filter((row) => ['update', 'duplicate', 'clarify'].includes(row.reconcile?.outcome));
+    }
+    const key = {
+      'CREATE NEW': 'create',
+      'UPDATE EXISTING': 'update',
+      UNCHANGED: 'unchanged',
+      'POSSIBLE DUPLICATE': 'duplicate',
+      'CLARIFICATION REQUIRED': 'clarify',
+    }[filter];
+    return key ? list.filter((row) => row.reconcile?.outcome === key) : list;
+  }, [rows, filter]);
 
   return (
     <div className="space-y-3">
@@ -43,19 +83,19 @@ export default function ImportRowTable({ rows, cat, projectId, decisions, busyRo
         <p className="text-xs text-muted-foreground">
           {shown.length} of {rows.length} row(s) shown · nothing is written until you confirm the import
         </p>
-        <EnumSelect value={filter} onChange={setFilter} options={FILTERS} size="sm" className="w-[220px]" />
+        <EnumSelect value={filter} onChange={setFilter} options={FILTERS} size="sm" className="w-[240px]" />
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-sm">
+          <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
               <tr>
                 <th className="px-3 py-2.5 font-medium">Row</th>
+                <th className="px-3 py-2.5 font-medium">Proposed action</th>
                 <th className="px-3 py-2.5 font-medium">Task</th>
                 <th className="px-3 py-2.5 font-medium">Villa / scope</th>
                 <th className="px-3 py-2.5 font-medium">Discipline</th>
-                <th className="px-3 py-2.5 font-medium">Contractor</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
                 <th className="px-3 py-2.5 font-medium">Checks</th>
                 <th className="px-3 py-2.5 font-medium">Decision</th>
@@ -63,21 +103,40 @@ export default function ImportRowTable({ rows, cat, projectId, decisions, busyRo
             </thead>
             <tbody className="divide-y divide-border">
               {shown.map((row) => {
+                const rec = row.reconcile || {};
                 const decision = decisions[row.row_number] || '';
-                const tone = toneOf(row);
                 const open = openRow === row.row_number;
+                const changes = rec.changes || [];
                 return (
                   <React.Fragment key={row.row_number}>
-                    <tr className={cn(busyRow === row.row_number && 'opacity-60')}>
-                      <td className="field-mono px-3 py-2.5 align-top text-xs text-muted-foreground">{row.row_number}</td>
-                      <td className="max-w-[280px] px-3 py-2.5 align-top">
+                    <tr className={cn('align-top', busyRow === row.row_number && 'opacity-60')}>
+                      <td className="field-mono px-3 py-2.5 text-xs text-muted-foreground">{row.row_number}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
+                          {rec.label || '—'}
+                        </span>
+                        {changes.length > 0 && (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}
+                            {changes.length > 3 ? '…' : ''}
+                          </p>
+                        )}
+                        {rec.match?.task_id && (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {rec.match.confidence === 'confirmed' ? 'Matched' : 'Possible match'}{' '}
+                            <span className="field-mono">{rec.match.task_ref}</span>
+                          </p>
+                        )}
+                      </td>
+                      <td className="max-w-[240px] px-3 py-2.5">
                         <p className="font-medium leading-snug">{row.resolved.name || row.values.name || '—'}</p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
                           {row.resolved.work_package || row.values.work_package || 'No work package'}
                           {row.values.source_reference ? ` · ref ${row.values.source_reference}` : ''}
+                          {row.values.task_ref ? ` · file says ${row.values.task_ref}` : ''}
                         </p>
                       </td>
-                      <td className="px-3 py-2.5 align-top text-xs">
+                      <td className="px-3 py-2.5 text-xs">
                         {row.resolved.villa_code ? (
                           <span className="field-mono">{row.resolved.villa_code}</span>
                         ) : row.resolved.category === 'Site-Wide Work' ? (
@@ -86,43 +145,50 @@ export default function ImportRowTable({ rows, cat, projectId, decisions, busyRo
                           <span className="text-muted-foreground">{row.values.villa_code || '—'}</span>
                         )}
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {row.resolved.phase_label ? `Phase ${row.resolved.phase_label}` : ''}
-                          {row.resolved.category ? ` · ${row.resolved.category}` : ''}
+                          {row.resolved.area_label || (row.resolved.villa_code ? row.resolved.scope_type : '')}
                         </p>
                       </td>
-                      <td className="px-3 py-2.5 align-top text-xs">
-                        {row.resolved.discipline_name || row.values.discipline || '—'}
-                      </td>
-                      <td className="px-3 py-2.5 align-top text-xs">
-                        {row.resolved.contractor_name || <span className="text-muted-foreground">—</span>}
-                        {row.resolved.contractor_source === 'default' && (
-                          <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">default</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 align-top">
+                      <td className="px-3 py-2.5 text-xs">{row.resolved.discipline_name || row.values.discipline || '—'}</td>
+                      <td className="px-3 py-2.5">
                         <Pill value={row.resolved.status_value} />
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{row.resolved.contractor_name || 'No contractor'}</p>
                       </td>
-                      <td className="max-w-[320px] px-3 py-2.5 align-top">
-                        {row.duplicate && (
-                          <p className="mb-1 flex items-start gap-1 text-[11px] text-warning">
+                      <td className="max-w-[300px] px-3 py-2.5">
+                        {rec.clarifications?.length > 0 && (
+                          <ul className="mb-1 space-y-0.5">
+                            {rec.clarifications.slice(0, 2).map((note) => (
+                              <li key={note} className="text-[11px] leading-snug text-destructive">{note}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {row.duplicate && !rec.clarifications?.length && (
+                          <p className="mb-1 flex items-start gap-1 text-[11px] text-amber-600">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
                             <span>
                               Possible duplicate of <span className="field-mono">{row.duplicate.task_ref}</span>
                               {row.duplicate.archived ? ' (archived)' : ''} — {row.duplicate.reason}
-                              {row.duplicate.confidence === 'possible' ? ' (not a confirmed match)' : ''}
                             </span>
                           </p>
                         )}
                         <IssueList issues={row.issues} />
-                        {!row.issues.length && !row.duplicate && (
-                          <p className="flex items-center gap-1 text-[11px] text-success">
+                        {!row.issues.length && !row.duplicate && !rec.clarifications?.length && (
+                          <p className="flex items-center gap-1 text-[11px] text-emerald-600">
                             <CheckCircle2 className="h-3 w-3" /> Ready
                           </p>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 align-top">
+                      <td className="px-3 py-2.5">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          {!row.blocking && (
+                          {changes.length > 0 && rec.match?.task_id && !row.blocking && (
+                            <Button
+                              size="sm"
+                              variant={decision === 'update' ? 'default' : 'outline'}
+                              onClick={() => onDecision(row.row_number, 'update', rec.match.task_id)}
+                            >
+                              Accept update
+                            </Button>
+                          )}
+                          {!row.blocking && rec.outcome !== 'unchanged' && (
                             <Button
                               size="sm"
                               variant={decision === 'import' ? 'default' : 'outline'}
@@ -131,21 +197,28 @@ export default function ImportRowTable({ rows, cat, projectId, decisions, busyRo
                               Import as new
                             </Button>
                           )}
-                          {row.duplicate?.can_link && !row.blocking && (
+                          {!changes.length && rec.match?.task_id && (
                             <Button
                               size="sm"
                               variant={decision === 'link' ? 'default' : 'outline'}
-                              onClick={() => onDecision(row.row_number, 'link', row.duplicate.task_id)}
+                              onClick={() => onDecision(row.row_number, 'link', rec.match.task_id)}
                             >
-                              Link {row.duplicate.task_ref}
+                              Same task, no change
                             </Button>
                           )}
                           <Button
                             size="sm"
-                            variant={decision === 'skip' ? 'default' : 'outline'}
-                            onClick={() => onDecision(row.row_number, decision === 'skip' ? '' : 'skip')}
+                            variant={decision === 'defer' ? 'default' : 'outline'}
+                            onClick={() => onDecision(row.row_number, 'defer', '')}
                           >
-                            Skip
+                            Defer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={decision === 'skip' ? 'default' : 'outline'}
+                            onClick={() => onDecision(row.row_number, 'skip', '')}
+                          >
+                            Reject
                           </Button>
                           <Button
                             size="sm"
@@ -153,27 +226,64 @@ export default function ImportRowTable({ rows, cat, projectId, decisions, busyRo
                             className="text-muted-foreground"
                             onClick={() => setOpenRow(open ? 0 : row.row_number)}
                           >
-                            {open ? 'Hide' : 'Fix'}
+                            {open ? 'Hide' : 'Review'}
                           </Button>
                         </div>
-                        {tone === 'error' && !decision && (
+                        {!decision && ['update', 'duplicate', 'clarify'].includes(rec.outcome) && (
                           <p className="mt-1 flex items-center gap-1 text-[10px] text-destructive">
-                            <AlertTriangle className="h-3 w-3" /> Needs a correction or a skip
+                            <AlertTriangle className="h-3 w-3" /> Needs a decision
                           </p>
+                        )}
+                        {!decision && rec.outcome === 'create' && (
+                          <p className="mt-1 text-[10px] text-muted-foreground">Will be created unless you reject it</p>
+                        )}
+                        {rec.outcome === 'unchanged' && (
+                          <p className="mt-1 text-[10px] text-muted-foreground">Nothing to write</p>
                         )}
                       </td>
                     </tr>
                     {open && (
                       <tr>
                         <td colSpan={8} className="bg-muted/20 px-3 py-4">
-                          <ImportRowFix
-                            row={row}
-                            cat={cat}
-                            projectId={projectId}
-                            busy={busyRow === row.row_number}
-                            onApply={onOverride}
-                            onClear={onClearOverride}
-                          />
+                          <div className="space-y-4">
+                            <ImportProposal
+                              row={row}
+                              cat={cat}
+                              reasons={reasons}
+                              edits={edits}
+                              onReason={onReason}
+                              onEdit={onEdit}
+                              busy={busyRow === row.row_number}
+                            />
+                            {(rec.candidates || []).length > 1 && (
+                              <div className="max-w-md">
+                                <p className="mb-1 text-xs font-medium">Match this row to a different task</p>
+                                <EnumSelect
+                                  value=""
+                                  size="sm"
+                                  placeholder="Choose the task this row belongs to"
+                                  onChange={(value) => {
+                                    if (value) onLink(row.row_number, value);
+                                  }}
+                                  options={(rec.candidates || []).map((candidate) => ({
+                                    value: candidate.id,
+                                    label: `${candidate.task_ref} — ${candidate.name} (${candidate.villa}${candidate.area_label ? ` · ${candidate.area_label}` : ''})`,
+                                  }))}
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <p className="mb-1 text-xs font-medium">Correct how this row was read</p>
+                              <ImportRowFix
+                                row={row}
+                                cat={cat}
+                                projectId={projectId}
+                                busy={busyRow === row.row_number}
+                                onApply={onOverride}
+                                onClear={onClearOverride}
+                              />
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}

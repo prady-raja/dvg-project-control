@@ -46,7 +46,17 @@ const RowList = ({ title, rows, empty }) => (
               <span className="truncate">{row.name}</span>
             </p>
             {row.note && <p className="mt-0.5 text-muted-foreground">{row.note}</p>}
-            {row.missing?.length > 0 && <p className="mt-0.5 text-warning">Still needed: {row.missing.join(', ')}</p>}
+            {row.changed?.length > 0 && (
+              <ul className="mt-0.5 space-y-0.5 text-amber-600">
+                {row.changed.map((change) => (
+                  <li key={change.field}>
+                    {change.label}: {change.from === null || change.from === '' ? '(blank)' : String(change.from)} →{' '}
+                    {change.to === null || change.to === '' ? '(cleared)' : String(change.to)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {row.missing?.length > 0 && <p className="mt-0.5 text-amber-600">Still needed: {row.missing.join(', ')}</p>}
             {row.issues?.length > 0 && <p className="mt-0.5 text-muted-foreground">{row.issues.join('; ')}</p>}
           </li>
         ))}
@@ -55,7 +65,7 @@ const RowList = ({ title, rows, empty }) => (
   </div>
 );
 
-export default function ImportResultPanel({ result, projectName, onDownload, onRestart }) {
+export default function ImportResultPanel({ result, projectName, onDownload, onDownloadWorkbook, onRestart }) {
   if (!result) return null;
   const { counts } = result;
 
@@ -79,6 +89,9 @@ export default function ImportResultPanel({ result, projectName, onDownload, onR
             <p className="mt-1 text-xs text-muted-foreground">Status: {result.batch?.status}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2" onClick={onDownloadWorkbook}>
+              <Download className="h-4 w-4" /> Reconciled workbook
+            </Button>
             <Button variant="outline" className="gap-2" onClick={onDownload}>
               <Download className="h-4 w-4" /> Reconciliation report (CSV)
             </Button>
@@ -88,14 +101,19 @@ export default function ImportResultPanel({ result, projectName, onDownload, onR
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <Stat label="Rows in file" value={counts.rows} />
           <Stat label="Created tasks" value={counts.created} />
-          <Stat label="Skipped" value={counts.skipped} />
-          <Stat label="Linked to existing" value={counts.linked} />
+          <Stat label="Existing tasks updated" value={counts.updated} tone="text-amber-600" />
+          <Stat label="Already correct" value={counts.unchanged} />
+          <Stat label="Rejected" value={counts.rejected} />
+          <Stat label="Deferred" value={counts.deferred} />
           <Stat label="Failed rows" value={counts.failed} tone="text-destructive" />
-          <Stat label="Reference corrections" value={(result.created || []).filter((row) => row.note?.includes('re-issued')).length} tone="text-warning" />
         </div>
+
+        {result.ai_status && (
+          <p className="mt-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">{result.ai_status}</p>
+        )}
       </section>
 
       {result.failed?.length > 0 && (
@@ -120,14 +138,27 @@ export default function ImportResultPanel({ result, projectName, onDownload, onR
 
       <div className="grid gap-4 lg:grid-cols-2">
         <RowList
+          title="Existing tasks that changed"
+          rows={result.updated || []}
+          empty="No existing task was changed by this file."
+        />
+        <RowList
+          title="Rows left alone — rejected or deferred"
+          rows={[...(result.rejected || []), ...(result.deferred || [])]}
+          empty="Nothing was rejected or deferred."
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RowList
           title="Tasks that still need information"
           rows={result.needs_info || []}
           empty="Every imported task has a contractor, baseline dates and progress."
         />
         <RowList
-          title="Skipped rows"
-          rows={result.skipped || []}
-          empty="Nothing was skipped."
+          title="Rows already correct — nothing was written"
+          rows={result.unchanged || []}
+          empty="No row was already correct."
         />
       </div>
 
@@ -136,9 +167,9 @@ export default function ImportResultPanel({ result, projectName, onDownload, onR
           <Pill value={result.batch?.status} /> What happens next
         </p>
         <p className="mt-1.5">
-          These tasks are on the register now and behave like every other task: daily updates, quick updates, approvals and
-          history. The reconciliation report carries the same rows in a spreadsheet, including the row in the file each task
-          came from.
+          New tasks and agreed changes are on the register now and behave like every other task: daily updates, quick
+          updates, approvals and history. The reconciled workbook carries the same work list with what was proposed and what
+          was written; the reconciliation report carries one line per row, including the file row each task came from.
         </p>
       </section>
     </div>

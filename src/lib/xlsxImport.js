@@ -192,6 +192,24 @@ export async function readExcelWorkbook(file) {
 }
 
 /**
+ * A workbook built from the sheets the server prepared — the reconciled work list
+ * and its review sheets. The layout is decided on the server, so the download is
+ * exactly what the review screen showed; the browser only writes the cells.
+ */
+export async function buildWorkbookFromSheets(sheets) {
+  const XLSX = await xlsxLib();
+  const book = XLSX.utils.book_new();
+  Object.entries(sheets || {}).forEach(([name, lines]) => {
+    const rows = Array.isArray(lines) && lines.length ? lines : [['No rows']];
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet['!cols'] = (rows[0] || []).map((label) => ({ wch: Math.min(46, Math.max(14, String(label).length + 4)) }));
+    XLSX.utils.book_append_sheet(book, sheet, String(name).slice(0, 31));
+  });
+  const bytes = XLSX.write(book, { bookType: 'xlsx', type: 'array' });
+  return new Blob([bytes], { type: XLSX_MIME });
+}
+
+/**
  * The standard workbook: a `Works` sheet with the template's column headings and
  * nothing else (so an unedited template can never import anything), an
  * `Instructions` sheet carrying the rules and worked examples, and the two
