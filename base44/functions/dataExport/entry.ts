@@ -4,7 +4,7 @@ import { isAppAdmin } from '../../shared/access.ts';
 const ENTITIES = [
   'Project', 'Phase', 'Location', 'Contractor', 'ContractorDefault', 'WorkPackage', 'Discipline',
   'ProjectMembership', 'Task', 'TaskDependency', 'RefAllocation', 'TaskHistory', 'DailyUpdate',
-  'BaselineVersion', 'ImportBatch',
+  'BaselineVersion', 'ImportBatch', 'Snag', 'MeetingCommitment', 'AiSettings', 'AiUsage',
 ];
 
 /**
@@ -59,6 +59,10 @@ export default async function (req) {
       DailyUpdate: svc.DailyUpdate,
       BaselineVersion: svc.BaselineVersion,
       ImportBatch: svc.ImportBatch,
+      Snag: svc.Snag,
+      MeetingCommitment: svc.MeetingCommitment,
+      AiSettings: svc.AiSettings,
+      AiUsage: svc.AiUsage,
     };
 
     const options = { sort: '-created_date', limit };

@@ -8,7 +8,7 @@ import {
   resolveRank,
   syncProjectMemberIds,
 } from '../../shared/access.ts';
-import { fail, getOne, listAll } from '../../shared/records.ts';
+import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 
 /** Only these fields are ever accepted from the browser — nothing else is written. */
 const FIELDS = {
@@ -24,11 +24,19 @@ const FIELDS = {
   Contractor: ['name', 'classification', 'trade', 'contact_person', 'phone', 'email', 'active', 'notes'],
   Discipline: ['name', 'code', 'sort_order', 'active', 'notes'],
   ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes'],
+  MeetingCommitment: [
+    'project_id', 'phase_id', 'contractor_id', 'task_id', 'meeting_date', 'commitment',
+    'responsible_person', 'promised_date', 'status', 'fulfilled_date', 'remarks',
+  ],
+  AiSettings: [
+    'enabled', 'allowed_roles', 'model', 'daily_request_limit', 'context_item_limit',
+    'instructions', 'notes',
+  ],
 };
 
 const MEMBERSHIP_ROLES = ['Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor', 'Viewer'];
 
-const PROJECT_SCOPED = ['Phase', 'Location', 'WorkPackage', 'ContractorDefault', 'ProjectMembership'];
+const PROJECT_SCOPED = ['Phase', 'Location', 'WorkPackage', 'ContractorDefault', 'ProjectMembership', 'MeetingCommitment'];
 
 const clientFor = (svc, name) =>
   ({
@@ -40,6 +48,8 @@ const clientFor = (svc, name) =>
     Contractor: svc.Contractor,
     Discipline: svc.Discipline,
     ProjectMembership: svc.ProjectMembership,
+    MeetingCommitment: svc.MeetingCommitment,
+    AiSettings: svc.AiSettings,
   })[name] || null;
 
 /**
@@ -81,9 +91,14 @@ export default async function (req) {
     let projectId = entityName === 'Project' ? existing?.id || '' : payload.project_id || existing?.project_id || '';
 
     /* ------------------------------------------------------------ permissions */
-    if (entityName === 'Contractor' || entityName === 'Discipline') {
+    if (entityName === 'Contractor' || entityName === 'Discipline' || entityName === 'AiSettings') {
       if (!appAdmin) {
-        throw fail('Only an application administrator can change company-wide lists.', 403);
+        throw fail(
+          entityName === 'AiSettings'
+            ? 'Only an application administrator can change the AI controls.'
+            : 'Only an application administrator can change company-wide lists.',
+          403,
+        );
       }
     } else if (entityName === 'Project') {
       if (action === 'create' || action === 'delete') {
@@ -141,6 +156,21 @@ export default async function (req) {
         // user_id is claimed by the person themselves the first time they sign in.
         payload.user_id = '';
       }
+      if (entityName === 'MeetingCommitment') {
+        if (!String(payload.commitment || '').trim()) throw fail('Record what was committed.');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.meeting_date || ''))) {
+          payload.meeting_date = new Date().toISOString().slice(0, 10);
+        }
+        const task = payload.task_id ? await getOne(svc.Task, payload.task_id) : null;
+        if (task && task.project_id !== projectId) throw fail('That task belongs to a different project.');
+        payload.task_id = task ? task.id : null;
+        payload.task_ref = task ? task.task_ref || '' : '';
+        if (task && !payload.phase_id) payload.phase_id = task.phase_id || null;
+        payload.status = ['Open', 'Fulfilled', 'Missed', 'Cancelled'].includes(payload.status) ? payload.status : 'Open';
+        payload.recorded_by_id = user.id;
+        payload.recorded_by_name = actorName(user);
+      }
+      if (entityName === 'AiSettings') payload.updated_by_name = actorName(user);
       if (entityName === 'Project') payload.code = String(payload.code || '').trim().toUpperCase();
 
       const created = await target.create(payload);

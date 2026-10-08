@@ -56,6 +56,18 @@ export async function resolveRank(base44, projectId, user) {
   return record ? rankForRole(record.role) : -1;
 }
 
+/** The caller's project role name, or '' when they have no active membership. */
+export async function resolveRole(base44, projectId, user) {
+  if (isAppAdmin(user)) return 'Application Admin';
+  if (!projectId || !user?.id) return '';
+  const res = await base44.asServiceRole.entities.ProjectMembership.filter(
+    { project_id: projectId, user_id: user.id, active: true },
+    { limit: 1 },
+  );
+  const record = (res?.items || res || [])[0];
+  return record?.role || '';
+}
+
 export async function activeMembers(base44, projectId) {
   const res = await base44.asServiceRole.entities.ProjectMembership.filter(
     { project_id: projectId, active: true },

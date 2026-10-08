@@ -58,23 +58,34 @@ export async function resolvePrefix(client, projectId, phaseId) {
 }
 
 /**
+ * The same project + phase prefix under a different kind, e.g. `SN-A-` for
+ * snags, so two kinds of record never share a number sequence.
+ */
+export async function resolveKindPrefix(client, projectId, phaseId, kind) {
+  const { prefix } = await resolvePrefix(client, projectId, phaseId);
+  const phaseCode = prefix.split('-').slice(-2, -1)[0] || 'GEN';
+  return `${codeOf(kind, 'REC')}-${phaseCode}-`;
+}
+
+/**
  * Every number already issued under a prefix: the ledger itself, the tasks
  * that still carry a reference (archived included) and the change trail of
  * tasks that have since been deleted. Reading all three is what makes a
  * previously issued reference survive the loss of its task record.
  */
-async function collectUsed(client, prefix, projectId) {
+async function collectUsed(client, prefix, projectId, scanTasks = true) {
   const pattern = `^${escapeRegex(prefix)}`;
   const [ledgerRes, taskRes, historyRes] = await Promise.all([
     client.entities.RefAllocation.filter({ prefix }, { limit: 5000, fields: ['sequence', 'task_ref'] }),
-    client.entities.Task.filter(
-      { task_ref: { $regex: pattern } },
-      { limit: 5000, fields: ['task_ref'] },
-    ),
-    client.entities.TaskHistory.filter(
-      { field_changed: 'task_ref', new_value: { $regex: pattern } },
-      { limit: 5000, fields: ['new_value'] },
-    ),
+    scanTasks
+      ? client.entities.Task.filter({ task_ref: { $regex: pattern } }, { limit: 5000, fields: ['task_ref'] })
+      : Promise.resolve([]),
+    scanTasks
+      ? client.entities.TaskHistory.filter(
+        { field_changed: 'task_ref', new_value: { $regex: pattern } },
+        { limit: 5000, fields: ['new_value'] },
+      )
+      : Promise.resolve([]),
   ]);
 
   const used = new Set();
@@ -170,8 +181,10 @@ async function claimBlock(client, prefix, claimId, start, count, meta) {
  * Work uses this for its parent and every child in one go.
  */
 export async function allocateTaskRefs(client, projectId, phaseId, count = 1, options = {}) {
-  const { prefix } = await resolvePrefix(client, projectId, phaseId);
-  const { max } = await collectUsed(client, prefix, projectId);
+  const { prefix } = options.prefix
+    ? { prefix: options.prefix }
+    : await resolvePrefix(client, projectId, phaseId);
+  const { max } = await collectUsed(client, prefix, projectId, !options.prefix);
 
   const meta = {
     project_id: projectId,
