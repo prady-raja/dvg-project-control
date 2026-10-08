@@ -1,0 +1,225 @@
+{
+  "name": "Task",
+  "type": "object",
+  "properties": {
+    "task_ref": {
+      "type": "string",
+      "description": "Permanent reference, e.g. IMG-A-0001"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "location_id": {
+      "type": "string"
+    },
+    "discipline": {
+      "type": "string",
+      "description": "Discipline code"
+    },
+    "work_package": {
+      "type": "string"
+    },
+    "parent_task_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "Low",
+        "Medium",
+        "High",
+        "Critical"
+      ],
+      "default": "Medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Not Started",
+        "In Progress",
+        "Blocked",
+        "Execution Complete",
+        "Under Inspection",
+        "Approved",
+        "Closed"
+      ],
+      "default": "Not Started"
+    },
+    "contractor_id": {
+      "type": "string"
+    },
+    "responsible_engineer": {
+      "type": "string"
+    },
+    "progress_percent": {
+      "type": "number",
+      "description": "Leave blank when progress is unknown"
+    },
+    "planned_quantity": {
+      "type": "number"
+    },
+    "completed_quantity": {
+      "type": "number"
+    },
+    "measurement_unit": {
+      "type": "string"
+    },
+    "baseline_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "baseline_finish": {
+      "type": "string",
+      "format": "date"
+    },
+    "baseline_approval_status": {
+      "type": "string",
+      "enum": [
+        "Not Submitted",
+        "Submitted",
+        "Approved",
+        "Rejected"
+      ],
+      "default": "Not Submitted"
+    },
+    "current_forecast_finish": {
+      "type": "string",
+      "format": "date"
+    },
+    "actual_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "actual_finish": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_revision_reason": {
+      "type": "string"
+    },
+    "planned_manpower": {
+      "type": "number"
+    },
+    "actual_manpower": {
+      "type": "number"
+    },
+    "estimated_manhours": {
+      "type": "number"
+    },
+    "actual_manhours": {
+      "type": "number"
+    },
+    "supplied_by": {
+      "type": "string",
+      "enum": [
+        "DVG",
+        "Contractor",
+        "Client"
+      ]
+    },
+    "selection_status": {
+      "type": "string",
+      "enum": [
+        "Not Required",
+        "Pending Selection",
+        "Selected"
+      ],
+      "default": "Not Required"
+    },
+    "procurement_status": {
+      "type": "string",
+      "enum": [
+        "Not Required",
+        "To Order",
+        "Ordered",
+        "Delivered",
+        "Installed"
+      ],
+      "default": "Not Required"
+    },
+    "expected_delivery_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "owner_access_required": {
+      "type": "string",
+      "enum": [
+        "Yes",
+        "No"
+      ],
+      "default": "No"
+    },
+    "access_status": {
+      "type": "string",
+      "enum": [
+        "Not Required",
+        "Pending",
+        "Confirmed",
+        "Denied"
+      ],
+      "default": "Not Required"
+    },
+    "blocker_category": {
+      "type": "string",
+      "enum": [
+        "Previous Work Incomplete",
+        "Materials Pending",
+        "Client Selection Pending",
+        "Owner Access Pending",
+        "Drawing / Design Clarification",
+        "Contractor Manpower",
+        "DVG Approval",
+        "External Utility / Authority",
+        "Other"
+      ]
+    },
+    "blocker_description": {
+      "type": "string"
+    },
+    "blocker_responsible_party": {
+      "type": "string"
+    },
+    "blocked_since": {
+      "type": "string",
+      "format": "date"
+    },
+    "remarks": {
+      "type": "string"
+    },
+    "latest_update": {
+      "type": "string"
+    },
+    "attachment_ref": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "updated_by_name": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "task_ref",
+    "project_id",
+    "discipline",
+    "name"
+  ]
+}

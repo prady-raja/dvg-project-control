@@ -1,0 +1,41 @@
+{
+  "name": "TaskDependency",
+  "type": "object",
+  "description": "Structure only in Step 1A - dependency workflows are built in a later step.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "predecessor_task_id": {
+      "type": "string"
+    },
+    "successor_task_id": {
+      "type": "string"
+    },
+    "dependency_type": {
+      "type": "string",
+      "enum": [
+        "Finish to Start",
+        "Start to Start",
+        "Finish to Finish",
+        "Start to Finish"
+      ],
+      "default": "Finish to Start"
+    },
+    "lag_days": {
+      "type": "number",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "predecessor_task_id",
+    "successor_task_id"
+  ]
+}

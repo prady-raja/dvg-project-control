@@ -1,0 +1,38 @@
+{
+  "name": "TaskHistory",
+  "type": "object",
+  "description": "Structure only in Step 1A - audit capture is enforced in a later step.",
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "change_type": {
+      "type": "string"
+    },
+    "field_changed": {
+      "type": "string"
+    },
+    "old_value": {
+      "type": "string"
+    },
+    "new_value": {
+      "type": "string"
+    },
+    "changed_by_name": {
+      "type": "string"
+    },
+    "changed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id"
+  ]
+}

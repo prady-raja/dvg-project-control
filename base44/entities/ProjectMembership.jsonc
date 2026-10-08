@@ -1,0 +1,40 @@
+{
+  "name": "ProjectMembership",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "Project Admin",
+        "Project Manager",
+        "Site Engineer",
+        "Supervisor",
+        "Viewer"
+      ],
+      "default": "Site Engineer"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "role"
+  ]
+}

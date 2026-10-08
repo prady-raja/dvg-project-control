@@ -1,0 +1,78 @@
+{
+  "name": "Location",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "villa_code": {
+      "type": "string",
+      "description": "Permanent physical ID, e.g. A-01 or B-05-06"
+    },
+    "location_type": {
+      "type": "string",
+      "enum": [
+        "Villa",
+        "Common Area",
+        "Infrastructure",
+        "Project-wide"
+      ],
+      "default": "Villa"
+    },
+    "plot_numbers": {
+      "type": "string",
+      "description": "Original plot references, stored separately from the villa ID"
+    },
+    "possession_status": {
+      "type": "string",
+      "enum": [
+        "Handed Over",
+        "Not Handed Over"
+      ],
+      "default": "Not Handed Over"
+    },
+    "possession_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "works_stage": {
+      "type": "string",
+      "enum": [
+        "Not Started",
+        "Under Construction",
+        "Works Pending",
+        "Completed"
+      ],
+      "default": "Not Started"
+    },
+    "active_status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "On Hold"
+      ],
+      "default": "Active"
+    },
+    "planned_completion_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "assigned_engineer": {
+      "type": "string"
+    },
+    "sort_order": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "villa_code",
+    "location_type"
+  ]
+}

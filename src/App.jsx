@@ -1,12 +1,29 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import AppLayout from '@/components/layout/AppLayout';
 // Add page imports here
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import Projects from '@/pages/Projects';
+import ProjectDetail from '@/pages/ProjectDetail';
+import Locations from '@/pages/Locations';
+import LocationDetail from '@/pages/LocationDetail';
+import TaskRegister from '@/pages/TaskRegister';
+import TaskEditor from '@/pages/TaskEditor';
+import TaskDetail from '@/pages/TaskDetail';
+import Contractors from '@/pages/Contractors';
+import ContractorDetail from '@/pages/ContractorDetail';
+import Admin from '@/pages/Admin';
+import Access from '@/pages/Access';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -34,7 +51,28 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Projects />} />
+          <Route path="/projects/:projectId" element={<ProjectDetail />} />
+          <Route path="/locations" element={<Locations />} />
+          <Route path="/locations/:locationId" element={<LocationDetail />} />
+          <Route path="/tasks" element={<TaskRegister />} />
+          <Route path="/tasks/new" element={<TaskEditor />} />
+          <Route path="/tasks/:taskId" element={<TaskDetail />} />
+          <Route path="/tasks/:taskId/edit" element={<TaskEditor />} />
+          <Route path="/contractors" element={<Contractors />} />
+          <Route path="/contractors/:contractorId" element={<ContractorDetail />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/access" element={<Access />} />
+        </Route>
+      </Route>
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

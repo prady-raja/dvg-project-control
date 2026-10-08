@@ -1,0 +1,39 @@
+{
+  "name": "Phase",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string",
+      "description": "Short code used in task references, e.g. A or B"
+    },
+    "planned_villa_count": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Not Started",
+        "Active",
+        "On Hold",
+        "Completed"
+      ],
+      "default": "Not Started"
+    },
+    "sort_order": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "name"
+  ]
+}

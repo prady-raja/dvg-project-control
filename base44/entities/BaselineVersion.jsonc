@@ -1,0 +1,42 @@
+{
+  "name": "BaselineVersion",
+  "type": "object",
+  "description": "Structure only in Step 1A - baseline approval workflow is built in Step 1B.",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "version_number": {
+      "type": "number"
+    },
+    "name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Draft",
+        "Submitted",
+        "Approved",
+        "Superseded"
+      ],
+      "default": "Draft"
+    },
+    "approved_by_name": {
+      "type": "string"
+    },
+    "approved_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id"
+  ]
+}

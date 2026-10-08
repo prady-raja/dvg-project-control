@@ -1,0 +1,32 @@
+{
+  "name": "ContractorDefault",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string",
+      "description": "Leave blank to apply to every phase of the project"
+    },
+    "discipline": {
+      "type": "string",
+      "description": "Discipline code"
+    },
+    "contractor_id": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "discipline",
+    "contractor_id"
+  ]
+}

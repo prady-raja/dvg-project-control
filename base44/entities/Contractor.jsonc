@@ -1,0 +1,41 @@
+{
+  "name": "Contractor",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "Internal Execution Team",
+        "External Contractor"
+      ],
+      "default": "External Contractor"
+    },
+    "trade": {
+      "type": "string",
+      "description": "Principal discipline handled, e.g. Finishes"
+    },
+    "contact_person": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "classification"
+  ]
+}
