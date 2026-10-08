@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, ArrowRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCatalogs } from '@/lib/CatalogContext';
-import { rows } from '@/lib/dataHelpers';
 import PageHeader from '@/components/common/PageHeader';
 import Pill from '@/components/common/Pill';
 import { Metric } from '@/components/common/Metric';
@@ -23,33 +22,43 @@ export default function ProjectDetail() {
   const phases = cat.phasesFor(projectId);
   const commonLocations = cat.locations.filter((l) => l.project_id === projectId && l.location_type !== 'Villa');
 
+  const phaseKey = cat.phasesFor(projectId).map((p) => p.id).join(',');
+
   const loadCounts = useCallback(async () => {
     if (!projectId) return;
-    const [registered, onHold] = await Promise.all([
-      base44.entities.Location.aggregate({
-        query: { project_id: projectId, location_type: 'Villa' },
-        groupBy: 'phase_id',
-      }),
-      base44.entities.Location.aggregate({
-        query: { project_id: projectId, location_type: 'Villa', active_status: 'On Hold' },
-        groupBy: 'phase_id',
-      }),
-    ]);
-    const map = {};
-    rows(registered).forEach((r) => {
-      map[r.phase_id] = { registered: r.count || 0, onHold: 0, active: r.count || 0 };
-    });
-    rows(onHold).forEach((r) => {
-      if (!map[r.phase_id]) map[r.phase_id] = { registered: 0, onHold: 0, active: 0 };
-      map[r.phase_id].onHold = r.count || 0;
-      map[r.phase_id].active = Math.max(0, map[r.phase_id].registered - (r.count || 0));
-    });
-    setPhaseCounts(map);
-  }, [projectId]);
+    try {
+      const phaseList = cat.phasesFor(projectId);
+      const entries = await Promise.all(
+        phaseList.map(async (phase) => {
+          const [registered, onHold] = await Promise.all([
+            base44.entities.Location.count({ project_id: projectId, phase_id: phase.id, location_type: 'Villa' }),
+            base44.entities.Location.count({
+              project_id: projectId,
+              phase_id: phase.id,
+              location_type: 'Villa',
+              active_status: 'On Hold',
+            }),
+          ]);
+          const total = registered || 0;
+          const held = onHold || 0;
+          return [phase.id, { registered: total, onHold: held, active: Math.max(0, total - held) }];
+        }),
+      );
+      const map = {};
+      entries.forEach(([id, value]) => {
+        map[id] = value;
+      });
+      setPhaseCounts(map);
+    } catch {
+      // Keep the last known figures rather than briefly showing zeroes.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, phaseKey]);
 
   useEffect(() => {
+    if (cat.loading) return;
     loadCounts();
-  }, [loadCounts, cat.locations.length]);
+  }, [cat.loading, cat.locations.length, loadCounts]);
 
   if (cat.loading) {
     return <Skeleton className="h-96 rounded-xl" />;
@@ -68,6 +77,8 @@ export default function ProjectDetail() {
 
   const totalPlanned =
     phases.reduce((sum, p) => sum + (Number(p.planned_villa_count) || 0), 0) || project.planned_villa_count || 0;
+  const registeredTotal = phases.reduce((sum, p) => sum + ((phaseCounts[p.id] || {}).registered || 0), 0);
+  const onHoldTotal = phases.reduce((sum, p) => sum + ((phaseCounts[p.id] || {}).onHold || 0), 0);
 
   return (
     <>
@@ -102,12 +113,8 @@ export default function ProjectDetail() {
       <div className="grid gap-4 sm:grid-cols-4">
         <Metric label="Planned villas" value={totalPlanned || '—'} />
         <Metric label="Phases" value={phases.length} />
-        <Metric label="Registered villas" value={cat.villasFor(projectId).length} />
-        <Metric
-          label="On hold"
-          value={cat.villasFor(projectId).filter((v) => v.active_status === 'On Hold').length}
-          tone={cat.villasFor(projectId).some((v) => v.active_status === 'On Hold') ? 'danger' : 'muted'}
-        />
+        <Metric label="Registered villas" value={registeredTotal} />
+        <Metric label="On hold" value={onHoldTotal} tone={onHoldTotal ? 'danger' : 'muted'} />
       </div>
 
       <section className="mt-8">
@@ -123,7 +130,7 @@ export default function ProjectDetail() {
             {phases.map((phase) => {
               const stats = phaseCounts[phase.id] || { registered: 0, active: 0, onHold: 0 };
               return (
-                <article key={phase.id} className="rounded-xl border border-border bg-card p-5">
+                <article key={phase.id} className="min-w-0 rounded-xl border border-border bg-card p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">

@@ -3,7 +3,6 @@ import { Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
-import { rows } from '@/lib/dataHelpers';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import ProjectCard from '@/components/projects/ProjectCard';
@@ -19,32 +18,39 @@ export default function Projects() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  const projectKey = cat.projects.map((p) => p.id).join(',');
+
   const loadCounts = useCallback(async () => {
-    const [registered, onHold] = await Promise.all([
-      base44.entities.Location.aggregate({ query: { location_type: 'Villa' }, groupBy: 'project_id' }),
-      base44.entities.Location.aggregate({
-        query: { location_type: 'Villa', active_status: 'On Hold' },
-        groupBy: 'project_id',
-      }),
-    ]);
-    const map = {};
-    rows(registered).forEach((r) => {
-      map[r.project_id] = { registered: r.count || 0, onHold: 0, active: r.count || 0 };
-    });
-    rows(onHold).forEach((r) => {
-      if (!map[r.project_id]) map[r.project_id] = { registered: 0, onHold: 0, active: 0 };
-      map[r.project_id].onHold = r.count || 0;
-      map[r.project_id].active = Math.max(0, map[r.project_id].registered - (r.count || 0));
-    });
-    setCounts(map);
-  }, []);
+    try {
+      const entries = await Promise.all(
+        cat.projects.map(async (project) => {
+          const [registered, onHold] = await Promise.all([
+            base44.entities.Location.count({ project_id: project.id, location_type: 'Villa' }),
+            base44.entities.Location.count({
+              project_id: project.id,
+              location_type: 'Villa',
+              active_status: 'On Hold',
+            }),
+          ]);
+          const total = registered || 0;
+          const held = onHold || 0;
+          return [project.id, { registered: total, onHold: held, active: Math.max(0, total - held) }];
+        }),
+      );
+      const map = {};
+      entries.forEach(([id, value]) => {
+        map[id] = value;
+      });
+      setCounts(map);
+    } catch {
+      // Keep the last known figures rather than briefly showing zeroes.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectKey]);
 
   useEffect(() => {
+    if (cat.loading) return;
     loadCounts();
-  }, [loadCounts]);
-
-  useEffect(() => {
-    if (!cat.loading) loadCounts();
   }, [cat.loading, cat.locations.length, loadCounts]);
 
   // Step 1A is a private development build: every signed-in user may edit configuration.
