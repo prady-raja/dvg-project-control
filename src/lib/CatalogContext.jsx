@@ -36,8 +36,14 @@ export function CatalogProvider({ children }) {
         base44.entities.WorkPackage.filter({}, { sort: 'sort_order', limit: 1000 }),
         base44.entities.ContractorDefault.filter({}, { limit: 1000 }),
       ]);
+    // A project under execution leads the list (and is the default scope of every
+    // dashboard); a project still in planning has no work to report yet.
+    const ordered = [...items(projects)].sort(
+      (a, b) => (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1)
+        || String(a.name || '').localeCompare(String(b.name || '')),
+    );
     setData({
-      projects: items(projects),
+      projects: ordered,
       phases: items(phases),
       locations: items(locations),
       contractors: items(contractors),
