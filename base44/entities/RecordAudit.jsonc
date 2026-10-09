@@ -1,0 +1,79 @@
+{
+  "name": "RecordAudit",
+  "type": "object",
+  "description": "The change trail for records that are not tasks, villas and locations today. One row per genuinely changed field, with the stored before value and the validated after value. Written only by trusted server-side operations, so an edit cannot be made without leaving a record of who made it, what it was, and when.",
+  "properties": {
+    "entity_name": {
+      "type": "string",
+      "description": "The record type this row belongs to, e.g. Location"
+    },
+    "record_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "change_type": {
+      "type": "string",
+      "description": "Record Created, Field Change, Status Change, Identity or Placement"
+    },
+    "field_changed": {
+      "type": "string"
+    },
+    "old_value": {
+      "type": "string"
+    },
+    "new_value": {
+      "type": "string"
+    },
+    "changed_by_id": {
+      "type": "string"
+    },
+    "changed_by_name": {
+      "type": "string"
+    },
+    "changed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "note": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": [
+    "entity_name",
+    "record_id"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.member_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    },
+    "delete": false
+  }
+}
