@@ -164,53 +164,115 @@ export default async function (req) {
       const approvedAt = new Date().toISOString();
       const snapshot = version.snapshot || [];
 
-      // Supersede any other approved version of this phase — never overwrite it.
+      // Superseding an approved version — never rewriting it — is the only way an
+      // approved baseline is replaced, and a revision that replaces one must say why.
       const others = (await phaseVersions(svc, projectId, phaseId)).filter(
         (v) => v.status === 'Approved' && v.id !== version.id,
       );
-      for (const other of others) {
-        await svc.BaselineVersion.update(other.id, { status: 'Superseded' });
+      if (others.length && !String(version.reason || '').trim()) {
+        throw fail('A baseline revision needs a reason before it can be approved.');
       }
 
-      const approved = await svc.BaselineVersion.update(version.id, {
-        status: 'Approved',
-        approved_by_id: user.id,
-        approved_by_name: actorName(user),
-        approved_at: approvedAt,
-        approved_date: todayIst(),
-        member_ids: memberIds,
-      });
+      // The dates are frozen onto the covered tasks first, and the version it
+      // replaces stays approved and active until that has fully succeeded. A failure
+      // here rolls back the dates it wrote, so the committed programme is untouched.
+      const restore = [];
+      try {
+        for (const item of snapshot) {
+          if (!item.task_id) continue;
+          const covered = await getOne(svc.Task, item.task_id);
+          if (!covered) continue;
+          restore.push({
+            id: covered.id,
+            baseline_start: covered.baseline_start || null,
+            baseline_finish: covered.baseline_finish || null,
+            baseline_approval_status: covered.baseline_approval_status || null,
+            baseline_locked: covered.baseline_locked === true,
+            baseline_version_id: covered.baseline_version_id || null,
+          });
+          await svc.Task.update(covered.id, {
+            baseline_start: item.baseline_start || null,
+            baseline_finish: item.baseline_finish || null,
+            baseline_approval_status: 'Approved',
+            baseline_locked: true,
+            baseline_version_id: version.id,
+          });
+        }
+      } catch (error) {
+        for (const row of restore) {
+          await svc.Task.update(row.id, {
+            baseline_start: row.baseline_start,
+            baseline_finish: row.baseline_finish,
+            baseline_approval_status: row.baseline_approval_status,
+            baseline_locked: row.baseline_locked,
+            baseline_version_id: row.baseline_version_id,
+          });
+        }
+        throw fail(
+          `The revision could not be applied and was rolled back, so the previously approved baseline is still the active one. Nothing was superseded. (${error.message})`,
+          500,
+        );
+      }
 
-      // Freeze the dates onto the covered tasks and lock them.
-      const historyRows = [];
-      for (const item of snapshot) {
-        if (!item.task_id) continue;
-        await svc.Task.update(item.task_id, {
-          baseline_start: item.baseline_start || null,
-          baseline_finish: item.baseline_finish || null,
-          baseline_approval_status: 'Approved',
-          baseline_locked: true,
-          baseline_version_id: approved.id,
-        });
-        historyRows.push({
-          task_id: item.task_id,
-          project_id: projectId,
+      // Only now: the version being replaced is superseded (its snapshot stays
+      // exactly as approved) and this version becomes the active one.
+      const superseded = [];
+      try {
+        for (const other of others) {
+          await svc.BaselineVersion.update(other.id, { status: 'Superseded' });
+          superseded.push(other.id);
+        }
+
+        const approved = await svc.BaselineVersion.update(version.id, {
+          status: 'Approved',
+          approved_by_id: user.id,
+          approved_by_name: actorName(user),
+          approved_at: approvedAt,
+          approved_date: todayIst(),
           member_ids: memberIds,
-          change_type: 'Baseline Approved',
-          field_changed: 'baseline',
-          old_value: '',
-          new_value: `v${approved.version_number || ''} ${item.baseline_start || '—'} → ${item.baseline_finish || '—'}`,
-          changed_by_id: user.id,
-          changed_by_name: actorName(user),
-          changed_at: approvedAt,
-          note: version.previous_baseline_version_id
-            ? `Rebaselined from version ${approved.previous_baseline_version_id}`
-            : 'First approved baseline',
         });
-      }
-      if (historyRows.length) await svc.TaskHistory.bulkCreate(historyRows);
 
-      return Response.json({ baseline: approved, versions: await phaseVersions(svc, projectId, phaseId) });
+        const coveredIds = new Set(restore.map((row) => row.id));
+        const historyRows = snapshot
+          .filter((item) => item.task_id && coveredIds.has(item.task_id))
+          .map((item) => ({
+            task_id: item.task_id,
+            project_id: projectId,
+            member_ids: memberIds,
+            change_type: 'Baseline Approved',
+            field_changed: 'baseline',
+            old_value: '',
+            new_value: `v${approved.version_number || ''} ${item.baseline_start || '—'} → ${item.baseline_finish || '—'}`,
+            changed_by_id: user.id,
+            changed_by_name: actorName(user),
+            changed_at: approvedAt,
+            note: version.previous_baseline_version_id
+              ? `Rebaselined from version ${version.previous_baseline_version_id}. Reason: ${version.reason || '—'}`
+              : 'First approved baseline',
+          }));
+        if (historyRows.length) await svc.TaskHistory.bulkCreate(historyRows);
+
+        return Response.json({ baseline: approved, versions: await phaseVersions(svc, projectId, phaseId) });
+      } catch (error) {
+        // Nothing may sit between two baselines: the version being replaced is put
+        // back as the active one and the dates it held are restored.
+        for (const otherId of superseded) {
+          await svc.BaselineVersion.update(otherId, { status: 'Approved' });
+        }
+        for (const row of restore) {
+          await svc.Task.update(row.id, {
+            baseline_start: row.baseline_start,
+            baseline_finish: row.baseline_finish,
+            baseline_approval_status: row.baseline_approval_status,
+            baseline_locked: row.baseline_locked,
+            baseline_version_id: row.baseline_version_id,
+          });
+        }
+        throw fail(
+          `The revision could not be activated and was rolled back. The previously approved baseline is still the active one. (${error.message})`,
+          500,
+        );
+      }
     }
 
     if (action === 'rebaseline') {
@@ -221,7 +283,29 @@ export default async function (req) {
       const approved = all.find((v) => v.status === 'Approved');
       if (!approved) throw fail('There is no approved baseline to rebaseline from.');
 
-      const snapshot = await snapshotPhase(svc, projectId, phaseId);
+      // The dates the revision proposes. They are recorded on the new version only:
+      // nothing moves on the covered tasks, and the approved baseline stays the
+      // active one, until this version has been approved.
+      const current = await snapshotPhase(svc, projectId, phaseId);
+      const readDate = (value) => (/^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : null);
+      const proposed = new Map(
+        (Array.isArray(body?.dates) ? body.dates : [])
+          .map((entry) => [String(entry?.task_id || ''), entry])
+          .filter(([taskId]) => taskId),
+      );
+      const snapshot = current.map((item) => {
+        const change = proposed.get(item.task_id);
+        if (!change) return item;
+        return {
+          ...item,
+          baseline_start: Object.prototype.hasOwnProperty.call(change, 'baseline_start')
+            ? readDate(change.baseline_start)
+            : item.baseline_start,
+          baseline_finish: Object.prototype.hasOwnProperty.call(change, 'baseline_finish')
+            ? readDate(change.baseline_finish)
+            : item.baseline_finish,
+        };
+      });
       const created = await svc.BaselineVersion.create({
         project_id: projectId,
         phase_id: phaseId,

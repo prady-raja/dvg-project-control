@@ -17,7 +17,15 @@
  */
 
 import { diffFields, TASK_FIELDS, writeTaskHistory } from './history.ts';
-import { deriveTaskEffects, guardTaskChanges } from './taskWriteRules.ts';
+import {
+  blockedStateFor,
+  COMPLETION_NOTE,
+  deriveTaskEffects,
+  FILE_FORBIDDEN_STATUSES,
+  guardTaskChanges,
+  REPORTED_COMPLETE_STATUS,
+} from './taskWriteRules.ts';
+import { cleanText } from './workImport.ts';
 import { actorName } from './records.ts';
 import { changeSetFor, EDITABLE_FIELDS, FORECAST_FIELD, RECONCILE_FIELDS } from './reconcile.ts';
 
@@ -79,7 +87,43 @@ export async function applyTaskUpdate({
     };
   }
 
+  // Approved or closed work is never altered by a work list: a file is not an
+  // authorised approval workflow. The row is flagged for a person to handle.
+  if (['Approved', 'Closed'].includes(String(fresh.status || ''))) {
+    return {
+      outcome: 'failed',
+      note: `This task is ${fresh.status}. A work list does not change approved or closed work — raise the change through the task editor or a baseline revision, where it is authorised and recorded.`,
+      changed: [],
+    };
+  }
+
   const { patch, cleared } = buildPatch({ row, task: fresh, edits });
+
+  // The blocker requirements and the date the work was first blocked follow the
+  // same rule as the editor and the daily report.
+  const blocked = blockedStateFor({ task: fresh, next: patch });
+  Object.assign(patch, blocked.patch);
+
+  // A file may report work done; it may never approve it, close it or move it into
+  // inspection. Those steps belong to an authorised person acting on the task.
+  const nextStatus = String(patch.status || '');
+  if (FILE_FORBIDDEN_STATUSES.includes(nextStatus)) {
+    return {
+      outcome: 'failed',
+      note: `A work list cannot move work into ${nextStatus}. The row is left for an authorised person: the reported completion is verified first, and then a different authorised person approves or closes it.`,
+      changed: [],
+    };
+  }
+  const importedCompletion = nextStatus === REPORTED_COMPLETE_STATUS
+    && String(fresh.status || '') !== REPORTED_COMPLETE_STATUS;
+  if (importedCompletion) {
+    // Reported as done by whoever wrote the sheet: the source wording is kept, no
+    // completion actor is recorded, and approval waits for verification.
+    patch.needs_completion_verification = true;
+    patch.source_status = cleanText(row.values.status) || nextStatus;
+    patch.latest_update = COMPLETION_NOTE;
+  }
+
   const entries = diffFields(fresh, patch, TASK_FIELDS);
   if (!entries.length) {
     return { outcome: 'unchanged', note: 'The record already held these values — nothing was written.', changed: [] };
@@ -91,7 +135,7 @@ export async function applyTaskUpdate({
   // The same permission, baseline and approval rules as the task editor.
   guardTaskChanges({ task: fresh, entries, rank, user, reason });
 
-  const effects = deriveTaskEffects({ task: fresh, entries, user });
+  const effects = deriveTaskEffects({ task: fresh, entries, user, importedCompletion });
   const write = {};
   entries.forEach((entry) => {
     write[entry.field_changed] = entry.new_value;
@@ -100,6 +144,12 @@ export async function applyTaskUpdate({
   // The reason for moving a forecast date travels with the task as well as into
   // the audit trail, so the record always shows why its forecast last moved.
   if (forecastChanged && reason) write.date_revision_reason = reason;
+  // A reported completion is stamped on the task itself: the file's own word is
+  // kept, and the completion is marked as waiting to be verified.
+  if (importedCompletion) {
+    write.needs_completion_verification = true;
+    write.source_status = String(patch.source_status || '');
+  }
   write.updated_by_name = actorName(user);
   if (memberIds) write.member_ids = memberIds;
 
@@ -125,6 +175,15 @@ export async function applyTaskUpdate({
         new_value: batchRef,
         note: `Agreed change from ${fileName} — row ${row.row_number}. Cleared: ${cleared.join(', ') || 'nothing'}`,
       },
+      ...(importedCompletion
+        ? [{
+          change_type: 'Import Completion Reported',
+          field_changed: 'status',
+          old_value: String(fresh.status || ''),
+          new_value: REPORTED_COMPLETE_STATUS,
+          note: `${COMPLETION_NOTE} — reported in ${fileName}, so no completion actor is recorded and approval needs a different authorised person after verification.`,
+        }]
+        : []),
     ],
   });
 

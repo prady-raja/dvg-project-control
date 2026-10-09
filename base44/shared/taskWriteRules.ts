@@ -235,11 +235,10 @@ export function guardTaskChanges({ task, entries, rank, user, reason }) {
 }
 
 /** A new task may not be born completed, approved or closed. */
-export function guardTaskCreation({ changes, rank, user }) {
-  guardStatusSequence(null, null, { isCreate: true, status: changes && changes.status });
+export function guardTaskCreation({ changes }) {
+  const status = String((changes && changes.status) || 'Not Started');
+  guardStatusSequence(null, [{ field_changed: 'status', old_value: null, new_value: status }], { isCreate: true });
   blockedStateFor({ task: null, next: changes || {}, isCreate: true });
-  void rank;
-  void user;
 }
 
 /* ----------------------------------------------------- who did what, stamped */

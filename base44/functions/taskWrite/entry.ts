@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import {
   activeMembers,
+  canApproveWork,
   canEditTasks,
   canManageProject,
   memberIdsOf,
@@ -14,7 +15,12 @@ import {
   writeTaskHistory,
 } from '../../shared/history.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
-import { deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
+import {
+  blockedStateFor,
+  deriveTaskEffects,
+  guardTaskChanges,
+  guardTaskCreation,
+} from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne, listAll, pick } from '../../shared/records.ts';
 import { describeScope } from '../../shared/villaAreas.ts';
 
@@ -110,11 +116,29 @@ export default async function (req) {
       });
       const taskRef = claim.ref;
 
+      // A task cannot be born completed, approved or closed, and a blocked task must
+      // say what is holding it up — the same shared rules the editor and the daily
+      // report obey, applied to an administrator's own creation just as tightly.
+      guardTaskCreation({ changes });
+      const openingBlocked = blockedStateFor({ task: null, next: changes, isCreate: true });
+
       const payload = pick(changes, TASK_FIELDS);
       payload.project_id = projectId;
       payload.phase_id = phaseId;
       payload.location_id = locationId;
       payload.status = payload.status || 'Not Started';
+      Object.assign(payload, openingBlocked.patch);
+      // A frozen baseline is created by the baseline workflow, never by a screen.
+      payload.baseline_approval_status = 'Not Submitted';
+      payload.baseline_locked = false;
+      payload.baseline_version_id = null;
+      // A reported completion and its verification are recorded on the task itself,
+      // never claimed at creation.
+      payload.needs_completion_verification = false;
+      payload.source_status = null;
+      payload.completion_verified_by_id = null;
+      payload.completion_verified_by_name = null;
+      payload.completion_verified_at = null;
       payload.task_ref = taskRef;
       payload.created_by_name = actorName(user);
       payload.updated_by_name = actorName(user);
@@ -211,6 +235,12 @@ export default async function (req) {
         changes.scope_type = scope?.scope_type || (locationId && locationType === 'Villa' ? 'Entire Villa' : 'Site-wide');
       }
 
+      // Blocked work always states what is holding it up and since when: the shared
+      // rule sets the date once, keeps the original while it stays blocked, and
+      // clears the blocker when the work moves on.
+      const blocked = blockedStateFor({ task, next: changes });
+      Object.assign(changes, blocked.patch);
+
       const entries = diffFields(task, changes, TASK_FIELDS);
       // A reason must accompany THIS revision — one recorded earlier does not
       // authorise a later date change.
@@ -251,6 +281,58 @@ export default async function (req) {
       });
 
       return Response.json({ task: updated, changed: entries.length });
+    }
+
+    /*
+     * Verifying a completion that a source file reported. The work was reported
+     * done by whoever wrote the sheet, so no completion actor was recorded; the
+     * person who verifies it is recorded separately, and approval or closure then
+     * needs a different authorised person.
+     */
+    if (action === 'verify_completion') {
+      const id = String(body?.id || '');
+      const task = await getOne(svc.Task, id);
+      if (!task) throw fail('Task not found.', 404);
+
+      const rank = await resolveRank(base44, task.project_id, user);
+      if (!canApproveWork(rank)) {
+        throw fail('Only a Project Editor or an administrator can verify a reported completion.', 403);
+      }
+      if (task.needs_completion_verification !== true) {
+        throw fail('This completion is already verified, so there is nothing left to verify.');
+      }
+      if (!['Execution Complete', 'Under Inspection', 'Approved'].includes(String(task.status || ''))) {
+        throw fail(`This task is ${task.status}, so there is no reported completion waiting to be verified.`);
+      }
+
+      const memberIds = memberIdsOf(await activeMembers(base44, task.project_id));
+      const verifiedAt = new Date().toISOString();
+      const updated = await svc.Task.update(id, {
+        needs_completion_verification: false,
+        completion_verified_by_id: user.id,
+        completion_verified_by_name: actorName(user),
+        completion_verified_at: verifiedAt,
+        updated_by_name: actorName(user),
+        member_ids: memberIds,
+      });
+
+      await writeTaskHistory(base44, {
+        task,
+        projectId: task.project_id,
+        memberIds,
+        user,
+        extra: [
+          {
+            change_type: 'Completion Verification',
+            field_changed: 'needs_completion_verification',
+            old_value: 'true',
+            new_value: 'false',
+            note: `Reported completion verified by ${actorName(user)}. The source file reported “${task.source_status || task.status}”; that wording is kept as provenance. Approval or closure now needs a different authorised person.`,
+          },
+        ],
+      });
+
+      return Response.json({ task: updated });
     }
 
     if (action === 'archive' || action === 'restore') {

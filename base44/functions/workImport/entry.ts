@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { secrets } from 'base44:runtime';
 import { activeMembers, canManageProject, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { createdHistoryRows } from '../../shared/history.ts';
+import { COMPLETION_NOTE } from '../../shared/taskWriteRules.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import {
@@ -479,6 +480,26 @@ export default async function (req) {
             note: `Imported from ${fileName} (batch ${batchRef})`,
           });
           if (createdRows.length) await svc.TaskHistory.bulkCreate(createdRows);
+
+          // A reported completion carries its own trail row: the source's own word,
+          // the operational status, and the fact that nobody in this session claims
+          // to have done the work.
+          const reported = created.filter((task) => task.needs_completion_verification === true);
+          if (reported.length) {
+            await svc.TaskHistory.bulkCreate(reported.map((task) => ({
+              task_id: task.id,
+              project_id: projectId,
+              member_ids: memberIds,
+              change_type: 'Import Completion Reported',
+              field_changed: 'status',
+              old_value: task.source_status || '',
+              new_value: `${task.status} — ${COMPLETION_NOTE}`,
+              changed_by_id: user.id,
+              changed_by_name: actorName(user),
+              changed_at: new Date().toISOString(),
+              note: `The source file reports this work complete. Imported as ${task.status}; the completion must be verified by an authorised person, and approved or closed by a different one.`,
+            })));
+          }
 
           if (corrections.length) {
             await svc.TaskHistory.bulkCreate(

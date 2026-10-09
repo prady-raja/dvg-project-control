@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
-import { deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
+import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
 
 /**
@@ -130,7 +130,6 @@ export default async function (req) {
       changes.blocker_category = blockerCategory;
       changes.blocker_description = blockerDescription;
       changes.blocker_responsible_party = blockerResponsible;
-      changes.blocked_since = task.blocked_since || updateDate;
     }
     if (blockerCleared) {
       changes.blocker_category = null;
@@ -138,6 +137,13 @@ export default async function (req) {
       changes.blocker_responsible_party = null;
       changes.blocked_since = null;
     }
+
+    // The blocker requirements and the date the work was first blocked come from one
+    // shared rule — not from this report, and never from the browser. It refuses a
+    // blocked task with nothing to say, refuses clearing the blocker while the task
+    // stays Blocked, and keeps the original date while it stays blocked.
+    const blocked = blockedStateFor({ task, next: changes });
+    Object.assign(changes, blocked.patch);
 
     const memberIds = memberIdsOf(await activeMembers(base44, task.project_id));
     const entries = diffFields(task, changes, REPORT_FIELDS);

@@ -9,6 +9,7 @@ import {
   syncProjectMemberIds,
 } from '../../shared/access.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
+import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
 
 const DRAWING_TYPES = [
@@ -301,6 +302,19 @@ export default async function (req) {
       }
 
       const created = await target.create(payload);
+      // A villa or location is audited like a task: who changed it, what it said
+      // before, what it says now, and when — written from the stored record.
+      if (entityName === 'Location') {
+        await writeRecordAudit(base44, {
+          entity: 'Location',
+          before: null,
+          after: created,
+          projectId,
+          memberIds: created.member_ids || payload.member_ids,
+          user,
+          note: 'Villa or location added',
+        });
+      }
       if (entityName === 'Drawing' && priorDrawing) {
         await svc.Drawing.update(priorDrawing.id, { status: 'Superseded', superseded_by_id: created.id });
       }
@@ -325,6 +339,18 @@ export default async function (req) {
     }
 
     const updated = await target.update(id, payload);
+    if (entityName === 'Location') {
+      await writeRecordAudit(base44, {
+        entity: 'Location',
+        before: existing,
+        changes: payload,
+        after: updated,
+        projectId: updated.project_id || projectId,
+        memberIds: updated.member_ids,
+        user,
+        note: 'Villa or location changed',
+      });
+    }
     if (entityName === 'ProjectMembership') {
       await syncProjectMemberIds(base44, projectId || updated.project_id);
     }

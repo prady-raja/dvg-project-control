@@ -14,6 +14,7 @@
 
 import { buildVillaIndex, normalizeCode, plotNumbersOf, resolveVillaCode } from './villaResolve.ts';
 import { SCOPE_TYPES, areaKeys, describeScope, normalizeAreaName } from './villaAreas.ts';
+import { COMPLETION_NOTE, REPORTED_COMPLETE_STATUS, REPORTED_COMPLETE_STATUSES } from './taskWriteRules.ts';
 
 // Villa and plot resolution lives in one module so that every path meeting a
 // villa reference — import, assistant, task creation, reports, snags — reads it
@@ -64,6 +65,40 @@ export const CATEGORY_VILLA = 'Villa Work';
 export const CATEGORY_SITE = 'Site-Wide Work';
 
 const STATUS_VALUES = ['Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed'];
+
+/**
+ * How a work list actually words a status. "Completed" in a contractor's sheet is
+ * read as the operational status Execution Complete, and the word the file used is
+ * kept as provenance — the register never reads a file's word as its own approval.
+ */
+const STATUS_ALIASES = {
+  completed: 'Execution Complete',
+  complete: 'Execution Complete',
+  done: 'Execution Complete',
+  finished: 'Execution Complete',
+  finish: 'Execution Complete',
+  executed: 'Execution Complete',
+  handover: 'Under Inspection',
+  inspected: 'Under Inspection',
+  inspection: 'Under Inspection',
+  wip: 'In Progress',
+  ongoing: 'In Progress',
+  started: 'In Progress',
+  pending: 'Not Started',
+  notstarted: 'Not Started',
+  onhold: 'Blocked',
+  held: 'Blocked',
+};
+
+/** The status a source word means, with the original wording kept by the caller. */
+const matchStatus = (raw) => {
+  const key = looseKey(raw);
+  if (!key) return { value: '' };
+  const exact = STATUS_VALUES.find((item) => looseKey(item) === key);
+  if (exact) return { value: exact };
+  if (STATUS_ALIASES[key]) return { value: STATUS_ALIASES[key] };
+  return matchEnum(raw, STATUS_VALUES, 'status');
+};
 const PRIORITY_VALUES = ['Low', 'Medium', 'High', 'Critical'];
 
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
@@ -539,6 +574,14 @@ function detectDuplicate({ rowNumber, fileName, values, resolved, ctx }) {
 export function buildTaskPayload(result, extra = {}) {
   const r = result.resolved;
   const values = result.values;
+  // A source record that says the work is complete, approved or closed is a report,
+  // not an authorisation: the task lands as Execution Complete, the file's own word
+  // is kept, the completion waits to be verified, and nobody is credited with doing
+  // the work just because they imported the file.
+  const reportedComplete = REPORTED_COMPLETE_STATUSES.includes(r.status_value);
+  const operationalStatus = reportedComplete && r.status_value !== REPORTED_COMPLETE_STATUS
+    ? REPORTED_COMPLETE_STATUS
+    : (r.status_value || 'Not Started');
   const payload = {
     project_id: r.project_id,
     phase_id: r.phase_id || null,
@@ -555,7 +598,12 @@ export function buildTaskPayload(result, extra = {}) {
     discipline: r.discipline,
     work_package: r.work_package || null,
     name: r.name,
-    status: r.status_value || 'Not Started',
+    status: operationalStatus,
+    source_status: reportedComplete ? (cleanText(values.status) || r.status_value) : null,
+    needs_completion_verification: reportedComplete,
+    latest_update: reportedComplete ? COMPLETION_NOTE : null,
+    execution_completed_by_id: null,
+    execution_completed_by_name: null,
     priority: r.priority_value || 'Medium',
     contractor_id: r.contractor_id || null,
     responsible_engineer: cleanText(values.responsible_engineer) || null,
@@ -873,9 +921,12 @@ function validateOneRow(row, ctx, override) {
   }
 
   /* status, priority ---------------------------------------------------- */
-  const statusMatch = matchEnum(values.status, STATUS_VALUES, 'status');
+  const statusMatch = matchStatus(values.status);
   if (statusMatch.error) add('error', 'status_unknown', statusMatch.error);
   else if (statusMatch.value) resolved.status_value = statusMatch.value;
+  // The words the file itself used, kept whatever they were: a report of completion
+  // in a source document is provenance, never an approval on this register.
+  resolved.source_status_text = cleanText(values.status);
 
   const priorityMatch = matchEnum(values.priority, PRIORITY_VALUES, 'priority');
   if (priorityMatch.error) add('error', 'priority_unknown', priorityMatch.error);

@@ -67,6 +67,19 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
   const approved = versions.find((v) => v.status === 'Approved');
   const superseded = versions.filter((v) => v.status === 'Superseded');
 
+  // The dates a revision proposes. Approved dates are frozen on the tasks, so the
+  // revised ones are entered here and only take effect when the version is approved.
+  const [dates, setDates] = useState({});
+  const covered = approved?.snapshot || [];
+  const setDate = (taskId, field, value) =>
+    setDates((current) => ({ ...current, [taskId]: { ...(current[taskId] || {}), [field]: value } }));
+  const proposedDates = () =>
+    covered.map((item) => ({
+      task_id: item.task_id,
+      baseline_start: (dates[item.task_id]?.baseline_start ?? item.baseline_start ?? '') || null,
+      baseline_finish: (dates[item.task_id]?.baseline_finish ?? item.baseline_finish ?? '') || null,
+    }));
+
   const approve = async () => {
     const ok = window.confirm(
       'Approve this baseline? The dates are frozen onto every covered task and can only be changed afterwards by creating a new baseline version.',
@@ -79,7 +92,12 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
       setError('A rebaseline needs a reason.');
       return;
     }
-    const ok = await act('rebaseline', { action: 'rebaseline', reason: reason.trim(), name: name.trim() });
+    const ok = await act('rebaseline', {
+      action: 'rebaseline',
+      reason: reason.trim(),
+      name: name.trim(),
+      dates: proposedDates(),
+    });
     if (ok) {
       setReasonOpen(false);
       setReason('');
@@ -225,6 +243,36 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
         submitting={busy === 'rebaseline'}
         error={error}
       >
+        {covered.length > 0 && (
+          <Field
+            label="Revised dates"
+            hint="Only what you change here is recorded as a difference. Nothing moves on the tasks until this version is approved, and the approved baseline stays in force until then."
+          >
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {covered.slice(0, 60).map((item) => (
+                <div key={item.task_id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                  <span className="truncate text-xs">
+                    <span className="field-mono">{item.task_ref}</span>{' '}
+                    <span className="text-muted-foreground">{item.location_code}</span>
+                  </span>
+                  <Input
+                    type="date"
+                    className="h-8 w-36 text-xs"
+                    value={dates[item.task_id]?.baseline_start ?? item.baseline_start ?? ''}
+                    onChange={(e) => setDate(item.task_id, 'baseline_start', e.target.value)}
+                  />
+                  <Input
+                    type="date"
+                    className="h-8 w-36 text-xs"
+                    value={dates[item.task_id]?.baseline_finish ?? item.baseline_finish ?? ''}
+                    onChange={(e) => setDate(item.task_id, 'baseline_finish', e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </Field>
+        )}
+
         <Field label="Why is the baseline being revised?" required>
           <Textarea
             rows={3}
