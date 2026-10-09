@@ -149,7 +149,7 @@
     "baseline_locked": {
       "type": "boolean",
       "default": false,
-      "description": "True once an approved baseline covers this task. Only a Project Manager or administrator may change the baseline dates afterwards."
+      "description": "True once an approved baseline covers this task. No role, including an application administrator, may then change the baseline dates here: a revision is proposed and approved through the baseline workflow."
     },
     "current_forecast_finish": {
       "type": "string",
@@ -250,7 +250,8 @@
     },
     "blocked_since": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "description": "The date the work was first blocked, in Asia/Kolkata. Set once on entering Blocked, kept unchanged while the work stays blocked, and cleared when the work moves on."
     },
     "remarks": {
       "type": "string"
@@ -280,6 +281,25 @@
     "import_row_number": {
       "type": "number",
       "description": "Row of the source file the task came from: the worksheet row for an Excel workbook, the line for a CSV. Set only by the import operation."
+    },
+    "source_status": {
+      "type": "string",
+      "description": "The status exactly as the source work list wrote it (Completed, Approved, Closed, \u2026), kept as provenance when a file reports work as done. Never the application's own operational status."
+    },
+    "needs_completion_verification": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when a source file reported this work complete. An authorised person must verify that reported completion before anyone may approve or close the task."
+    },
+    "completion_verified_by_id": {
+      "type": "string"
+    },
+    "completion_verified_by_name": {
+      "type": "string"
+    },
+    "completion_verified_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "execution_completed_by_id": {
       "type": "string"
@@ -340,18 +360,14 @@
     },
     "create": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
     "update": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "delete": false
   }
 }
