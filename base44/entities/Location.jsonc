@@ -97,18 +97,14 @@
     },
     "create": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
     "update": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "delete": false
   }
 }
