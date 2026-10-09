@@ -1,7 +1,7 @@
 {
   "name": "BaselineVersion",
   "type": "object",
-  "description": "Baseline versioning for a project phase. Drafts are editable by Project Managers; once approved a version is frozen permanently and superseded rather than edited.",
+  "description": "Baseline versioning for a project phase. Drafts are editable by a Project Editor; once approved a version is frozen permanently and superseded rather than edited, so every approved and superseded version stays as an immutable historical record.",
   "properties": {
     "project_id": {
       "type": "string"
@@ -60,7 +60,7 @@
       "items": {
         "type": "object"
       },
-      "description": "Frozen baseline dates at approval: [{ task_id, task_ref, location_code, baseline_start, baseline_finish }]"
+      "description": "Frozen baseline dates at approval: [{ task_id, task_ref, location_code, baseline_start, baseline_finish }]. Written only by the baseline operation, and never edited once the version is approved."
     },
     "changes": {
       "type": "array",
@@ -98,18 +98,14 @@
     },
     "create": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
     "update": {
       "user_condition": {
-        "role": "admin"
+        "role": "server-only"
       }
     },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "delete": false
   }
 }
