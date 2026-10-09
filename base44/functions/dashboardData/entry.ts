@@ -113,7 +113,13 @@ export default async function (req) {
       }
       case 'tasks': {
         const metric = String(body?.metric || 'open');
-        const list = metricTasks(data.tasks, metric, asOf, { locations: data.locations, heldIds });
+        const list = metricTasks(data.tasks, metric, asOf, {
+          locations: data.locations,
+          heldIds,
+          projectId: options.projectId,
+          phaseId: options.phaseId,
+          includeDemo: options.includeDemo,
+        });
         return Response.json({
           ...header,
           metric,

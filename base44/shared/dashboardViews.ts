@@ -54,6 +54,13 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     if (options.phaseId && t.phase_id !== options.phaseId) return false;
     return true;
   });
+  // Every row recorded in this exact scope, demo included, so an excluded count
+  // is drawn from the same set the totals below are drawn from.
+  const scopedAll = inScope.filter(
+    (t) => t.archived !== true && !isParentRow(t)
+      && (!options.projectId || t.project_id === options.projectId)
+      && (!options.phaseId || t.phase_id === options.phaseId),
+  );
   const { active, held } = splitHeld(filtered, heldIds);
 
   const villas = locations.filter(
@@ -85,7 +92,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     held_blocked_tasks: statusCounts(held, asOf).blocked,
     villa_work_assignments: inScope.filter(isParentRow).length,
     villa_work_children: inScope.filter(isParentRow).reduce((sum, t) => sum + (Number(t.child_villa_count) || 0), 0),
-    demo_tasks_excluded: includeDemo ? 0 : inScope.filter((t) => isDemoTask(t) && !isParentRow(t)).length,
+    demo_tasks_excluded: includeDemo ? 0 : scopedAll.filter(isDemoTask).length,
     demo_view: includeDemo,
   };
 
@@ -119,7 +126,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     warnings,
     counts_by_discipline: disciplineCounts(active, ix, asOf),
     counts_by_status: statusCounts(active, asOf),
-    demo_available: inScope.some((t) => isDemoTask(t) && !isParentRow(t)),
+    demo_available: scopedAll.some(isDemoTask),
   };
 }
 

@@ -116,7 +116,7 @@ export function weightedProgress(tasks) {
     reliable,
     basis: 'Estimated man-hours',
     reason: !counted.length
-      ? 'No outstanding work in this scope'
+      ? 'No outstanding task records in this scope'
       : reliable
         ? ''
         : `Measured progress exists for ${measured.length} of ${counted.length} outstanding tasks`,
@@ -306,7 +306,16 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
   const heldIds = options.heldIds || new Set();
   const staleBefore = shiftDay(asOf, -7);
   const villaOf = new Map(locations.map((l) => [l.id, l]));
-  const active = tasks.filter((t) => !t.location_id || !heldIds.has(t.location_id));
+  // The list behind a headline figure is scoped exactly like the figure itself:
+  // same project, same phase, same demo rule.
+  const scoped = (tasks || []).filter((t) => {
+    if (!t || isArchived(t) || isParentRow(t)) return false;
+    if (options.projectId && t.project_id !== options.projectId) return false;
+    if (options.phaseId && t.phase_id !== options.phaseId) return false;
+    if (!options.includeDemo && isDemoTask(t)) return false;
+    return true;
+  });
+  const active = scoped.filter((t) => !t.location_id || !heldIds.has(t.location_id));
   switch (metric) {
     case 'open': return active.filter(isOutstanding);
     case 'executing': return active.filter(isExecuting);
@@ -317,7 +326,7 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
     case 'due_7': return active.filter((t) => dueWithin(t, asOf, 7));
     case 'due_14': return active.filter((t) => dueWithin(t, asOf, 14));
     case 'unscheduled': return active.filter(isUnscheduled);
-    case 'held': return tasks.filter((t) => t.location_id && heldIds.has(t.location_id) && isOutstanding(t));
+    case 'held': return scoped.filter((t) => t.location_id && heldIds.has(t.location_id) && isOutstanding(t));
     case 'site_wide': return active.filter((t) => !t.location_id && isOutstanding(t));
     case 'handed_over_open_works':
       return active.filter(

@@ -169,6 +169,7 @@ export function buildDigest({ tasks, locations, phases, projects, contractors, i
   const villaRows = locations
     .filter((l) => l.location_type === 'Villa')
     .filter((l) => !options.projectId || l.project_id === options.projectId)
+    .filter((l) => !options.phaseId || l.phase_id === options.phaseId)
     .map((villa) => {
       const mine = active.filter((t) => t.location_id === villa.id);
       const row = {
@@ -190,7 +191,10 @@ export function buildDigest({ tasks, locations, phases, projects, contractors, i
     .slice(0, limit);
 
   const measured = outstanding.filter((t) => typeof t.progress_percent === 'number');
-  const openCommitments = commitments.filter((c) => c.status === 'Open');
+  const openCommitments = commitments
+    .filter((c) => !options.projectId || c.project_id === options.projectId)
+    .filter((c) => !options.phaseId || c.phase_id === options.phaseId)
+    .filter((c) => c.status === 'Open');
 
   return {
     data_date: asOf,
@@ -218,7 +222,7 @@ export function buildDigest({ tasks, locations, phases, projects, contractors, i
         .slice(-1)[0] || 'none recorded',
     },
     portfolio: executive.metrics,
-    villa_inventory: villaInventory(locations, active, heldIds, asOf),
+    villa_inventory: villaInventory(locations, active, heldIds, asOf, options),
     progress_on_register: executive.progress,
     management_priorities: executive.priorities.slice(0, Math.min(limit, 20)).map((row) => ({
       ...compact(row),
