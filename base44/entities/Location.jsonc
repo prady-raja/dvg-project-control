@@ -105,6 +105,10 @@
         "role": "server-only"
       }
     },
-    "delete": false
+    "delete": {
+      "user_condition": {
+        "role": "server-only"
+      }
+    }
   }
 }
