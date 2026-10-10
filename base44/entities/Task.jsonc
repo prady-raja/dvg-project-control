@@ -259,6 +259,11 @@
     "latest_update": {
       "type": "string"
     },
+    "latest_report_date": {
+      "type": "string",
+      "format": "date",
+      "description": "update_date of the newest daily report applied to this task; older reports are kept as history only"
+    },
     "attachment_ref": {
       "type": "string"
     },

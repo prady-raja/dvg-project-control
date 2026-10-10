@@ -124,7 +124,9 @@ export default function AiProposalReview({
     [actions, deselected],
   );
 
-  const settled = ['Applied', 'Partial', 'Failed', 'Cancelled'].includes(outcome?.status);
+  // Partial and Failed can be confirmed again: the server retries only what was not written.
+  const settled = ['Applied', 'Cancelled'].includes(outcome?.status);
+  const retry = ['Partial', 'Failed'].includes(outcome?.status);
 
   const confirm = () => {
     const edits = {};
@@ -231,7 +233,7 @@ export default function AiProposalReview({
           disabled={busy || settled || !selected.length || missing}
           onClick={confirm}
         >
-          {settled ? 'Saved' : busy ? 'Saving…' : `Confirm and save ${selected.length} record${selected.length === 1 ? '' : 's'}`}
+          {settled ? 'Saved' : busy ? 'Saving…' : retry ? 'Retry what was not saved' : `Confirm and save ${selected.length} record${selected.length === 1 ? '' : 's'}`}
         </Button>
         <Button variant="ghost" disabled={busy || settled} onClick={onCancel}>
           Cancel

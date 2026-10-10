@@ -7,6 +7,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { items } from '@/lib/dataHelpers';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { cn } from '@/lib/utils';
+import { pickerQuery } from '@/lib/taskForm';
+import { Button } from '@/components/ui/button';
+
+const PAGE = 50;
 
 /**
  * Picks the task a report belongs to. Site-wide work has no villa, so the list
@@ -18,6 +22,8 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
   const [siteWideOnly, setSiteWideOnly] = useState(false);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => {
     if (!open) return;
@@ -25,32 +31,42 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
     setSiteWideOnly(false);
   }, [open]);
 
+  useEffect(() => setLimit(PAGE), [term, siteWideOnly, locationId, projectId]);
+
   useEffect(() => {
     if (!open || !projectId) return;
     let alive = true;
     const timer = setTimeout(async () => {
       setLoading(true);
-      const query = { project_id: projectId, archived: { $ne: true } };
-      if (locationId) query.location_id = locationId;
-      if (siteWideOnly) query.location_id = null;
+      setError('');
+      // A typed villa code (for example "B-05") narrows to that villa.
       const text = term.trim();
-      if (text) {
-        query.$or = [
-          { name: { $regex: text, $options: 'i' } },
-          { task_ref: { $regex: text, $options: 'i' } },
-        ];
+      const villa = !locationId && text
+        ? cat.locations.find(
+          (l) => l.project_id === projectId && String(l.villa_code || '').toLowerCase() === text.toLowerCase(),
+        )
+        : null;
+      const query = villa
+        ? pickerQuery({ projectId, locationId: villa.id })
+        : pickerQuery({ projectId, locationId, siteWideOnly, term: text });
+      try {
+        const res = await base44.entities.Task.filter(query, { sort: '-created_date', limit: limit + 1 });
+        if (!alive) return;
+        setRows(items(res));
+      } catch (e) {
+        if (!alive) return;
+        setRows([]);
+        setError(e?.message || 'Could not load tasks.');
+      } finally {
+        if (alive) setLoading(false);
       }
-      const res = await base44.entities.Task.filter(query, { sort: '-created_date', limit: 50 });
-      if (!alive) return;
-      setRows(items(res));
-      setLoading(false);
     }, term ? 300 : 0);
 
     return () => {
       alive = false;
       clearTimeout(timer);
     };
-  }, [open, projectId, locationId, siteWideOnly, term]);
+  }, [open, projectId, locationId, siteWideOnly, term, limit, cat.locations]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,13 +103,15 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
 
           {loading ? (
             <Skeleton className="h-40 rounded-xl" />
+          ) : error ? (
+            <p className="rounded-lg border border-destructive/40 px-4 py-6 text-sm text-destructive">{error}</p>
           ) : rows.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
               No matching task. Create it in the task register first.
             </p>
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {rows.map((task) => (
+              {rows.slice(0, limit).map((task) => (
                 <li key={task.id}>
                   <button
                     type="button"
@@ -114,6 +132,11 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
                 </li>
               ))}
             </ul>
+          )}
+          {!loading && !error && rows.length > limit && (
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setLimit((n) => n + PAGE)}>
+              Show more
+            </Button>
           )}
         </div>
       </DialogContent>

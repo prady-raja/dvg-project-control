@@ -3,6 +3,8 @@ import {
   activeMembers,
   canManageProject,
   isAppAdmin,
+  isMembershipRole,
+  MEMBERSHIP_ROLES,
   memberIdsOf,
   rankForRole,
   resolveRank,
@@ -38,7 +40,7 @@ const FIELDS = {
     'responsible_person', 'promised_date', 'status', 'fulfilled_date', 'remarks',
   ],
   AiSettings: [
-    'enabled', 'allowed_roles', 'model', 'daily_request_limit', 'context_item_limit',
+    'enabled', 'allowed_roles', 'model', 'provider', 'provider_api', 'base_url', 'daily_request_limit', 'context_item_limit',
     'instructions', 'notes',
   ],
   VillaFloor: ['project_id', 'phase_id', 'location_id', 'floor_code', 'floor_name', 'level_order', 'active', 'notes'],
@@ -54,8 +56,6 @@ const FIELDS = {
     'project_id', 'predecessor_task_id', 'successor_task_id', 'dependency_type', 'lag_days', 'active', 'notes',
   ],
 };
-
-const MEMBERSHIP_ROLES = ['Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor', 'Viewer'];
 
 const PROJECT_SCOPED = [
   'Phase', 'Location', 'WorkPackage', 'ContractorDefault', 'ProjectMembership', 'MeetingCommitment',
@@ -175,7 +175,7 @@ export default async function (req) {
       if (entityName === 'ProjectMembership') {
         const email = String(payload.user_email || '').trim().toLowerCase();
         if (!email) throw fail('An email address is required.');
-        if (!MEMBERSHIP_ROLES.includes(String(payload.role || ''))) throw fail('A project role is required.');
+        if (!isMembershipRole(payload.role)) throw fail(`Choose a project role: ${MEMBERSHIP_ROLES.join(', ')}.`);
         const existingRes = await target.filter({ project_id: projectId, user_email: email }, { limit: 5 });
         if (listAll(existingRes).some((m) => m.active !== false)) {
           throw fail('That person is already a member of this project.');
@@ -336,6 +336,11 @@ export default async function (req) {
     }
     if (entityName === 'Drawing' && payload.status && !['Current', 'Superseded'].includes(payload.status)) {
       throw fail('A drawing is either current or superseded.');
+    }
+
+    if (entityName === 'ProjectMembership' && Object.prototype.hasOwnProperty.call(payload, 'role')
+      && !isMembershipRole(payload.role)) {
+      throw fail(`Choose a project role: ${MEMBERSHIP_ROLES.join(', ')}.`);
     }
 
     const updated = await target.update(id, payload);

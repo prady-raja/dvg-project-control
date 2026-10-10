@@ -8,8 +8,8 @@
  * results, risks and suggested actions, quoting task references.
  */
 
-import { secrets } from 'base44:runtime';
 import { listAll } from './records.ts';
+import { createDb, readSecret } from './db.ts';
 import {
   dueWithin, heldLocationIds, isAwaitingClosure, isAwaitingVerification, isOutstanding,
   isOverdue, isUnscheduled, shiftDay, statusCounts, taskRow, weightedProgress,
@@ -21,6 +21,9 @@ export const DEFAULT_SETTINGS = {
   enabled: true,
   allowed_roles: ['Project Admin', 'Project Manager'],
   model: 'gpt-4o-mini',
+  provider: 'auto',
+  provider_api: '',
+  base_url: '',
   daily_request_limit: 40,
   context_item_limit: 40,
   instructions: '',
@@ -31,9 +34,20 @@ export const AI_MODELS = [
   { value: 'gpt-4o', label: 'gpt-4o — stronger reasoning, higher cost' },
   { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini — balanced' },
   { value: 'gpt-4.1', label: 'gpt-4.1 — highest quality, highest cost' },
+  { value: 'claude-haiku-5-5', label: 'claude-haiku-5-5 — Anthropic, lowest cost' },
+  { value: 'claude-sonnet-5-5', label: 'claude-sonnet-5-5 — Anthropic, balanced' },
 ];
 
 export const OPENAI_KEY_SECRET = 'OPENAI_API_KEY';
+/** Secrets a fetch provider may use; AI_API_KEY works for either API. */
+export const AI_KEY_SECRETS = ['AI_API_KEY', 'ANTHROPIC_API_KEY', OPENAI_KEY_SECRET];
+
+/**
+ * The model provider for these settings: a plain-fetch provider when a key is
+ * stored, otherwise the platform's InvokeLLM (needs no key). Null when AI cannot
+ * run at all. `base44` is the request client.
+ */
+export const providerFor = (base44, settings) => createDb(base44).llm(settings || DEFAULT_SETTINGS);
 
 /** The lists a proposed update must stay inside — the same values the guarded writers accept. */
 export const TASK_STATUSES = [
@@ -45,13 +59,9 @@ export const BLOCKER_CATEGORIES = [
   'Drawing / Design Clarification', 'Contractor Manpower', 'DVG Approval', 'External Utility / Authority', 'Other',
 ];
 
-/** The key lives only in server-side secrets. Its presence is the setup switch. */
+/** Keys live only in server-side secrets. */
 export function aiKeyPresent() {
-  try {
-    return !!secrets.get(OPENAI_KEY_SECRET);
-  } catch {
-    return false;
-  }
+  return AI_KEY_SECRETS.some((name) => !!readSecret(name));
 }
 
 export async function loadAiSettings(svc) {
@@ -83,35 +93,6 @@ export async function recordUsage(svc, entry) {
   } catch {
     // Usage logging must never take down an answer the user is waiting for.
   }
-}
-
-/** One bounded call to the provider. */
-export async function callOpenAi({ apiKey, model, system, user, json = false, maxTokens = 1500 }) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      temperature: json ? 0.1 : 0.3,
-      max_tokens: maxTokens,
-      ...(json ? { response_format: { type: 'json_object' } } : {}),
-    }),
-    signal: AbortSignal.timeout(60000),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(payload?.error?.message || `The AI provider refused the request (${response.status}).`);
-    error.status = response.status === 429 ? 429 : 502;
-    throw error;
-  }
-  return {
-    content: payload?.choices?.[0]?.message?.content || '',
-    usage: payload?.usage || {},
-  };
 }
 
 /* ------------------------------------------------------------------ the digest */
@@ -412,6 +393,7 @@ export function matchTaskCandidates(tasks, ix, text, asOf, limit = 6) {
       villa: row.villa,
       name: row.name,
       discipline: row.discipline_name,
+      discipline_code: task.discipline || '',
       contractor: row.contractor,
       status: row.status,
       progress: row.progress,

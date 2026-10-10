@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { items } from '@/lib/dataHelpers';
-import { AI_MODELS, aiStatus } from '@/lib/aiService';
+import { AI_MODELS, AI_PROVIDERS, aiStatus } from '@/lib/aiService';
 import { createRecord, updateRecord } from '@/lib/recordService';
 import { MEMBERSHIP_ROLES } from '@/lib/constants';
 import BoardSection from '@/components/common/BoardSection';
@@ -45,6 +45,7 @@ export default function AiSettingsTab() {
           enabled: existing?.enabled !== false,
           allowed_roles: existing?.allowed_roles?.length ? existing.allowed_roles : statusPayload.allowed_roles || [],
           model: existing?.model || statusPayload.model || 'gpt-4o-mini',
+          provider: existing?.provider || 'auto',
           daily_request_limit: existing?.daily_request_limit ?? statusPayload.daily_limit ?? 40,
           context_item_limit: existing?.context_item_limit ?? 40,
           instructions: existing?.instructions || '',
@@ -69,6 +70,7 @@ export default function AiSettingsTab() {
         enabled: !!form.enabled,
         allowed_roles: form.allowed_roles,
         model: form.model,
+        provider: form.provider,
         daily_request_limit: Number(form.daily_request_limit) || 0,
         context_item_limit: Number(form.context_item_limit) || 40,
         instructions: form.instructions,
@@ -93,8 +95,19 @@ export default function AiSettingsTab() {
     <div className="space-y-5">
       <BoardSection
         title="Connection"
-        description="The OpenAI key lives in the application's server-side secrets and is never sent to the browser."
+        description="API keys live in the application's server-side secrets and are never sent to the browser."
       >
+        <Field label="Provider" hint="Base44's built-in AI needs no key; a stored key is the portable choice for the planned move.">
+          <select
+            className="mb-3 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm sm:w-96"
+            value={form.provider}
+            onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+          >
+            {AI_PROVIDERS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </Field>
         <div className="flex flex-wrap items-center gap-3">
           <span
             className={cn(
@@ -102,11 +115,11 @@ export default function AiSettingsTab() {
               status?.configured ? 'border-[hsl(var(--success))]/40 text-[hsl(var(--success))]' : 'border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]',
             )}
           >
-            {status?.configured ? 'API key configured' : 'AI Setup Required'}
+            {status?.configured ? (status.provider === 'base44' ? 'Base44 AI in use' : 'API key configured') : 'AI Setup Required'}
           </span>
           <span className="text-xs text-muted-foreground">
             {status?.configured
-              ? `Secret ${status.key_name} is present. ${status.used_today} of ${status.daily_limit} request(s) used today.`
+              ? `${status.provider === 'base44' ? 'Using the platform model.' : `Using ${status.model} over ${status.provider_api}.`} ${status.used_today} of ${status.daily_limit} request(s) used today.`
               : `Add the secret ${status?.key_name || 'OPENAI_API_KEY'} in the app's Secrets settings. Until then the AI screens show a setup notice and everything else keeps working.`}
           </span>
         </div>

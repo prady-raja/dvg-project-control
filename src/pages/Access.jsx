@@ -12,6 +12,8 @@ import MembershipList from '@/components/access/MembershipList';
 import UsersPanel from '@/components/access/UsersPanel';
 import { ROLE_GUIDE } from '@/lib/accessRules';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/use-toast';
+import { useAccess } from '@/lib/AccessContext';
 
 /**
  * Administration → Users & Access. The application administrator invites users,
@@ -21,6 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Access() {
   const cat = useCatalogs();
   const { user } = useAuth();
+  const access = useAccess();
+  const { toast } = useToast();
   const appAdmin = user?.role === 'admin';
   const [memberships, setMemberships] = useState([]);
   const [users, setUsers] = useState([]);
@@ -43,10 +47,19 @@ export default function Access() {
     load();
   }, [appAdmin]);
 
-  const setActive = async (record, active) => {
-    await updateRecord('ProjectMembership', record.id, { active });
+  const change = async (record, changes, failure) => {
+    try {
+      await updateRecord('ProjectMembership', record.id, changes);
+    } catch (e) {
+      toast({ variant: 'destructive', description: `${failure}: ${e?.message || 'the server refused the change.'}` });
+    }
     load();
   };
+  const setActive = (record, active) => change(record, { active }, 'Access could not be changed');
+  const setRole = (record, role) => change(record, { role }, 'The role could not be changed');
+
+  // The signed-in user's real level, not an assumed one.
+  const ownRoles = [...new Set(cat.projects.map((p) => access.roleFor(p.id)).filter(Boolean))];
 
   const byProject = cat.projects.map((project) => ({
     project,
@@ -72,7 +85,7 @@ export default function Access() {
         <div className="mt-3 flex items-center gap-2">
           <Pill value={appAdmin ? 'Approved' : 'Active'} />
           <span className="text-xs text-muted-foreground">
-            {appAdmin ? 'Application administrator' : 'Project Editor'}
+            {appAdmin ? 'Application administrator' : ownRoles.join(', ') || 'No project access yet'}
           </span>
         </div>
       </div>
@@ -96,7 +109,9 @@ export default function Access() {
           )}
           <MembershipList
             groups={byProject}
+            canEdit={appAdmin}
             onToggleActive={setActive}
+            onChangeRole={setRole}
             onAdd={(projectId) => {
               setPresetProject(projectId);
               setOpen(true);

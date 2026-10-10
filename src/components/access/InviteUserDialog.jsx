@@ -40,7 +40,8 @@ export default function InviteUserDialog({ open, onOpenChange, projects, default
     setSaving(true);
     setError('');
     try {
-      await base44.users.inviteUser(email, 'user');
+      // The membership is recorded first: if it is refused, no invitation goes
+      // out to someone who would then sign in to no project.
       await createRecord('ProjectMembership', {
         user_email: email,
         user_name: form.full_name.trim(),
@@ -49,6 +50,14 @@ export default function InviteUserDialog({ open, onOpenChange, projects, default
         active: true,
         notes: `Invited by ${base44.auth?.me ? 'the application administrator' : 'administrator'}.`,
       });
+      try {
+        await base44.users.inviteUser(email, 'user');
+      } catch (inviteError) {
+        throw new Error(
+          `The membership was saved, but the invitation email could not be sent (${inviteError?.message || 'unknown error'}). `
+            + 'Invite the person again from App Users.',
+        );
+      }
       // The designation is a label on the person; it is stored once their
       // profile exists, which may be when they accept the invitation.
       if (form.designation.trim()) {

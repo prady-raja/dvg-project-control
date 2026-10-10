@@ -3,12 +3,20 @@ import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../sha
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
 import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
+import {
+  BACKDATE_LIMIT_DAYS,
+  isOlderThanLatest,
+  MAX_REPORT_PHOTOS,
+  reportDateProblem,
+  reportTargetProblem,
+} from '../../shared/dailyReportRules.ts';
 
 /**
  * The only path that records site work.
  *
  * One report per save and any number per task per day: nothing is overwritten,
- * so a villa's day-by-day record accumulates. The task fields move from the same
+ * so a villa's day-by-day record accumulates. A report dated before the newest
+ * report already applied is kept as history and does not move the task. The task fields move from the same
  * validated report and the change trail is written server-side, so the report,
  * the task and the history can never disagree, and nothing depends on what the
  * browser claims about the user or about the previous values.
@@ -30,7 +38,6 @@ const REPORT_FIELDS = [
   'current_forecast_finish', 'date_revision_reason',
 ];
 
-const MAX_PHOTOS = 10;
 const MAX_MANPOWER_ROWS = 12;
 const MAX_TEXT = 2000;
 const IST_OFFSET_MINUTES = 330;
@@ -55,6 +62,8 @@ export default async function (req) {
 
     const task = await getOne(svc.Task, String(body?.task_id || ''));
     if (!task) throw fail('That task no longer exists.', 404);
+    const targetProblem = reportTargetProblem(task);
+    if (targetProblem) throw fail(targetProblem);
 
     const rank = await resolveRank(base44, task.project_id, user);
     if (!canEditTasks(rank)) {
@@ -66,7 +75,10 @@ export default async function (req) {
 
     /* ------------------------------------------------------------- the report */
     const updateDate = isDate(body?.update_date) ? String(body.update_date) : todayIst();
-    const status = STATUSES.includes(body?.status) ? body.status : task.status || 'Not Started';
+    const project = await getOne(svc.Project, task.project_id);
+    const dateProblem = reportDateProblem(updateDate, todayIst(), project?.backdate_limit_days ?? BACKDATE_LIMIT_DAYS);
+    if (dateProblem) throw fail(dateProblem);
+    let status = STATUSES.includes(body?.status) ? body.status : task.status || 'Not Started';
 
     const progressGiven = Object.prototype.hasOwnProperty.call(body || {}, 'progress_percent');
     let progressPercent = null;
@@ -101,6 +113,11 @@ export default async function (req) {
     if (blockerReported) {
       if (!BLOCKER_CATEGORIES.includes(blockerCategory)) throw fail('Choose a blocker category.');
       if (!blockerDescription) throw fail('Describe the blocker.');
+      // A reported blocker means the work is blocked.
+      status = 'Blocked';
+    }
+    if (blockerCleared && !blockerReported && status === 'Blocked') {
+      throw fail('Choose the status the work moves to. Moving it out of Blocked clears the blocker.');
     }
 
     const forecastGiven = Object.prototype.hasOwnProperty.call(body || {}, 'current_forecast_finish');
@@ -111,16 +128,26 @@ export default async function (req) {
 
     const photoUris = (Array.isArray(body?.photo_uris) ? body.photo_uris : [])
       .filter((uri) => typeof uri === 'string' && uri.trim().length > 0)
-      .map((uri) => uri.trim().slice(0, 500))
-      .slice(0, MAX_PHOTOS);
+      .map((uri) => uri.trim().slice(0, 500));
+    if (photoUris.length > MAX_REPORT_PHOTOS) {
+      throw fail(`A report holds at most ${MAX_REPORT_PHOTOS} photos. Remove ${photoUris.length - MAX_REPORT_PHOTOS} and save again.`);
+    }
+
+    // The newest report already applied decides whether this one moves the task.
+    // Tasks reported on before latest_report_date existed fall back to their
+    // newest stored report.
+    let latestReportDate = task.latest_report_date || '';
+    if (!latestReportDate) {
+      const newest = await svc.DailyUpdate.filter({ task_id: task.id }, { sort: '-update_date', limit: 1 });
+      latestReportDate = (newest?.items || newest || [])[0]?.update_date || '';
+    }
+    const historyOnly = isOlderThanLatest(updateDate, latestReportDate);
 
     /* ------------------------------------------------- what moves on the task */
     const changes = { status };
     if (progressGiven) changes.progress_percent = progressPercent;
-    if (workDone) {
-      changes.latest_update = workDone;
-      changes.remarks = workDone;
-    }
+    // 'Done today' never replaces the planner's remarks.
+    if (workDone) changes.latest_update = workDone;
     if (manpowerTotal !== null) changes.actual_manpower = manpowerTotal;
     if (forecastNew) {
       changes.current_forecast_finish = forecastNew;
@@ -138,23 +165,41 @@ export default async function (req) {
       changes.blocked_since = null;
     }
 
-    // The blocker requirements and the date the work was first blocked come from one
-    // shared rule — not from this report, and never from the browser. It refuses a
-    // blocked task with nothing to say, refuses clearing the blocker while the task
-    // stays Blocked, and keeps the original date while it stays blocked.
-    const blocked = blockedStateFor({ task, next: changes });
-    Object.assign(changes, blocked.patch);
-
     const memberIds = memberIdsOf(await activeMembers(base44, task.project_id));
-    const entries = diffFields(task, changes, REPORT_FIELDS);
-
-    // Permission, baseline lock, approval separation and the reason rule are
-    // decided once, for every write path into a task.
-    guardTaskChanges({ task, entries, rank, user, reason: revisionReason });
-
-    const effects = deriveTaskEffects({ task, entries, user });
+    let entries = [];
+    let effects = { patch: {}, derived: [] };
+    if (!historyOnly) {
+      // The blocker requirements and the date the work was first blocked come from
+      // one shared rule — not from this report, and never from the browser. It
+      // refuses a blocked task with nothing to say, clears the blocker when the work
+      // moves on, and keeps the original date while it stays blocked.
+      const blocked = blockedStateFor({ task, next: changes });
+      Object.assign(changes, blocked.patch);
+      entries = diffFields(task, changes, REPORT_FIELDS);
+      // Permission, baseline lock, approval separation and the reason rule are
+      // decided once, for every write path into a task.
+      guardTaskChanges({ task, entries, rank, user, reason: revisionReason });
+      effects = deriveTaskEffects({ task, entries, user });
+    }
     const forecastEntry = entries.find((entry) => entry.field_changed === 'current_forecast_finish');
     const location = task.location_id ? await getOne(svc.Location, task.location_id) : null;
+
+    /* ------------------------------------------------- the task first, then the report */
+    // Written before the report, so a refused or failed task write leaves no
+    // report claiming a change that never happened.
+    let updatedTask = null;
+    if (!historyOnly) {
+      const patch = { latest_report_date: updateDate };
+      entries.forEach((entry) => {
+        patch[entry.field_changed] = entry.new_value;
+      });
+      if (entries.length) {
+        Object.assign(patch, effects.patch);
+        patch.updated_by_name = actorName(user);
+        patch.member_ids = memberIds;
+      }
+      if (entries.length || task.latest_report_date !== updateDate) updatedTask = await svc.Task.update(task.id, patch);
+    }
 
     const report = await svc.DailyUpdate.create({
       project_id: task.project_id,
@@ -198,19 +243,10 @@ export default async function (req) {
       blockerReported ? 'blocker reported' : '',
       blockerCleared ? 'blocker cleared' : '',
       photoUris.length ? `${photoUris.length} photo${photoUris.length === 1 ? '' : 's'}` : '',
+      historyOnly ? `filed after a newer report (${latestReportDate}), kept as history only` : '',
     ].filter(Boolean).join(' · ');
 
-    let updatedTask = null;
     if (entries.length) {
-      const patch = {};
-      entries.forEach((entry) => {
-        patch[entry.field_changed] = entry.new_value;
-      });
-      Object.assign(patch, effects.patch);
-      patch.updated_by_name = actorName(user);
-      patch.member_ids = memberIds;
-      updatedTask = await svc.Task.update(task.id, patch);
-
       await writeTaskHistory(base44, {
         task,
         projectId: task.project_id,
@@ -252,7 +288,15 @@ export default async function (req) {
       });
     }
 
-    return Response.json({ update: report, task: updatedTask || task, changed: entries.length });
+    return Response.json({
+      update: report,
+      task: updatedTask || task,
+      changed: entries.length,
+      history_only: historyOnly,
+      message: historyOnly
+        ? `Saved as history. A newer report (${latestReportDate}) already set this task, so its status, progress and forecast were not changed.`
+        : '',
+    });
   } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }

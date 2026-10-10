@@ -15,6 +15,7 @@ import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import VillaWorkDialog from '@/components/tasks/VillaWorkDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { escapeRegex } from '@/lib/taskForm';
 
 const PAGE_SIZE = 50;
 
@@ -64,7 +65,7 @@ export default function TaskRegister() {
     if (filters.discipline) q.discipline = filters.discipline;
     if (filters.contractor_id) q.contractor_id = filters.contractor_id;
     if (filters.status) q.status = filters.status;
-    const search = filters.search.trim();
+    const search = escapeRegex(filters.search.trim());
     if (search) {
       q.$or = [
         { name: { $regex: search, $options: 'i' } },

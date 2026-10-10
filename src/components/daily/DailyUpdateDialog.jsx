@@ -5,15 +5,19 @@ import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import ManpowerEditor from '@/components/daily/ManpowerEditor';
 import PhotoUploader from '@/components/daily/PhotoUploader';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { submitDailyUpdate } from '@/lib/dailyService';
 import { BLOCKER_CATEGORIES, TASK_STATUSES } from '@/lib/constants';
 import { toDateInput, todayIst } from '@/lib/format';
+import { useToast } from '@/components/ui/use-toast';
+import moment from 'moment';
 import { cn } from '@/lib/utils';
+
+// Mirrors base44/shared/dailyReportRules.ts.
+const BACKDATE_LIMIT_DAYS = 7;
+const MAX_REPORT_PHOTOS = 10;
 
 /**
  * The site report. Only status and progress are on screen to begin with, so the
@@ -31,7 +35,6 @@ const blankForm = (task) => ({
   blocker_description: '',
   blocker_responsible_party: '',
   expected_resolution_date: '',
-  clearBlocker: false,
   forecast: toDateInput(task?.current_forecast_finish),
   reason: '',
   photos: [],
@@ -61,6 +64,7 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!open) return;
@@ -75,7 +79,9 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
   const forecastChanged = (form.forecast || '') !== toDateInput(task.current_forecast_finish);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const toggle = (key) => setShow((s) => ({ ...s, [key]: !s[key] }));
-  const hasBlocker = !!(task.blocker_category || task.blocker_description);
+  const isBlocked = task.status === 'Blocked';
+  const today = todayIst();
+  const earliest = moment(today).subtract(BACKDATE_LIMIT_DAYS, 'days').format('YYYY-MM-DD');
 
   const save = async () => {
     if (form.progress_percent !== '' && (Number(form.progress_percent) < 0 || Number(form.progress_percent) > 100)) {
@@ -86,7 +92,15 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
       setError('Moving the forecast finish needs a reason.');
       return;
     }
-    if (show.blocker && !form.clearBlocker) {
+    if (!form.update_date || form.update_date > today || form.update_date < earliest) {
+      setError(`Choose a day between ${earliest} and today.`);
+      return;
+    }
+    if (form.photos.length > MAX_REPORT_PHOTOS) {
+      setError(`A report holds at most ${MAX_REPORT_PHOTOS} photos.`);
+      return;
+    }
+    if (show.blocker) {
       if (!form.blocker_category) {
         setError('Choose a blocker category.');
         return;
@@ -108,17 +122,18 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
         work_done: form.work_done,
         plan_tomorrow: show.plan ? form.plan_tomorrow : '',
         manpower_items: show.manpower ? form.manpower.filter((row) => Number(row.count) > 0) : [],
-        blocker_reported: show.blocker && !form.clearBlocker,
+        // Moving a Blocked task to another status clears its blocker on the server.
+        blocker_reported: show.blocker,
         blocker_category: form.blocker_category,
         blocker_description: form.blocker_description,
         blocker_responsible_party: form.blocker_responsible_party,
         expected_resolution_date: form.expected_resolution_date,
-        blocker_cleared: show.blocker && form.clearBlocker,
         photo_uris: form.photos.map((photo) => photo.file_uri),
         date_revision_reason: show.forecast ? form.reason : '',
       };
       if (show.forecast) payload.current_forecast_finish = form.forecast;
-      await submitDailyUpdate(payload);
+      const result = await submitDailyUpdate(payload);
+      if (result?.history_only && result.message) toast({ description: result.message });
       onSaved?.();
     } catch (e) {
       setError(e?.message || 'Could not save the update.');
@@ -140,7 +155,13 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
     >
       <div className="grid grid-cols-2 gap-3">
         <Field label="Day">
-          <Input type="date" value={form.update_date} onChange={(e) => set({ update_date: e.target.value })} />
+          <Input
+            type="date"
+            min={earliest}
+            max={today}
+            value={form.update_date}
+            onChange={(e) => set({ update_date: e.target.value })}
+          />
         </Field>
         <Field label="Status">
           <EnumSelect value={form.status} onChange={(v) => set({ status: v })} options={TASK_STATUSES} />
@@ -201,53 +222,43 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
 
       {show.blocker && (
         <div className="space-y-3 rounded-lg border border-border p-3">
-          {hasBlocker && (
-            <label className="flex items-start gap-2 text-xs">
-              <Checkbox
-                checked={form.clearBlocker}
-                onCheckedChange={(v) => set({ clearBlocker: v === true })}
+          <p className="text-xs text-muted-foreground">
+            Reporting a blocker moves the task to Blocked.
+            {isBlocked
+              ? ` It is blocked now${task.blocker_category ? ` (${task.blocker_category})` : ''}; to clear that, set Status to where the work moves next instead.`
+              : ''}
+          </p>
+          <Field label="Blocker category">
+            <EnumSelect
+              value={form.blocker_category}
+              onChange={(v) => set({ blocker_category: v })}
+              options={BLOCKER_CATEGORIES}
+              placeholder="What is holding the work up"
+            />
+          </Field>
+          <Field label="What is the blocker">
+            <Textarea
+              rows={2}
+              value={form.blocker_description}
+              onChange={(e) => set({ blocker_description: e.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Responsible party">
+              <Input
+                value={form.blocker_responsible_party}
+                onChange={(e) => set({ blocker_responsible_party: e.target.value })}
+                placeholder="Who must act"
               />
-              <span>
-                Clear the blocker on this task
-                {task.blocker_category ? ` (${task.blocker_category})` : ''}
-              </span>
-            </label>
-          )}
-          {!form.clearBlocker && (
-            <>
-              <Field label="Blocker category">
-                <EnumSelect
-                  value={form.blocker_category}
-                  onChange={(v) => set({ blocker_category: v })}
-                  options={BLOCKER_CATEGORIES}
-                  placeholder="What is holding the work up"
-                />
-              </Field>
-              <Field label="What is the blocker">
-                <Textarea
-                  rows={2}
-                  value={form.blocker_description}
-                  onChange={(e) => set({ blocker_description: e.target.value })}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Responsible party">
-                  <Input
-                    value={form.blocker_responsible_party}
-                    onChange={(e) => set({ blocker_responsible_party: e.target.value })}
-                    placeholder="Who must act"
-                  />
-                </Field>
-                <Field label="Expected by">
-                  <Input
-                    type="date"
-                    value={form.expected_resolution_date}
-                    onChange={(e) => set({ expected_resolution_date: e.target.value })}
-                  />
-                </Field>
-              </div>
-            </>
-          )}
+            </Field>
+            <Field label="Expected by">
+              <Input
+                type="date"
+                value={form.expected_resolution_date}
+                onChange={(e) => set({ expected_resolution_date: e.target.value })}
+              />
+            </Field>
+          </div>
         </div>
       )}
 

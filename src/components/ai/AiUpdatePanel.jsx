@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Sparkles, TriangleAlert } from 'lucide-react';
-import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
@@ -10,6 +9,8 @@ import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
 import { aiParseUpdate } from '@/lib/aiService';
 import { submitDailyUpdate } from '@/lib/dailyService';
 import { TASK_STATUSES, BLOCKER_CATEGORIES } from '@/lib/constants';
+import { aiUpdateForm, aiUpdatePayload } from '@/lib/aiUpdateForm';
+import { useCatalogs } from '@/lib/CatalogContext';
 
 /**
  * Stage B / 14 — describe the site update in words; the assistant proposes
@@ -23,6 +24,8 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
   const [error, setError] = useState('');
   const [form, setForm] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const cat = useCatalogs();
+  const disciplines = cat.enabledDisciplines(cat.projectById(projectId));
 
   const parse = async () => {
     if (!text.trim()) return;
@@ -31,19 +34,7 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
     try {
       const payload = await aiParseUpdate({ projectId, phaseId, text, date });
       setResult(payload);
-      const proposed = payload.proposed || {};
-      setForm({
-        task_ref: proposed.task_ref || '',
-        task_id: '',
-        status: proposed.status || 'In Progress',
-        progress_percent: proposed.progress_percent ?? '',
-        manpower_total: proposed.manpower_total ?? '',
-        manpower_discipline: '',
-        work_done: proposed.work_done || text,
-        blocker_category: proposed.blocker_category || '',
-        blocker_description: proposed.blocker_description || '',
-        date_revision_reason: '',
-      });
+      setForm(aiUpdateForm(payload, text));
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || 'Could not read that update.');
     } finally {
@@ -69,25 +60,16 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
       setError('Choose a blocker category for the blocker you described.');
       return;
     }
+    if (form.forecast && !form.date_revision_reason.trim()) {
+      setError('A forecast date change needs a reason.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       // Only the fields the engineer confirmed are sent; a blank left alone
       // means "not measured today", never "clear the measured value".
-      const payload = {
-        task_id: form.task_id,
-        update_date: date,
-        status: form.status,
-      };
-      if (form.progress_percent !== '') payload.progress_percent = Number(form.progress_percent);
-      if (form.work_done.trim()) payload.work_done = form.work_done.trim();
-      if (count > 0) payload.manpower_items = [{ discipline: form.manpower_discipline.trim(), count }];
-      if (form.blocker_category) {
-        payload.blocker_reported = true;
-        payload.blocker_category = form.blocker_category;
-        payload.blocker_description = form.blocker_description.trim();
-      }
-      await submitDailyUpdate(payload);
+      await submitDailyUpdate(aiUpdatePayload(form, date));
       setResult(null);
       setForm(null);
       setText('');
@@ -149,7 +131,12 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
               </div>
             </Field>
             <Field label="Status">
-              <EnumSelect value={form.status} onChange={(value) => setForm((f) => ({ ...f, status: value }))} options={TASK_STATUSES} />
+              <EnumSelect
+                value={form.status}
+                onChange={(value) => setForm((f) => ({ ...f, status: value }))}
+                options={TASK_STATUSES}
+                placeholder="Keep the task's status"
+              />
             </Field>
             <Field label="Progress %" hint="Leave blank when progress is unknown.">
               <Input
@@ -162,10 +149,11 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
             </Field>
             <Field label="Manpower today" hint="Trade the manpower was deployed under, and how many.">
               <div className="flex gap-2">
-                <Input
-                  placeholder="Trade, e.g. Finishes"
+                <EnumSelect
                   value={form.manpower_discipline}
-                  onChange={(e) => setForm((f) => ({ ...f, manpower_discipline: e.target.value }))}
+                  onChange={(value) => setForm((f) => ({ ...f, manpower_discipline: value }))}
+                  options={disciplines.map((d) => ({ value: d.code, label: d.name }))}
+                  placeholder="Trade"
                 />
                 <Input
                   type="number"
@@ -183,9 +171,14 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
                 options={[{ value: '', label: 'No blocker' }, ...BLOCKER_CATEGORIES.map((c) => ({ value: c, label: c }))]}
               />
             </Field>
-            <Field label="Forecast finish change reason" hint="Only needed if the forecast date moves.">
-              <Input value={form.date_revision_reason} onChange={(e) => setForm((f) => ({ ...f, date_revision_reason: e.target.value }))} />
+            <Field label="New forecast finish" hint="Leave blank to keep the current forecast.">
+              <Input type="date" value={form.forecast} onChange={(e) => setForm((f) => ({ ...f, forecast: e.target.value }))} />
             </Field>
+            {!!form.forecast && (
+              <Field label="Forecast finish change reason" required>
+                <Input value={form.date_revision_reason} onChange={(e) => setForm((f) => ({ ...f, date_revision_reason: e.target.value }))} />
+              </Field>
+            )}
           </div>
 
           <div className="mt-3">

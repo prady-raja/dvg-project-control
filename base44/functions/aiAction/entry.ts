@@ -1,16 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
-import { secrets } from 'base44:runtime';
 import { activeMembers, isAppAdmin, resolveRole } from '../../shared/access.ts';
 import { fail, getOne, listAll } from '../../shared/records.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import {
-  AI_MODELS, BLOCKER_CATEGORIES, OPENAI_KEY_SECRET, TASK_STATUSES, buildDigest, callOpenAi,
+  AI_KEY_SECRETS, AI_MODELS, BLOCKER_CATEGORIES, TASK_STATUSES, buildDigest, providerFor,
   canUseAi, dailyBriefPrompt, loadAiSettings, matchTaskCandidates, meetingBriefPrompt,
   parseUpdatePrompt, askPrompt, recordUsage, systemPrompt, usageToday,
 } from '../../shared/ai.ts';
 import { loadProjectData, scopeFor } from '../../shared/projectData.ts';
 import { buildProposal, mergeModelRefinement } from '../../shared/assist.ts';
 import { canEditTasks, canManageProject } from '../../shared/access.ts';
+import {
+  APPLYING_LEASE_MS, FINAL_STATUSES, alreadyWritten, applyProposal, indexOfAction, proposalStatus, resultKey,
+} from '../../shared/assistApply.ts';
 
 /**
  * Ask DVG AI.
@@ -21,9 +23,9 @@ import { canEditTasks, canManageProject } from '../../shared/access.ts';
  * request is refused before any provider call when the key is missing, the role
  * is not allowed, or the day's limit is used up.
  *
- * Nothing here writes to a task, a baseline or a permission. A proposed
- * site update is returned for a human to confirm and is applied afterwards
- * through the existing guarded daily-update path.
+ * Nothing is written until a person confirms. A confirmed proposal is applied
+ * here on the server, each action through the same guarded function an
+ * ordinary screen calls, invoked with the user's own client.
  */
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -147,7 +149,7 @@ const deterministicProposal = (text, candidates) => {
   return {
     task_ref: candidates.length === 1 ? candidates[0].ref : '',
     matched_confidence: candidates.length === 1 ? 'medium' : 'low',
-    status: /complet|done|finish/i.test(String(text)) ? 'Execution Complete' : /blocked|waiting|pending/i.test(String(text)) ? 'Blocked' : 'In Progress',
+    status: /complet|done|finish/i.test(String(text)) ? 'Execution Complete' : /blocked|waiting|pending/i.test(String(text)) ? 'Blocked' : '',
     progress_percent: percent ? bounded(percent[1], 0, 100) : null,
     manpower_total: Number.isFinite(count) ? count : null,
     work_done: String(text).slice(0, 800),
@@ -175,13 +177,9 @@ export default async function (req) {
     const asOf = DATE.test(String(body?.date || '')) ? String(body.date) : day;
 
     const settings = await loadAiSettings(svc);
-    let apiKey = '';
-    try {
-      apiKey = secrets.get(OPENAI_KEY_SECRET) || '';
-    } catch {
-      apiKey = '';
-    }
-    const configured = !!apiKey;
+    const provider = providerFor(base44, settings);
+    const configured = !!provider;
+    const modelName = provider ? provider.model : settings.model;
     const limit = Number(settings.daily_request_limit) || 0;
     const used = await usageToday(svc, user.id, day);
     const remaining = limit > 0 ? Math.max(0, limit - used) : 0;
@@ -200,7 +198,7 @@ export default async function (req) {
         day,
         action,
         project_id: scope.projectId,
-        model: action === 'parse_update' ? 'deterministic' : settings.model,
+        model: action === 'parse_update' ? 'deterministic' : modelName,
         asked_at: new Date().toISOString(),
         ...entry,
       });
@@ -209,7 +207,9 @@ export default async function (req) {
       return Response.json({
         configured,
         enabled: settings.enabled,
-        model: settings.model,
+        model: modelName,
+        provider: provider ? provider.kind : '',
+        provider_api: provider ? provider.api : '',
         allowed_roles: settings.allowed_roles,
         daily_limit: limit,
         used_today: used,
@@ -218,7 +218,7 @@ export default async function (req) {
         reason: permission.reason || '',
         available_models: AI_MODELS,
         settings_record_id: settings.record_id || '',
-        key_name: OPENAI_KEY_SECRET,
+        key_name: AI_KEY_SECRETS.join(' or '),
       });
     }
 
@@ -254,11 +254,23 @@ export default async function (req) {
         if (found.project_id !== scope.projectId) throw fail('That proposal belongs to a different project.', 403);
 
         if (action === 'assist_cancel') {
-          if (found.status === 'Proposed') await svc.AiProposal.update(found.id, { status: 'Cancelled' });
-          return Response.json({ key, status: found.status === 'Proposed' ? 'Cancelled' : found.status, written: 0 });
+          // A proposal left in Applying (closed tab, timeout) can be cancelled too;
+          // anything already written stays recorded as Partial.
+          if (['Proposed', 'Applying'].includes(found.status)) {
+            const anyWritten = (found.results || []).some((row) => row.ok);
+            const next = anyWritten ? 'Partial' : 'Cancelled';
+            await svc.AiProposal.update(found.id, { status: next });
+            return Response.json({ key, status: next, written: 0 });
+          }
+          return Response.json({ key, status: found.status, written: 0 });
         }
 
         if (action === 'assist_finish') {
+          // Kept for older clients. The server records outcomes itself now, so a
+          // finished proposal is never overwritten from the browser.
+          if (found.status !== 'Applying') {
+            throw fail(`This proposal is already ${found.status}; its outcome cannot be changed.`, 409);
+          }
           const raw = Array.isArray(body?.results) ? body.results.slice(0, 40) : [];
           const results = raw.map((entry) => ({
             action_id: String(entry?.action_id || '').slice(0, 20),
@@ -284,8 +296,10 @@ export default async function (req) {
           });
         }
 
-        // assist_confirm — an already-answered proposal is never applied twice.
-        if (['Applied', 'Partial', 'Failed', 'Cancelled', 'Applying'].includes(found.status)) {
+        // assist_confirm — an applied or cancelled proposal is never applied
+        // again. Partial, Failed and a stale Applying resume: only the actions
+        // without a written result are attempted.
+        if (FINAL_STATUSES.includes(found.status)) {
           return Response.json({
             key,
             status: found.status,
@@ -294,6 +308,11 @@ export default async function (req) {
             message: 'This proposal has already been confirmed, so nothing was written a second time.',
           });
         }
+        const leaseAt = Date.parse(found.confirmed_at || '');
+        if (found.status === 'Applying' && Number.isFinite(leaseAt) && Date.now() - leaseAt < APPLYING_LEASE_MS) {
+          throw fail('This proposal is being applied right now. Wait a moment and look again.', 409);
+        }
+        const previous = (found.results || []).filter((row) => row.result_key);
 
         const requested = (found.actions || []).filter(
           (item) => !Array.isArray(body?.action_ids) || body.action_ids.includes(item.action_id),
@@ -304,6 +323,10 @@ export default async function (req) {
         const accepted = [];
         const refused = [];
         for (const item of requested) {
+          if (alreadyWritten(previous, resultKey(key, indexOfAction(found.actions, item.action_id)))) {
+            accepted.push(item);
+            continue;
+          }
           if (!permissionForWrite(item.type)) {
             refused.push({
               action_id: item.action_id,
@@ -335,20 +358,56 @@ export default async function (req) {
           accepted.push(patch ? { ...item, payload: { ...item.payload, ...patch } } : item);
         }
 
-        await svc.AiProposal.update(found.id, {
-          status: accepted.length ? 'Applying' : 'Failed',
-          results: refused,
-          confirmed_at: new Date().toISOString(),
-          error: accepted.length ? '' : 'Every selected action was refused.',
-        });
+        const refusedRows = refused.map((row) => ({
+          action_id: row.action_id, summary: row.summary, ok: false, error: row.reason,
+        }));
+        if (!accepted.length) {
+          await svc.AiProposal.update(found.id, {
+            status: previous.some((row) => row.ok) ? 'Partial' : 'Failed',
+            results: [...previous, ...refusedRows],
+            confirmed_at: new Date().toISOString(),
+            error: 'Every selected action was refused.',
+          });
+          return Response.json({
+            key,
+            status: 'Failed',
+            written: 0,
+            results: refusedRows,
+            failed: refusedRows,
+            message: refused.map((row) => row.reason).join(' ') || 'Nothing was written.',
+          });
+        }
 
+        await svc.AiProposal.update(found.id, { status: 'Applying', confirmed_at: new Date().toISOString(), error: '' });
+        const results = await applyProposal({
+          externalId: key,
+          allActions: found.actions || [],
+          selected: accepted,
+          previous,
+          invoke: (fn, payload) => base44.functions.invoke(fn, payload),
+          // Saved after every write, so a timeout part-way loses nothing.
+          onProgress: (rows) =>
+            svc.AiProposal.update(found.id, { results: rows, confirmed_at: new Date().toISOString() }),
+        });
+        const selectedKeys = new Set(accepted.map((item) => resultKey(key, indexOfAction(found.actions, item.action_id))));
+        const selectedResults = results.filter((row) => selectedKeys.has(row.result_key));
+        const status = refused.length && proposalStatus(selectedResults, accepted.length) === 'Applied'
+          ? 'Partial'
+          : proposalStatus(selectedResults, accepted.length);
+        const allRows = [...results, ...refusedRows];
+        await svc.AiProposal.update(found.id, { status, results: allRows, confirmed_at: new Date().toISOString() });
+        const shown = [...selectedResults, ...refusedRows];
+        const written = selectedResults.filter((row) => row.ok).length;
         return Response.json({
           key,
-          status: accepted.length ? 'Applying' : 'Failed',
-          intent: found.intent,
-          source: found.source,
-          actions: accepted,
-          refused,
+          status,
+          attempted: shown.length,
+          written,
+          results: shown,
+          failed: shown.filter((row) => !row.ok),
+          message: status === 'Applied'
+            ? `${written} action(s) written and each one recorded in the change trail.`
+            : `${written} of ${shown.length} action(s) were written. The rest were refused — read the reasons, then confirm again to retry only those.`,
         });
       }
 
@@ -421,9 +480,7 @@ export default async function (req) {
 
       if (worthRefining) {
         try {
-          const { content, usage } = await callOpenAi({
-            apiKey,
-            model: settings.model,
+          const { content, usage } = await provider.complete({
             system: systemPrompt({
               user,
               settings,
@@ -438,7 +495,7 @@ export default async function (req) {
           });
           finalProposal = mergeModelRefinement(proposal, parseJson(content), TASK_STATUSES);
           source = 'ai';
-          modelUsed = settings.model;
+          modelUsed = modelName;
           await logUsage({
             ok: true,
             question: text.slice(0, 200),
@@ -555,9 +612,7 @@ export default async function (req) {
         digest: { candidates },
       });
       try {
-        const { content, usage } = await callOpenAi({
-          apiKey,
-          model: settings.model,
+        const { content, usage } = await provider.complete({
           system,
           user: parseUpdatePrompt(text, candidates, BLOCKER_CATEGORIES),
           json: true,
@@ -611,7 +666,7 @@ export default async function (req) {
     if (!configured) {
       return Response.json({
         configured: false,
-        message: `AI Setup Required — no OpenAI API key is stored for this application yet. An administrator adds it under Secrets as ${OPENAI_KEY_SECRET}; the rest of the application works normally in the meantime.`,
+        message: `AI Setup Required — no AI provider is available. An administrator adds a key under Secrets as ${AI_KEY_SECRETS.join(' or ')}, or sets the provider to Base44 in AI settings; the rest of the application works normally in the meantime.`,
         data_date: asOf,
         scope: digest.scope,
       });
@@ -629,9 +684,7 @@ export default async function (req) {
     let content = '';
     let usage = {};
     try {
-      const result = await callOpenAi({
-        apiKey,
-        model: settings.model,
+      const result = await provider.complete({
         system,
         user: prompt,
         maxTokens: action === 'ask' ? 1600 : 2400,
@@ -654,7 +707,7 @@ export default async function (req) {
       configured: true,
       action,
       answer: content,
-      model: settings.model,
+      model: modelName,
       data_date: asOf,
       scope: digest.scope,
       facts: {
