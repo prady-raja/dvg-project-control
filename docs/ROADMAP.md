@@ -96,14 +96,14 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 
 | Id | Item | Phase | Effort | Impact | Status |
 | --- | --- | --- | --- | --- | --- |
-| [X-01](#x-01) | Update dialogs and the task picker show the wrong task data (partly verified) | MVP | M | High | Open |
-| [X-02](#x-02) | Invites fail and new members cannot see older records (partly verified) | MVP | M | High | Open |
-| [X-03](#x-03) | Daily reports can move tasks backwards or wipe data (verified) | MVP | M | High | Open |
+| [X-01](#x-01) | Update dialogs and the task picker show the wrong task data (partly verified) | MVP | M | High | Done (d2cb2c5) |
+| [X-02](#x-02) | Invites fail and new members cannot see older records (partly verified) | MVP | M | High | Done (d2cb2c5) |
+| [X-03](#x-03) | Daily reports can move tasks backwards or wipe data (verified) | MVP | M | High | Done (d2cb2c5) |
 | [X-04](#x-04) | Lists, boards and baselines are cut short without warning (partly verified) | MVP | L | High | Open |
 | [X-05](#x-05) | A failed load leaves the app spinning forever (verified) | MVP | M | High | Open |
 | [X-06](#x-06) | Counts disagree between boards (partly verified) | MVP | L | High | Open |
 | [X-07](#x-07) | Quality sweep: photos, drawings, snags, dates, copy and small UI defects (partly verified) | MVP | M | Medium | Open |
-| [X-08](#x-08) | AI assistant cannot run and can leave proposals half applied (partly verified) | MVP | M | High | Open |
+| [X-08](#x-08) | AI assistant cannot run and can leave proposals half applied (partly verified) | MVP | M | High | Done (d2cb2c5) |
 
 ### Navigation & home
 
@@ -260,7 +260,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [R-04](#r-04) | One scheduler function with named steps | Phase 2 | M | High | Open |
 | [R-05](#r-05) | Live updates with subscribe() | Future | S | Medium | Open |
 | [R-07](#r-07) | One Attachment entity for photos and files | Phase 2 | M | Medium | Open |
-| [R-08](#r-08) | Portability seam: one data adapter, pure rules in shared modules | MVP | S | High | Open |
+| [R-08](#r-08) | Portability seam: one data adapter, pure rules in shared modules | MVP | S | High | Done (d2cb2c5) |
 | [R-09](#r-09) | Supabase build alongside the live app, after a post-go-live decision gate | Phase 2 | L | High | Open |
 | [R-10](#r-10) | Rehearsed data move and one-weekend cutover | Phase 2 | M | High | Open |
 
