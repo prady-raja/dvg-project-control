@@ -15,10 +15,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { archiveTask, restoreTask } from '@/lib/taskService';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
 
 const Section = ({ title, children }) => (
@@ -32,6 +32,7 @@ export default function TaskDetail() {
   const { taskId } = useParams();
   const cat = useCatalogs();
   const access = useAccess();
+  const quick = useQuickActions();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [task, setTask] = useState(null);
@@ -39,8 +40,6 @@ export default function TaskDetail() {
   const [parentTask, setParentTask] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
-  const [dailyOpen, setDailyOpen] = useState(false);
-  const [dailyRefresh, setDailyRefresh] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -56,7 +55,7 @@ export default function TaskDetail() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, quick.version]);
 
   if (cat.loading || (!task && !notFound)) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -100,7 +99,7 @@ export default function TaskDetail() {
         actions={
           <>
             {canEdit && (
-              <Button size="sm" className="gap-2" onClick={() => setDailyOpen(true)}>
+              <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ taskId: task.id })}>
                 <CalendarPlus className="h-3.5 w-3.5" /> Daily update
               </Button>
             )}
@@ -289,13 +288,13 @@ export default function TaskDetail() {
             Daily updates
           </h2>
           {canEdit && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setDailyOpen(true)}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ taskId: task.id })}>
               <CalendarPlus className="h-3.5 w-3.5" /> Report today's work
             </Button>
           )}
         </div>
         <DailyUpdateFeed
-          key={dailyRefresh}
+          key={quick.version}
           filter={{ task_id: task.id }}
           hideVilla
           emptyTitle="No site reports yet"
@@ -320,16 +319,6 @@ export default function TaskDetail() {
         }}
       />
 
-      <DailyUpdateDialog
-        task={task}
-        open={dailyOpen}
-        onOpenChange={setDailyOpen}
-        onSaved={() => {
-          setDailyOpen(false);
-          setDailyRefresh((n) => n + 1);
-          load();
-        }}
-      />
     </>
   );
 }

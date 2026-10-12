@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus, Activity } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
 import PageHeader from '@/components/common/PageHeader';
@@ -11,14 +10,12 @@ import DetailList from '@/components/common/DetailList';
 import EmptyState from '@/components/common/EmptyState';
 import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
-import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
-import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
 import VillaScopePanel from '@/components/villa/VillaScopePanel';
 import DrawingRegister from '@/components/drawings/DrawingRegister';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList } from 'lucide-react';
@@ -31,19 +28,15 @@ import { errorMessageOf } from '@/lib/clientErrors';
 export default function LocationDetail() {
   const { locationId } = useParams();
   const cat = useCatalogs();
-  const { user } = useAuth();
   const access = useAccess();
   const navigate = useNavigate();
+  const quick = useQuickActions();
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [taskTotal, setTaskTotal] = useState(null);
   const [loadingAll, setLoadingAll] = useState(false);
-  const [quickTask, setQuickTask] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [reportTask, setReportTask] = useState(null);
-  const [dailyRefresh, setDailyRefresh] = useState(0);
 
   const location = cat.locationById(locationId);
   const phase = location ? cat.phaseById(location.phase_id) : null;
@@ -83,7 +76,7 @@ export default function LocationDetail() {
 
   useEffect(() => {
     loadTasks();
-  }, [loadTasks]);
+  }, [loadTasks, quick.version]);
 
   if (cat.loading) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -202,7 +195,6 @@ export default function LocationDetail() {
                   task={t}
                   cat={cat}
                   onOpen={() => navigate(`/tasks/${t.id}`)}
-                  onQuickUpdate={setQuickTask}
                 />
               ))}
             </div>
@@ -224,13 +216,13 @@ export default function LocationDetail() {
             </p>
           </div>
           {canEdit && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ locationId: location.id })}>
               <CalendarPlus className="h-4 w-4" /> Log daily update
             </Button>
           )}
         </div>
         <DailyUpdateFeed
-          key={dailyRefresh}
+          key={quick.version}
           filter={{ location_id: location.id }}
           hideVilla
           emptyTitle="No daily updates for this location yet"
@@ -238,37 +230,8 @@ export default function LocationDetail() {
         />
       </section>
 
-      <TaskPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        projectId={location.project_id}
-        locationId={location.id}
-        onPick={(task) => {
-          setPickerOpen(false);
-          setReportTask(task);
-        }}
-      />
 
-      <DailyUpdateDialog
-        task={reportTask}
-        open={!!reportTask}
-        onOpenChange={(v) => !v && setReportTask(null)}
-        onSaved={() => {
-          setReportTask(null);
-          setDailyRefresh((n) => n + 1);
-        }}
-      />
 
-      <QuickUpdateDialog
-        task={quickTask}
-        open={!!quickTask}
-        onOpenChange={(v) => !v && setQuickTask(null)}
-        user={user}
-        onSaved={() => {
-          setQuickTask(null);
-          loadTasks();
-        }}
-      />
 
       <LocationDialog open={editOpen} onOpenChange={setEditOpen} location={location} cat={cat} />
     </>

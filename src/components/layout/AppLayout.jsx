@@ -5,6 +5,8 @@ import { CatalogProvider } from '@/lib/CatalogContext';
 import { AccessProvider, useAccess } from '@/lib/AccessContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import MobileTabBar from '@/components/layout/MobileTabBar';
+import { QuickActionsProvider } from '@/components/layout/QuickActions';
 import DataState from '@/components/common/DataState';
 import { installGlobalErrorHandlers, setErrorContext } from '@/lib/clientErrors';
 import { useAuth } from '@/lib/AuthContext';
@@ -55,6 +57,7 @@ export default function AppLayout() {
   return (
     <AccessProvider>
       <CatalogProvider>
+        <QuickActionsProvider>
         <div className="min-h-screen bg-background">
         <DesktopSidebar />
 
@@ -92,14 +95,16 @@ export default function AppLayout() {
         </header>
 
           <div className="lg:pl-[264px]">
-            <div className="mx-auto w-full max-w-[1500px] px-4 pb-20 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+            <div className="mx-auto w-full max-w-[1500px] px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
               <LoadBanners />
               <ErrorBoundary resetKey={routerLocation.pathname}>
                 <Outlet />
               </ErrorBoundary>
             </div>
           </div>
+          <MobileTabBar onMore={() => setMenuOpen(true)} />
         </div>
+        </QuickActionsProvider>
       </CatalogProvider>
     </AccessProvider>
   );

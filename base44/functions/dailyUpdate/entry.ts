@@ -14,6 +14,7 @@ import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { projectSettings } from '../../shared/calendar.ts';
 import { delayCategoryFor } from '../../shared/delay.ts';
+import { appliedChanges, planVoid } from '../../shared/reportVoid.ts';
 
 /**
  * The only path that records site work.
@@ -53,6 +54,28 @@ async function handler(req) {
 
     const body = await req.json().catch(() => ({}));
     const svc = base44.asServiceRole.entities;
+
+    /* ------------------------------------------- taking back your own report today */
+    if (body?.action === 'void') {
+      const original = await getOne(svc.DailyUpdate, String(body?.report_id || ''));
+      const original_task = original ? await getOne(svc.Task, original.task_id) : null;
+      const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
+      if (plan.error) throw fail(plan.error, 400);
+      const when = new Date().toISOString();
+      if (plan.patch && original_task) {
+        const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
+        await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
+        await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
+          task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
+          field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
+          new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
+          changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
+          note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
+        })));
+      }
+      await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
+      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
+    }
 
     const task = await getOne(svc.Task, String(body?.task_id || ''));
     if (!task) throw fail('That task no longer exists.', 404);
@@ -203,7 +226,7 @@ async function handler(req) {
       phase_id: task.phase_id || null,
       location_id: task.location_id || null,
       work_scope: task.location_id ? 'Villa' : 'Site-wide',
-      site_area: task.location_id ? null : text(body?.site_area, 120),
+      site_area: text(body?.site_area, 160),
       task_id: task.id,
       task_ref: task.task_ref || '',
       task_name: task.name || '',
@@ -229,6 +252,9 @@ async function handler(req) {
       forecast_new: forecastEntry ? forecastEntry.new_value : null,
       date_revision_reason: forecastEntry ? revisionReason : null,
       photo_uris: photoUris,
+      applied: appliedChanges({ entries, effectsPatch: effects.patch, task }),
+      prev_latest_report_date: task.latest_report_date || null,
+      history_only: historyOnly,
       member_ids: memberIds,
       is_demo: false,
     });

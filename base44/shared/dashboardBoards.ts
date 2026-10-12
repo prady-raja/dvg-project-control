@@ -8,6 +8,7 @@
  * guessing at a critical path.
  */
 
+import { isPastDue } from './constraints.ts';
 import {
   compareFinish, daysBetween, dueWithin, isAwaitingClosure, isAwaitingVerification,
   isBlocked, isDemoTask, isExecuting, isOutstanding, isOverdue, isParentRow,
@@ -60,7 +61,8 @@ function walkChain(startId, successors, byId, ix, asOf, limit, depth = 0, seen =
 }
 
 /** Stage A / 6 — Blockers and dependency chains. */
-export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, heldIds }) {
+export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, heldIds, constraints = [] }) {
+  const constraintOf = new Map((constraints || []).filter((c) => c.status === 'Open').map((c) => [c.task_id, c]));
   const scoped = scopeBoardTasks(tasks, options).filter(
     (t) => !t.location_id || !heldIds.has(t.location_id),
   );
@@ -79,7 +81,9 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
     .map((task) => {
       const row = taskRow(task, ix, asOf);
       const chain = walkChain(task.id, successors, byId, ix, asOf, 6);
-      const resolution = expectedResolutionFor(task, ix);
+      const constraint = constraintOf.get(task.id) || null;
+      // The owner's own date wins; older blockers fall back to what the last report said.
+      const resolution = constraint?.due_date || expectedResolutionFor(task, ix);
       return {
         ...row,
         identified: row.blocked_since,
@@ -89,6 +93,12 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
         downstream_count: chain.length,
         downstream: chain,
         dependencies_recorded: (predecessors.get(task.id) || []).length,
+        constraint: constraint && {
+          id: constraint.id, category: constraint.category, owner_type: constraint.owner_type, owner_id: constraint.owner_id || '',
+          owner_name: constraint.owner_name || '', due_date: constraint.due_date || '',
+          past_due: isPastDue(constraint, asOf), last_chased_at: constraint.last_chased_at || '', chase_count: constraint.chase_count || 0,
+        },
+        owner_key: ownerKeyOf(row, constraint),
       };
     })
     .sort((a, b) => (b.days_blocked || 0) - (a.days_blocked || 0) || compareFinish(a, b));
@@ -131,15 +141,38 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
       blocked_by_another_party: otherContractorBlockers.length,
       overdue_and_blocked: rows.filter((r) => r.overdue_days > 0).length,
       resolution_overdue: rows.filter((r) => r.resolution_overdue).length,
+      past_due: rows.filter((r) => r.constraint?.past_due).length,
+      without_owner: rows.filter((r) => !r.constraint).length,
       dependency_links: recordedEdges.length,
       tasks_with_downstream: rows.filter((r) => r.downstream_count > 0).length,
     },
+    by_owner: [...rows.reduce((map, r) => {
+      const group = map.get(r.owner_key) || { owner: r.owner_key, rows: [], past_due: 0, no_date: 0 };
+      group.rows.push(r);
+      if (r.constraint?.past_due) group.past_due += 1;
+      if (!r.expected_resolution_date) group.no_date += 1;
+      map.set(r.owner_key, group);
+      return map;
+    }, new Map()).values()].sort((a, b) => b.past_due - a.past_due || b.rows.length - a.rows.length || a.owner.localeCompare(b.owner)),
     by_category: [...new Set(rows.map((r) => r.blocker_category).filter(Boolean))].map((category) => ({
       category,
       count: rows.filter((r) => r.blocker_category === category).length,
     })).sort((a, b) => b.count - a.count),
     warnings,
   };
+}
+
+/**
+ * Who must clear a blocker, as a group key: owner-access blockers are grouped by
+ * the villa (the villa owner is who must act, and it is their villa), everything
+ * else by the named owner, then by the kind of owner.
+ */
+function ownerKeyOf(row, constraint) {
+  const type = constraint?.owner_type || '';
+  if (type === 'Villa owner' || row.blocker_category === 'Owner Access Pending') return `Villa owner — ${row.villa}`;
+  if (constraint?.owner_name) return constraint.owner_name;
+  if (row.blocker_responsible) return row.blocker_responsible;
+  return type || 'Owner not assigned';
 }
 
 export function resolveChain(startRef, dependencies, tasks, ix, asOf) {

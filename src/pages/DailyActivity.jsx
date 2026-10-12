@@ -9,12 +9,11 @@ import { items } from '@/lib/dataHelpers';
 import { todayIst } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import PageHeader from '@/components/common/PageHeader';
 import EnumSelect from '@/components/common/EnumSelect';
 import EmptyState from '@/components/common/EmptyState';
 import DailyUpdateCard from '@/components/daily/DailyUpdateCard';
-import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import AiUpdatePanel from '@/components/ai/AiUpdatePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,14 +33,13 @@ const Stat = ({ label, value }) => (
 export default function DailyActivity() {
   const cat = useCatalogs();
   const access = useAccess();
+  const quick = useQuickActions();
   const [projectId, setProjectId] = useState('');
   const [date, setDate] = useState(todayIst());
   const [scope, setScope] = useState('All');
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ updates: 0, blockers: 0, manpower: 0 });
   const [loading, setLoading] = useState(true);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [reportTask, setReportTask] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const [loadError, setLoadError] = useState('');
   const [loadingAll, setLoadingAll] = useState(false);
@@ -81,7 +79,7 @@ export default function DailyActivity() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, date, scope, refresh]);
+  }, [projectId, date, scope, refresh, quick.version]);
 
   const loadAllUpdates = async () => {
     setLoadingAll(true);
@@ -150,7 +148,7 @@ export default function DailyActivity() {
         description="Everything reported on site for one day, villa by villa, with site-wide works alongside."
         actions={
           canReport && (
-            <Button size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({})}>
               <Plus className="h-4 w-4" /> Report update
             </Button>
           )
@@ -255,25 +253,7 @@ export default function DailyActivity() {
         )}
       </div>
 
-      <TaskPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        projectId={projectId}
-        onPick={(task) => {
-          setPickerOpen(false);
-          setReportTask(task);
-        }}
-      />
 
-      <DailyUpdateDialog
-        task={reportTask}
-        open={!!reportTask}
-        onOpenChange={(v) => !v && setReportTask(null)}
-        onSaved={() => {
-          setReportTask(null);
-          setRefresh((n) => n + 1);
-        }}
-      />
     </>
   );
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, ClipboardCheck, Plus, ShieldAlert } from 'lucide-react';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import { loadDashboard } from '@/lib/dashboardService';
 import { todayIst } from '@/lib/format';
 import PageHeader from '@/components/common/PageHeader';
@@ -17,8 +18,6 @@ import DisciplineSection from '@/components/villa/DisciplineSection';
 import SnagList from '@/components/handover/SnagList';
 import ProgressMeter from '@/components/tasks/ProgressMeter';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
-import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
@@ -31,12 +30,11 @@ export default function VillaExecution() {
   const cat = useCatalogs();
   const access = useAccess();
   const navigate = useNavigate();
+  const quick = useQuickActions();
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [reportTask, setReportTask] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const { toast } = useToast();
 
@@ -58,7 +56,7 @@ export default function VillaExecution() {
     return () => {
       alive = false;
     };
-  }, [locationId, date, refresh]);
+  }, [locationId, date, refresh, quick.version]);
 
   if (cat.loading) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -98,7 +96,7 @@ export default function VillaExecution() {
             <Pill value={villa.active_status} />
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>Refresh</Button>
             {canEdit && (
-              <Button size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+              <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ locationId })}>
                 <CalendarCheck className="h-4 w-4" /> Log update
               </Button>
             )}
@@ -249,7 +247,7 @@ export default function VillaExecution() {
         className="mt-5"
         actions={
           canEdit && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ locationId })}>
               <Plus className="h-4 w-4" /> Log update
             </Button>
           )
@@ -285,26 +283,7 @@ export default function VillaExecution() {
         <ShieldAlert className="h-3.5 w-3.5" /> Possession and works completion are independent: handing over a villa never closes work.
       </p>
 
-      <TaskPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        projectId={villa.project_id}
-        locationId={villa.id}
-        onPick={(task) => {
-          setPickerOpen(false);
-          setReportTask(task);
-        }}
-      />
 
-      <DailyUpdateDialog
-        task={reportTask}
-        open={!!reportTask}
-        onOpenChange={(value) => !value && setReportTask(null)}
-        onSaved={() => {
-          setReportTask(null);
-          setRefresh((n) => n + 1);
-        }}
-      />
 
       <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <ClipboardCheck className="h-3.5 w-3.5" />

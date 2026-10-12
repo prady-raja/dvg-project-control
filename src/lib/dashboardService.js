@@ -20,5 +20,7 @@ export const DASHBOARD_VIEWS = [
   'handover',
   'sitewide',
   'attention',
+  'myWork',
+  'counts',
   'tasks',
 ];

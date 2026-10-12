@@ -64,6 +64,8 @@ export async function loadProjectData(base44, user, options = {}) {
     dependencies: options.dependencies === true,
     commitments: options.commitments === true,
     snags: options.snags === true,
+    proposals: options.proposals === true,
+    constraints: options.constraints === true,
   };
   const asOf = options.asOf || todayIst();
 
@@ -77,14 +79,16 @@ export async function loadProjectData(base44, user, options = {}) {
 
   const updatesFrom = shiftDay(asOf, -UPDATE_WINDOW_DAYS);
   const empty = { items: [], truncated: false };
-  const [tasksRes, updatesRes, dependenciesRes, commitmentsRes, snagsRes] = await Promise.all([
+  const [tasksRes, updatesRes, dependenciesRes, commitmentsRes, snagsRes, proposalsRes, constraintsRes] = await Promise.all([
     db.readAll('Task', { project_id: inScope, archived: { $ne: true } }, { max: MAX_ROWS }),
     load.updates
-      ? db.readAll('DailyUpdate', { project_id: inScope, reported_at: { $gte: `${updatesFrom}T00:00:00Z` } }, { sort: '-reported_at', max: MAX_ROWS })
+      ? db.readAll('DailyUpdate', { project_id: inScope, voided: { $ne: true }, reported_at: { $gte: `${updatesFrom}T00:00:00Z` } }, { sort: '-reported_at', max: MAX_ROWS })
       : empty,
     load.dependencies ? db.readAll('TaskDependency', { project_id: inScope }, { max: MAX_ROWS }) : empty,
     load.commitments ? db.readAll('MeetingCommitment', { project_id: inScope }, { sort: '-meeting_date', max: MAX_ROWS }) : empty,
     load.snags ? db.readAll('Snag', { project_id: inScope }, { sort: '-raised_date', max: MAX_ROWS }) : empty,
+    load.proposals ? db.readAll('AiProposal', { project_id: inScope, user_id: user.id, status: 'Proposed' }, { sort: '-proposed_at', max: 200 }) : empty,
+    load.constraints ? db.readAll('TaskConstraint', { project_id: inScope, status: 'Open' }, { max: MAX_ROWS }) : empty,
   ]);
 
   const tasks = tasksRes.items;
@@ -120,6 +124,8 @@ export async function loadProjectData(base44, user, options = {}) {
     dependencies,
     commitments,
     snags,
+    proposals: proposalsRes.items,
+    constraints: constraintsRes.items,
     ix,
     reportWindow: { from: shiftDay(asOf, -7), to: asOf },
     meta: { truncated, updates_from: load.updates ? updatesFrom : '', counts: { tasks: tasks.length, snags: snags.length, commitments: commitments.length } },

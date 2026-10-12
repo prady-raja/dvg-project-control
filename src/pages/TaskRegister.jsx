@@ -2,16 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, ClipboardList, Layers } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import TaskFilters, { EMPTY_TASK_FILTERS } from '@/components/tasks/TaskFilters';
 import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
-import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import VillaWorkDialog from '@/components/tasks/VillaWorkDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +23,7 @@ const PAGE_SIZE = 50;
 export default function TaskRegister() {
   const cat = useCatalogs();
   const access = useAccess();
-  const { user } = useAuth();
+  const quick = useQuickActions();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -47,7 +46,6 @@ export default function TaskRegister() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
-  const [quickTask, setQuickTask] = useState(null);
   const [villaOpen, setVillaOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const canEdit = access.canAnywhere('edit_tasks');
@@ -108,7 +106,7 @@ export default function TaskRegister() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey, reloadKey]);
+  }, [filterKey, reloadKey, quick.version]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -186,7 +184,7 @@ export default function TaskRegister() {
           </div>
           <div className="space-y-3 md:hidden">
             {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} cat={cat} onOpen={() => navigate(`/tasks/${t.id}`)} onQuickUpdate={setQuickTask} />
+              <TaskCard key={t.id} task={t} cat={cat} onOpen={() => navigate(`/tasks/${t.id}`)} />
             ))}
           </div>
           {hasMore && (
@@ -208,16 +206,6 @@ export default function TaskRegister() {
         onCreated={() => setReloadKey((k) => k + 1)}
       />
 
-      <QuickUpdateDialog
-        task={quickTask}
-        open={!!quickTask}
-        onOpenChange={(v) => !v && setQuickTask(null)}
-        user={user}
-        onSaved={() => {
-          setQuickTask(null);
-          setReloadKey((k) => k + 1);
-        }}
-      />
     </>
   );
 }

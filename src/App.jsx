@@ -26,6 +26,8 @@ import Access from '@/pages/Access';
 import DailyActivity from '@/pages/DailyActivity';
 import WorkImport from '@/pages/WorkImport';
 import ImportHistory from '@/pages/ImportHistory';
+import Today from '@/pages/Today';
+import HomeRedirect from '@/components/layout/HomeRedirect';
 import Dashboard from '@/pages/Dashboard';
 import Planning from '@/pages/Planning';
 import BlockerBoard from '@/pages/BlockerBoard';
@@ -71,7 +73,9 @@ const AuthenticatedApp = () => {
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/today" element={<Today />} />
+          <Route path="/overview" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/locations" element={<Locations />} />

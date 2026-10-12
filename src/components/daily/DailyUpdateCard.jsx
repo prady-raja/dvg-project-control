@@ -3,7 +3,12 @@ import { Link } from 'react-router-dom';
 import { CalendarClock, HardHat, TriangleAlert, User } from 'lucide-react';
 import Pill from '@/components/common/Pill';
 import PhotoStrip from '@/components/daily/PhotoStrip';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime, todayIst } from '@/lib/format';
+import { useAuth } from '@/lib/AuthContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
+import { voidDailyUpdate } from '@/lib/dailyService';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 
 const show = (value) => (value === null || value === undefined || value === '' ? null : String(value));
 
@@ -11,9 +16,31 @@ const show = (value) => (value === null || value === undefined || value === '' ?
 export default function DailyUpdateCard({ update, hideVilla = false }) {
   const manpower = update.manpower_items || [];
   const forecastMoved = update.forecast_previous && update.forecast_new;
+  const { user } = useAuth();
+  const quick = useQuickActions();
+  const { toast } = useToast();
+  // Your own report of today can be corrected: it is taken back and the form reopens with its values.
+  const canCorrect = !update.voided && user?.id && update.reported_by_id === user.id && update.update_date === todayIst() && update.task_id;
+
+  const correct = async () => {
+    try {
+      await voidDailyUpdate(update.id);
+      quick.openLogUpdate({
+        taskId: update.task_id,
+        prefill: { status: update.status, progress: update.progress_percent ?? '', note: update.work_done || '' },
+      });
+    } catch (e) {
+      toast({ description: e?.message || 'That report could not be corrected.', variant: 'destructive' });
+    }
+  };
 
   return (
-    <article className="rounded-xl border border-border bg-card p-4">
+    <article className={`rounded-xl border border-border bg-card p-4 ${update.voided ? 'opacity-60' : ''}`}>
+      {update.voided && (
+        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Taken back{update.voided_by_name ? ` by ${update.voided_by_name}` : ''} — kept on record, not counted
+        </p>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium">
@@ -101,6 +128,11 @@ export default function DailyUpdateCard({ update, hideVilla = false }) {
       {update.photo_uris?.length > 0 && (
         <div className="mt-2">
           <PhotoStrip uris={update.photo_uris} />
+        </div>
+      )}
+      {canCorrect && (
+        <div className="mt-3 border-t border-border pt-3">
+          <Button size="sm" variant="outline" onClick={correct}>Correct this report</Button>
         </div>
       )}
     </article>

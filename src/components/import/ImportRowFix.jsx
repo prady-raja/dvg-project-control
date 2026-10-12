@@ -123,7 +123,6 @@ export default function ImportRowFix({ row, cat, projectId, onApply, onApplyMany
     const villa = cat.locationById(draft.location_id);
     const floor = scope.floors.find((f) => same(f.floor_name, draft.floor) || same(f.floor_code, draft.floor));
     for (const name of missingRooms) {
-      // eslint-disable-next-line no-await-in-loop
       await createRecord('VillaArea', {
         project_id: projectId, phase_id: villa?.phase_id || '', location_id: draft.location_id,
         floor_id: floor?.id || null, area_name: name, source: 'Manual',

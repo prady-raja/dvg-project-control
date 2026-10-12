@@ -18,3 +18,8 @@ export async function submitDailyUpdate(payload) {
     throw new Error(message);
   }
 }
+
+/** Take back your own report of today. The server puts the task back as it was, if nothing else has changed it since. */
+export async function voidDailyUpdate(reportId) {
+  return submitDailyUpdate({ action: 'void', report_id: reportId });
+}

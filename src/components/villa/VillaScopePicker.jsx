@@ -4,8 +4,8 @@ import FloorRoomPicker from '@/components/villa/FloorRoomPicker';
 
 const cache = new Map();
 
-/** Loads a villa's floors and rooms, then shows the floor/room picker. Renders nothing without a villa. */
-export default function VillaScopePicker({ locationId, villaLabel, floorId, areaIds, onChange }) {
+/** A villa's registered floors and rooms, loaded once per session. */
+export function useVillaScope(locationId) {
   const [scope, setScope] = useState(() => cache.get(locationId) || { floors: [], areas: [] });
 
   useEffect(() => {
@@ -30,6 +30,12 @@ export default function VillaScopePicker({ locationId, villaLabel, floorId, area
     };
   }, [locationId]);
 
+  return scope;
+}
+
+/** Loads a villa's floors and rooms, then shows the floor/room picker. Renders nothing without a villa. */
+export default function VillaScopePicker({ locationId, villaLabel, floorId, areaIds, onChange }) {
+  const scope = useVillaScope(locationId);
   if (!locationId) return null;
   return (
     <FloorRoomPicker

@@ -1,3 +1,4 @@
+import { useQuickActions } from '@/components/layout/QuickActions';
 import React from 'react';
 import { CalendarClock, MapPin, Zap } from 'lucide-react';
 import Pill from '@/components/common/Pill';
@@ -5,7 +6,8 @@ import ProgressMeter from '@/components/tasks/ProgressMeter';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format';
 
-export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
+export default function TaskCard({ task, cat, onOpen }) {
+  const quick = useQuickActions();
   const location = cat.locationById(task.location_id);
   const phase = cat.phaseById(task.phase_id);
   return (
@@ -44,14 +46,14 @@ export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
           {task.responsible_engineer || 'No engineer'}
         </p>
       </button>
-      {onQuickUpdate && (
+      {quick.canReport && !['Approved', 'Closed', 'Under Inspection'].includes(task.status) && !task.is_villa_work_parent && (
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onQuickUpdate(task)}
+          onClick={() => quick.openLogUpdate({ taskId: task.id })}
           className="mt-3 w-full gap-2"
         >
-          <Zap className="h-3.5 w-3.5" /> Quick update
+          <Zap className="h-3.5 w-3.5" /> Log update
         </Button>
       )}
     </div>

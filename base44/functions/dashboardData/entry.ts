@@ -6,6 +6,7 @@ import { actionFor } from '../../shared/dashboardCore.ts';
 import { contractorBoardView, executiveView, planningView, villaExecutionView } from '../../shared/dashboardViews.ts';
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
 import { attentionFor } from '../../shared/attention.ts';
+import { countsView, myWorkView } from '../../shared/myWork.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
@@ -23,10 +24,12 @@ import { withLog } from '../../shared/log.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting'].includes(view),
-  dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor'].includes(view),
-  commitments: ['meeting'].includes(view),
-  snags: ['handover', 'villa'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork'].includes(view),
+  dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
+  commitments: ['meeting', 'myWork'].includes(view),
+  snags: ['handover', 'villa', 'myWork', 'counts'].includes(view),
+  proposals: ['myWork'].includes(view),
+  constraints: ['blockers', 'myWork'].includes(view),
 });
 
 async function handler(req) {
@@ -90,11 +93,21 @@ async function handler(req) {
       case 'planning':
         return Response.json({ ...header, ...planningView(common) });
       case 'blockers':
-        return Response.json({ ...header, ...blockerBoardView({ ...common, dependencies: data.dependencies, heldIds }) });
+        return Response.json({ ...header, ...blockerBoardView({ ...common, dependencies: data.dependencies, heldIds, constraints: data.constraints }) });
       case 'meeting':
         return Response.json({ ...header, ...meetingReportView({ ...common, dependencies: data.dependencies, commitments: data.commitments }) });
       case 'handover':
         return Response.json({ ...header, ...handoverBoardView({ ...common, snags: data.snags }) });
+      case 'myWork':
+        return Response.json({
+          ...header,
+          ...myWorkView({
+            ...common, locations: data.locations, commitments: data.commitments, snags: data.snags, updates: data.updates,
+            proposals: data.proposals, user, options: { ...options, allVillas: body?.allVillas === true },
+          }),
+        });
+      case 'counts':
+        return Response.json({ ...header, ...countsView({ ...common, snags: data.snags, dependencies: data.dependencies, user }) });
       case 'sitewide':
         return Response.json({ ...header, ...siteWideView(common) });
       case 'attention': {
