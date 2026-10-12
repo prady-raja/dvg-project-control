@@ -9,6 +9,7 @@ import Pill from '@/components/common/Pill';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
+import { useSignedUrls } from '@/lib/useSignedUrls';
 
 /**
  * The drawing register of one villa. Every revision keeps its own row, so a task
@@ -64,15 +65,9 @@ export default function DrawingRegister({ location, canManage }) {
     }
   };
 
-  const openFile = async (drawing) => {
-    setError('');
-    try {
-      const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri: drawing.file_uri, expires_in: 300 });
-      window.open(signed_url, '_blank', 'noopener');
-    } catch (e) {
-      setError(e?.message || 'The drawing file could not be opened.');
-    }
-  };
+  // Links are signed before the tap and opened through a plain <a href>: iPhone
+  // browsers block window.open when it runs after an await.
+  const { urls, failed } = useSignedUrls(drawings.map((d) => d.file_uri).filter(Boolean));
 
   if (loading) return <Skeleton className="h-72 rounded-xl" />;
 
@@ -120,9 +115,17 @@ export default function DrawingRegister({ location, canManage }) {
               </div>
               <Pill value={drawing.status} />
               {!!drawing.file_uri && (
-                <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => openFile(drawing)}>
-                  <SquareArrowOutUpRight className="h-3.5 w-3.5" /> Open
-                </Button>
+                urls[drawing.file_uri] ? (
+                  <Button asChild size="sm" variant="ghost" className="gap-1.5">
+                    <a href={urls[drawing.file_uri]} target="_blank" rel="noopener noreferrer">
+                      <SquareArrowOutUpRight className="h-3.5 w-3.5" /> Open
+                    </a>
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" className="gap-1.5" disabled>
+                    {failed[drawing.file_uri] ? 'Unavailable' : 'Preparing…'}
+                  </Button>
+                )
               )}
             </li>
           ))}

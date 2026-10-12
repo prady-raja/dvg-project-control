@@ -14,6 +14,7 @@ import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
 import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
 
 const DRAWING_TYPES = [
   'Floor Plan', 'Furniture Layout', 'Electrical Layout', 'Plumbing Layout',
@@ -29,7 +30,8 @@ const FIELDS = {
   Location: [
     'project_id', 'phase_id', 'villa_code', 'location_type', 'plot_numbers',
     'possession_status', 'possession_date', 'works_stage', 'active_status',
-    'planned_completion_date', 'assigned_engineer', 'sort_order', 'notes',
+    'planned_completion_date', 'assigned_engineer', 'assigned_engineer_user_id', 'sort_order', 'notes',
+    'on_hold_reason', 'on_hold_since', 'villa_type',
   ],
   WorkPackage: ['project_id', 'discipline', 'package_name', 'sort_order', 'active', 'notes'],
   ContractorDefault: ['project_id', 'phase_id', 'discipline', 'contractor_id', 'active', 'notes'],
@@ -190,7 +192,7 @@ async function handler(req) {
       if (entityName === 'MeetingCommitment') {
         if (!String(payload.commitment || '').trim()) throw fail('Record what was committed.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.meeting_date || ''))) {
-          payload.meeting_date = new Date().toISOString().slice(0, 10);
+          payload.meeting_date = todayIst();
         }
         const task = payload.task_id ? await getOne(svc.Task, payload.task_id) : null;
         if (task && task.project_id !== projectId) throw fail('That task belongs to a different project.');
@@ -261,7 +263,7 @@ async function handler(req) {
         payload.drawing_type = DRAWING_TYPES.includes(payload.drawing_type) ? payload.drawing_type : 'Floor Plan';
         payload.uploaded_date = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.uploaded_date || ''))
           ? payload.uploaded_date
-          : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+          : todayIst();
         payload.status = 'Current';
         payload.uploaded_by_id = user.id;
         payload.uploaded_by_name = actorName(user);

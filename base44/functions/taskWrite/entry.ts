@@ -343,7 +343,7 @@ async function handler(req) {
 
       const rank = await resolveRank(base44, task.project_id, user);
       if (!canManageProject(rank)) {
-        throw fail('Only a Project Manager or an administrator can archive or restore a task.', 403);
+        throw fail('Only a Project Editor or an administrator can archive or restore a task.', 403);
       }
 
       const archived = action === 'archive';

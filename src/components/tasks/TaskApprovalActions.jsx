@@ -69,7 +69,7 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
             ? `Execution completed by ${task.execution_completed_by_name || 'a site engineer'}`
             : 'Execution completion and approval are recorded separately.'}
           {selfCompleted
-            ? ' — a different Project Manager must approve or close this work.'
+            ? ' — a different Project Editor must approve or close this work.'
             : ''}
           {task.approved_by_name ? ` · Approved by ${task.approved_by_name}` : ''}
         </p>

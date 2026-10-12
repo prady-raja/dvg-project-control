@@ -25,6 +25,7 @@ export default function ProjectDetail() {
   const project = cat.projectById(projectId);
   const phases = cat.phasesFor(projectId);
   const commonLocations = cat.locations.filter((l) => l.project_id === projectId && l.location_type !== 'Villa');
+  const heldVillas = cat.locations.filter((l) => l.project_id === projectId && l.location_type === 'Villa' && l.active_status === 'On Hold');
 
   const phaseKey = cat.phasesFor(projectId).map((p) => p.id).join(',');
 
@@ -212,8 +213,13 @@ export default function ProjectDetail() {
       )}
 
       <div className="mt-8 rounded-xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground">
-        Possession status and construction completion are tracked separately. Villa A-04 is on hold: it stays in total
-        inventory but is excluded from active-work figures. Latest data change: {formatDate(project.updated_date)}.
+        Possession status and construction completion are tracked separately.
+        {heldVillas.length > 0
+          ? ` On hold (kept in inventory, excluded from active-work figures): ${heldVillas
+            .map((l) => `${l.villa_code}${l.on_hold_reason ? ` — ${l.on_hold_reason}` : ''}`)
+            .join('; ')}.`
+          : ' No villa is on hold.'}
+        {' '}Latest data change: {formatDate(project.updated_date)}.
       </div>
 
       <PhaseDialog

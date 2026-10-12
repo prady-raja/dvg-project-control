@@ -10,7 +10,6 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 // Add page imports here
 import Login from '@/pages/Login';
-import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Projects from '@/pages/Projects';
@@ -64,7 +63,8 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* Sign-up is closed: people are invited by the administrator (Users & access). */}
+      <Route path="/register" element={<Navigate to="/login" replace />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -94,10 +94,9 @@ const AuthenticatedApp = () => {
           <Route path="/contractors/:contractorId" element={<ContractorDetail />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/access" element={<Access />} />
+          <Route path="*" element={<PageNotFound />} />
         </Route>
       </Route>
-
-      <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };

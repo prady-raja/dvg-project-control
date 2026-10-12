@@ -14,6 +14,7 @@
  */
 
 import { recordUsage } from './ai.ts';
+import { todayIst } from './dashboardCore.ts';
 import { cleanText, listOf, looseKey } from './workImport.ts';
 
 /** Rows sent to the provider in one call, to bound cost and exposure. */
@@ -159,7 +160,7 @@ export async function aiHintsFor({ provider, base44, settings, rows, ctx, limit 
       await recordUsage(base44.asServiceRole.entities, {
         user_id: (await base44.auth.me().catch(() => null))?.id || '',
         user_name: 'work import',
-        day: new Date().toISOString().slice(0, 10),
+        day: todayIst(),
         action: 'import_reconcile',
         project_id: ctx.project.id,
         model: status.model,

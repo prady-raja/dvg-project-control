@@ -2,6 +2,9 @@ import { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES
 
 export { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES };
 
+/** A report holds at most this many photos; the server refuses more (dailyReportRules MAX_REPORT_PHOTOS). */
+export const MAX_PHOTOS = 10;
+
 export const TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 export const BASELINE_APPROVAL_STATUSES = ['Not Submitted', 'Submitted', 'Approved', 'Rejected'];

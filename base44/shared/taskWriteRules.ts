@@ -12,6 +12,7 @@
 import { canApproveWork, canManageProject } from './access.ts';
 import { BASELINE_FIELDS } from './history.ts';
 import { actorName, fail } from './records.ts';
+import { todayIst } from './dashboardCore.ts';
 
 import {
   APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES,
@@ -33,10 +34,8 @@ export const REPORTED_COMPLETE_STATUS = 'Execution Complete';
 
 export const COMPLETION_NOTE = 'Imported as complete — needs verification';
 
-const IST_OFFSET_MINUTES = 330;
-
-/** The server's own date in Asia/Kolkata — never the browser's. */
-export const todayIst = () => new Date(Date.now() + IST_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
+/** The server's own date in Asia/Kolkata — never the browser's (one definition, in dashboardCore). */
+export { todayIst };
 
 const entryFor = (entries, field) => (entries || []).find((entry) => entry.field_changed === field);
 
@@ -214,10 +213,10 @@ export function guardTaskChanges({ task, entries, rank, user, reason }) {
   const manager = canManageProject(rank);
 
   if (find('archived') && !manager) {
-    throw fail('Only a Project Manager or an administrator can archive or restore a task.', 403);
+    throw fail('Only a Project Editor or an administrator can archive or restore a task.', 403);
   }
   if ((find('project_id') || find('phase_id')) && !manager) {
-    throw fail('Only a Project Manager or an administrator can move a task between phases.', 403);
+    throw fail('Only a Project Editor or an administrator can move a task between phases.', 403);
   }
 
   guardBaseline(task, list);

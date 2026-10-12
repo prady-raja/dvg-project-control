@@ -60,6 +60,22 @@
       "type": "string",
       "format": "date"
     },
+    "on_hold_reason": {
+      "type": "string",
+      "description": "Why the villa is on hold; shown wherever held work is mentioned"
+    },
+    "on_hold_since": {
+      "type": "string",
+      "format": "date"
+    },
+    "villa_type": {
+      "type": "string",
+      "description": "The villa type (for example Type A), so floors, rooms and drawings can be copied between identical villas"
+    },
+    "assigned_engineer_user_id": {
+      "type": "string",
+      "description": "The DVG engineer responsible for this villa, as a user account. New tasks inherit it."
+    },
     "assigned_engineer": {
       "type": "string"
     },

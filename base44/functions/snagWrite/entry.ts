@@ -3,6 +3,7 @@ import { activeMembers, canEditTasks, canManageProject, memberIdsOf, resolveRank
 import { actorName, fail, getOne } from '../../shared/records.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveKindPrefix } from '../../shared/taskRef.ts';
 import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
 
 /**
  * The guarded path for snags.
@@ -94,7 +95,7 @@ async function handler(req) {
       const created = await svc.Snag.create({
         ...payload,
         snag_ref: claim.ref,
-        raised_date: isDate(body?.snag?.raised_date) ? body.snag.raised_date : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10),
+        raised_date: isDate(body?.snag?.raised_date) ? body.snag.raised_date : todayIst(),
         raised_by_id: user.id,
         raised_by_name: actorName(user),
         photo_uris: photos,
@@ -130,7 +131,7 @@ async function handler(req) {
     if (patch.reinspection_date && !isDate(patch.reinspection_date)) throw fail('Use a valid reinspection date.');
 
     if (patch.status === 'Closed') {
-      patch.closed_date = isDate(body?.snag?.closed_date) ? body.snag.closed_date : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+      patch.closed_date = isDate(body?.snag?.closed_date) ? body.snag.closed_date : todayIst();
       patch.closed_by_name = actorName(user);
     } else if (patch.status && patch.status !== 'Closed') {
       patch.closed_date = null;

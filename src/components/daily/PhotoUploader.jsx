@@ -3,6 +3,7 @@ import { Camera, ImagePlus, Loader2, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
+import { MAX_PHOTOS } from '@/lib/constants';
 
 /**
  * Site photos are optional on every report. A chosen file uploads straight away
@@ -27,7 +28,9 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
     setBusy(true);
     setError('');
     const added = [];
-    for (const file of files.slice(0, 6)) {
+    const room = Math.max(MAX_PHOTOS - (photos || []).length, 0);
+    if (files.length > room) setError(`A report holds up to ${MAX_PHOTOS} photos, so ${files.length - room} were left out.`);
+    for (const file of files.slice(0, room)) {
       try {
         const res = await base44.integrations.Core.UploadPrivateFile({ file });
         const file_uri = res?.file_uri || res?.data?.file_uri;
@@ -41,15 +44,16 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
   };
 
   const list = photos || [];
+  const full = list.length >= MAX_PHOTOS;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy} onClick={() => cameraRef.current?.click()}>
+        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy || full} onClick={() => cameraRef.current?.click()}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
           Camera
         </Button>
-        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy} onClick={() => galleryRef.current?.click()}>
+        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy || full} onClick={() => galleryRef.current?.click()}>
           <ImagePlus className="h-4 w-4" /> Gallery
         </Button>
       </div>
@@ -80,7 +84,7 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
       )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {list.length > 0 && <p className="text-[11px] text-muted-foreground">{list.length} photo{list.length === 1 ? '' : 's'} attached.</p>}
+      {list.length > 0 && <p className="text-[11px] text-muted-foreground">{list.length} of {MAX_PHOTOS} photos attached.</p>}
     </div>
   );
 }

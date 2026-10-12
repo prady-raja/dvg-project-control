@@ -16,6 +16,9 @@ const empty = {
   works_stage: 'Not Started',
   active_status: 'Active',
   planned_completion_date: '',
+  on_hold_reason: '',
+  on_hold_since: '',
+  villa_type: '',
   assigned_engineer: '',
   sort_order: '',
   notes: '',
@@ -41,6 +44,9 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
             works_stage: location.works_stage || 'Not Started',
             active_status: location.active_status || 'Active',
             planned_completion_date: location.planned_completion_date || '',
+            on_hold_reason: location.on_hold_reason || '',
+            on_hold_since: location.on_hold_since || '',
+            villa_type: location.villa_type || '',
             assigned_engineer: location.assigned_engineer || '',
             sort_order: location.sort_order ?? '',
             notes: location.notes || '',
@@ -134,6 +140,19 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
         </Field>
         <Field label="Active status" hint="On-hold villas stay in inventory but are excluded from active-work figures.">
           <EnumSelect value={form.active_status} onChange={(v) => setForm((f) => ({ ...f, active_status: v }))} options={ACTIVE_STATUSES} />
+        </Field>
+        {form.active_status === 'On Hold' && (
+          <>
+            <Field label="Why is it on hold?" hint="Shown on the project page wherever held work is mentioned.">
+              <Input value={form.on_hold_reason} onChange={(e) => setForm((f) => ({ ...f, on_hold_reason: e.target.value }))} />
+            </Field>
+            <Field label="On hold since">
+              <Input type="date" value={form.on_hold_since} onChange={(e) => setForm((f) => ({ ...f, on_hold_since: e.target.value }))} />
+            </Field>
+          </>
+        )}
+        <Field label="Villa type" hint="Identical villas share a type, so floors, rooms and drawings can be copied between them.">
+          <Input value={form.villa_type} onChange={(e) => setForm((f) => ({ ...f, villa_type: e.target.value }))} placeholder="e.g. Type A" />
         </Field>
         <Field label="Planned completion date">
           <Input

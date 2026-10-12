@@ -114,7 +114,7 @@ async function handler(req) {
     // Permission is decided here, from the session — never from the browser.
     const rank = await resolveRank(base44, projectId, user);
     if (!canManageProject(rank)) {
-      throw fail('Only a Project Manager or an administrator can import works.', 403);
+      throw fail('Only a Project Editor or an administrator can import works.', 403);
     }
 
     const svc = base44.asServiceRole.entities;

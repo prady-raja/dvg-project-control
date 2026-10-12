@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
@@ -11,21 +11,31 @@ import { createSnag } from '@/lib/snagService';
 
 const SEVERITIES = ['Minor', 'Major', 'Critical'];
 
+const EMPTY_FORM = {
+  title: '',
+  description: '',
+  discipline: '',
+  contractor_id: '',
+  severity: 'Minor',
+  target_date: '',
+  handover_blocker: false,
+};
+
 /** Raising a snag. Photos stay optional so a routine snag takes seconds. */
 export default function SnagDialog({ open, onOpenChange, projectId, phaseId, locationId, disciplines = [], contractors = [], onSaved }) {
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    discipline: '',
-    contractor_id: '',
-    severity: 'Minor',
-    target_date: '',
-    handover_blocker: false,
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [photos, setPhotos] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // A cancelled draft must not come back the next time the dialog opens.
+  useEffect(() => {
+    if (!open) return;
+    setForm(EMPTY_FORM);
+    setPhotos([]);
+    setError('');
+  }, [open]);
 
   const save = async () => {
     if (!form.title.trim()) {
@@ -48,8 +58,6 @@ export default function SnagDialog({ open, onOpenChange, projectId, phaseId, loc
         handover_blocker: !!form.handover_blocker,
         photo_uris: photos.map((photo) => photo.file_uri),
       });
-      setForm({ title: '', description: '', discipline: '', contractor_id: '', severity: 'Minor', target_date: '', handover_blocker: false });
-      setPhotos([]);
       onSaved();
     } catch (e) {
       setError(e?.message || 'Could not raise the snag.');

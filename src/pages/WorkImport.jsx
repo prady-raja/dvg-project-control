@@ -303,7 +303,7 @@ export default function WorkImport() {
           description="Bring a reviewed Excel or CSV work list onto the task register."
         />
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-          Import Works is available to Project Managers and administrators. You do not manage a project yet — your roles are
+          Import Works is available to Project Editors and administrators. You do not manage a project yet — your roles are
           shown on Users &amp; Access.
         </div>
       </>

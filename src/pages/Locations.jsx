@@ -64,7 +64,7 @@ export default function Locations() {
   return (
     <>
       <PageHeader
-        eyebrow="Imagine Villas · Birdie Residences"
+        eyebrow={cat.projects.map((p) => p.name).join(' · ') || 'Villas & locations'}
         title="Villas & Locations"
         description="Physical villas, common areas and infrastructure. Plot references are kept separate from the villa ID."
         actions={

@@ -1,3 +1,4 @@
+import { todayIst } from '@/lib/format';
 import { base44 } from '@/api/base44Client';
 import { buildWorkbookFromSheets, buildWorkbookTemplate } from '@/lib/xlsxImport';
 
@@ -166,7 +167,7 @@ export function reconciliationCsv(result) {
 
 export const downloadReconciliation = (result) =>
   download(
-    `import-reconciliation-${result.batch_ref || new Date().toISOString().slice(0, 10)}.csv`,
+    `import-reconciliation-${result.batch_ref || todayIst()}.csv`,
     reconciliationCsv(result),
     'text/csv;charset=utf-8',
   );

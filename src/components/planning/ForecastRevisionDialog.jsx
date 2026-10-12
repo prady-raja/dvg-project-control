@@ -65,7 +65,7 @@ export default function ForecastRevisionDialog({ task, open, onOpenChange, user,
         <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why the finish date is moving" />
       </Field>
       <p className="text-xs text-muted-foreground">
-        The approved baseline finish ({task.baseline_finish || 'not set'}) is never changed here. Only a Project Manager or an
+        The approved baseline finish ({task.baseline_finish || 'not set'}) is never changed here. Only a Project Editor or an
         administrator may move a baseline, and only through the baseline process.
       </p>
     </FormDialog>

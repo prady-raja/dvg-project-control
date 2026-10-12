@@ -66,7 +66,7 @@ export default function ActivityRows({ rows = [], emptyLabel = 'Nothing to show 
 
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <ActivityCard key={row.id} row={row} showAction={showAction} />
+          <ActivityCard key={row.id} row={row} showAction={showAction} rowAction={rowAction} />
         ))}
       </div>
     </>

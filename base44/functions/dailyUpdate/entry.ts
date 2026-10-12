@@ -12,6 +12,7 @@ import {
   reportTargetProblem,
 } from '../../shared/dailyReportRules.ts';
 import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
 
 /**
  * The only path that records site work.
@@ -35,9 +36,6 @@ const REPORT_FIELDS = [
 
 const MAX_MANPOWER_ROWS = 12;
 const MAX_TEXT = 2000;
-const IST_OFFSET_MINUTES = 330;
-
-const todayIst = () => new Date(Date.now() + IST_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
 
 const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 

@@ -35,7 +35,7 @@ export function ActivityFlags({ row }) {
 }
 
 /** One activity on a narrow screen — the same facts as the table row. */
-export default function ActivityCard({ row, showAction = false }) {
+export default function ActivityCard({ row, showAction = false, rowAction }) {
   return (
     <article className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,6 +91,7 @@ export default function ActivityCard({ row, showAction = false }) {
           {row.blocker ? `Blocker: ${row.blocker}` : row.action}
         </p>
       )}
+      {rowAction && <div className="mt-3 border-t border-border pt-3">{rowAction(row)}</div>}
     </article>
   );
 }

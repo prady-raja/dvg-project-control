@@ -35,7 +35,7 @@ const historyRow = (task, projectId, memberIds, user, label) => ({
 /**
  * One Villa Work activity across several villas: a single parent assignment
  * plus one independently editable child task per villa. On-hold villas are
- * excluded unless a Project Manager explicitly includes them, and a retry with
+ * excluded unless a Project Editor explicitly includes them, and a retry with
  * the same key returns the work already created instead of duplicating it.
  */
 async function handler(req) {
@@ -65,7 +65,7 @@ async function handler(req) {
     }
     const manager = canManageProject(rank);
     if (includeOnHold && !manager) {
-      throw fail('Only a Project Manager or an administrator can include on-hold villas.', 403);
+      throw fail('Only a Project Editor or an administrator can include on-hold villas.', 403);
     }
 
     // Retry safety: the same key never creates a second set of work.

@@ -8,10 +8,9 @@ import {
 } from '../../shared/access.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
 import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
 import { makeDb } from '../../shared/dbCore.ts';
 
-const todayIst = () =>
-  new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
 
 const CHUNK = 100;
 
@@ -110,7 +109,7 @@ async function handler(req) {
 
     const rank = await resolveRank(base44, projectId, user);
     if (!canEditBaselines(rank)) {
-      throw fail('Only a Project Manager or an administrator can manage baselines.', 403);
+      throw fail('Only a Project Editor or an administrator can manage baselines.', 403);
     }
 
     const memberIds = memberIdsOf(await activeMembers(base44, projectId));

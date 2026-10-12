@@ -22,6 +22,8 @@ import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
+import { updateSnag } from '@/lib/snagService';
+import { useToast } from '@/components/ui/use-toast';
 
 /** Stage A / 3 — the execution dashboard for one physical villa. */
 export default function VillaExecution() {
@@ -36,6 +38,7 @@ export default function VillaExecution() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [reportTask, setReportTask] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!locationId) return undefined;
@@ -223,7 +226,19 @@ export default function VillaExecution() {
               </Button>
             }
           >
-            <SnagList rows={data.snags?.rows || []} emptyLabel="No snag recorded against this villa." />
+            <SnagList
+              rows={data.snags?.rows || []}
+              canEdit={canEdit}
+              emptyLabel="No snag recorded against this villa."
+              onAdvance={async (row, patch) => {
+                try {
+                  await updateSnag(row.id, patch);
+                  setRefresh((n) => n + 1);
+                } catch (e) {
+                  toast({ description: e?.message || 'Could not update the snag.', variant: 'destructive' });
+                }
+              }}
+            />
           </BoardSection>
         </div>
       </div>
