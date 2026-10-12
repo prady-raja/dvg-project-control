@@ -1,4 +1,5 @@
 import DataState from '@/components/common/DataState';
+import NamesFixup from '@/components/access/NamesFixup';
 import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
@@ -118,11 +119,19 @@ export default function Access() {
           {appAdmin && (
             <UsersPanel users={users} memberships={memberships} projects={cat.projects} onChanged={load} />
           )}
+          {appAdmin && byProject.map(({ project, members }) => (
+            <NamesFixup
+              key={project.id}
+              project={project}
+              members={members.filter((m) => m.user_id && m.active !== false).map((m) => ({ user_id: m.user_id, name: m.user_name, email: m.user_email, initials: m.initials }))}
+            />
+          ))}
           <MembershipList
             groups={byProject}
             canEdit={appAdmin}
             onToggleActive={setActive}
             onChangeRole={setRole}
+            onChanged={load}
             onAdd={(projectId) => {
               setPresetProject(projectId);
               setOpen(true);

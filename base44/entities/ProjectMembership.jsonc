@@ -14,6 +14,14 @@
     "project_id": {
       "type": "string"
     },
+    "phone": {
+      "type": "string",
+      "description": "Mobile number, used for Chase on WhatsApp"
+    },
+    "initials": {
+      "type": "string",
+      "description": "Two or three letters shown on avatars and used to match names"
+    },
     "role": {
       "type": "string",
       "enum": [

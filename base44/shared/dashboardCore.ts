@@ -20,6 +20,10 @@
  *    execution figures and reported separately instead of being hidden.
  */
 
+import { isStale, projectSettings } from './calendar.ts';
+
+export { addWorkingDays, isStale, isWorkingDay, projectSettings, workingDaysBetween } from './calendar.ts';
+
 export const IST_OFFSET_MINUTES = 330;
 export const DAY_MS = 86400000;
 
@@ -176,6 +180,7 @@ export function buildIndex({ projects = [], phases = [], locations = [], contrac
 
   return {
     project: (id) => projectMap.get(id) || null,
+    settings: (id) => projectSettings(projectMap.get(id)),
     projectName: (id) => projectMap.get(id)?.name || '',
     phase: (id) => phaseMap.get(id) || null,
     phaseName: (id) => phaseMap.get(id)?.name || '',
@@ -328,7 +333,7 @@ export const compareFinish = (a, b) => {
 export function metricTasks(tasks, metric, asOf, options = {}) {
   const locations = options.locations || [];
   const heldIds = options.heldIds || new Set();
-  const staleBefore = shiftDay(asOf, -7);
+  const settingsFor = options.settingsFor || (() => projectSettings(null));
   const villaOf = new Map(locations.map((l) => [l.id, l]));
   // The list behind a headline figure is scoped exactly like the figure itself:
   // same project, same phase, same exclusion filter.
@@ -353,8 +358,8 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
     case 'stale_updates':
       return active.filter((t) => {
         if (!isOutstanding(t)) return false;
-        const last = t.last_report_at || t.updated_date || '';
-        return !last || String(last).slice(0, 10) < staleBefore;
+        const last = t.last_report_at || t.latest_report_date || t.updated_date || '';
+        return isStale(last, asOf, settingsFor(t.project_id));
       });
     default: return active.filter(isOutstanding);
   }

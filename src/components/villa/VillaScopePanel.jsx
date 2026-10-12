@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { DoorOpen, Layers, Pencil, Plus } from 'lucide-react';
+import { Copy, DoorOpen, Layers, Pencil, Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { items } from '@/lib/dataHelpers';
 import { createRecord, updateRecord } from '@/lib/recordService';
 import FloorDialog from '@/components/villa/FloorDialog';
 import AreaDialog from '@/components/villa/AreaDialog';
+import CopyScopeDialog from '@/components/villa/CopyScopeDialog';
+import { useCatalogs } from '@/lib/CatalogContext';
+import { forgetVillaScope } from '@/components/villa/VillaScopePicker';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +23,8 @@ export default function VillaScopePanel({ location, canManage }) {
   const [loading, setLoading] = useState(true);
   const [floorDialog, setFloorDialog] = useState(null);
   const [areaDialog, setAreaDialog] = useState(null);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const cat = useCatalogs();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -51,6 +56,7 @@ export default function VillaScopePanel({ location, canManage }) {
         ...values,
       });
       setFloorDialog(null);
+      forgetVillaScope(location.id);
       await load();
     } catch (e) {
       setError(e?.message || 'The floor could not be saved.');
@@ -72,6 +78,7 @@ export default function VillaScopePanel({ location, canManage }) {
         ...values,
       });
       setAreaDialog(null);
+      forgetVillaScope(location.id);
       await load();
     } catch (e) {
       setError(e?.message || 'The room could not be saved.');
@@ -97,6 +104,9 @@ export default function VillaScopePanel({ location, canManage }) {
         </div>
         {canManage && (
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCopyOpen(true)} disabled={!floors.length && !areas.length}>
+              <Copy className="h-3.5 w-3.5" /> Copy to…
+            </Button>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFloorDialog({})}>
               <Plus className="h-3.5 w-3.5" /> Floor
             </Button>
@@ -180,6 +190,7 @@ export default function VillaScopePanel({ location, canManage }) {
         </div>
       )}
 
+      <CopyScopeDialog open={copyOpen} onOpenChange={setCopyOpen} location={location} locations={cat.locations} />
       <FloorDialog
         open={!!floorDialog}
         onOpenChange={(open) => !open && setFloorDialog(null)}

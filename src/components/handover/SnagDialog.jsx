@@ -8,10 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import PhotoUploader from '@/components/daily/PhotoUploader';
 import { createSnag } from '@/lib/snagService';
+import VillaScopePicker from '@/components/villa/VillaScopePicker';
 
 const SEVERITIES = ['Minor', 'Major', 'Critical'];
 
 const EMPTY_FORM = {
+  floor_id: '',
+  area_ids: [],
   title: '',
   description: '',
   discipline: '',
@@ -49,6 +52,8 @@ export default function SnagDialog({ open, onOpenChange, projectId, phaseId, loc
         project_id: projectId,
         phase_id: phaseId || null,
         location_id: locationId || null,
+        floor_id: form.floor_id || null,
+        area_ids: form.area_ids || [],
         title: form.title.trim(),
         description: form.description.trim(),
         discipline: form.discipline || null,
@@ -105,6 +110,17 @@ export default function SnagDialog({ open, onOpenChange, projectId, phaseId, loc
           <Input type="date" value={form.target_date} onChange={(e) => setForm((f) => ({ ...f, target_date: e.target.value }))} />
         </Field>
       </div>
+      {locationId && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <VillaScopePicker
+            key={locationId}
+            locationId={locationId}
+            floorId={form.floor_id}
+            areaIds={form.area_ids}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+          />
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <Switch
           id="snag-handover"

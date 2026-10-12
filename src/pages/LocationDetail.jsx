@@ -16,6 +16,8 @@ import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
 import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
+import VillaScopePanel from '@/components/villa/VillaScopePanel';
+import DrawingRegister from '@/components/drawings/DrawingRegister';
 import { useAccess } from '@/lib/AccessContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -140,6 +142,13 @@ export default function LocationDetail() {
           ]}
         />
       </div>
+
+      {location.location_type === 'Villa' && (
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <VillaScopePanel location={location} canManage={canManage} />
+          <DrawingRegister location={location} canManage={canManage} />
+        </div>
+      )}
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

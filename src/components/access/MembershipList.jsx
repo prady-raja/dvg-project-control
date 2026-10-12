@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
+import MemberDetailsDialog from '@/components/access/MemberDetailsDialog';
 import { Plus } from 'lucide-react';
 import Pill from '@/components/common/Pill';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import EnumSelect from '@/components/common/EnumSelect';
-import { MEMBERSHIP_ROLES } from '@/lib/constants';
+import { ASSIGNABLE_ROLES } from '@shared/enums.ts';
 
 /** One section per project: who is on it, at what level, and whether access is live. */
-export default function MembershipList({ groups, canEdit = false, onToggleActive, onChangeRole, onAdd }) {
+export default function MembershipList({ groups, canEdit = false, onToggleActive, onChangeRole, onAdd, onChanged }) {
+  const [detailsFor, setDetailsFor] = useState(null);
   return (
     <div className="space-y-5">
+      <MemberDetailsDialog open={!!detailsFor} onOpenChange={(v) => !v && setDetailsFor(null)} member={detailsFor} onSaved={onChanged} />
       {groups.map(({ project, members }) => (
         <section key={project.id} className="rounded-xl border border-border bg-card">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
@@ -40,7 +43,7 @@ export default function MembershipList({ groups, canEdit = false, onToggleActive
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{m.user_name || m.user_email}</p>
-                      <p className="truncate text-xs text-muted-foreground">{m.user_email}</p>
+                      <p className="truncate text-xs text-muted-foreground">{m.user_email}{m.phone ? ` · ${m.phone}` : ''}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
@@ -51,9 +54,10 @@ export default function MembershipList({ groups, canEdit = false, onToggleActive
                           <EnumSelect
                             value={m.role}
                             onChange={(v) => v && v !== m.role && onChangeRole?.(m, v)}
-                            options={MEMBERSHIP_ROLES.includes(m.role) ? MEMBERSHIP_ROLES : [m.role, ...MEMBERSHIP_ROLES]}
+                            options={ASSIGNABLE_ROLES.includes(m.role) ? ASSIGNABLE_ROLES : [m.role, ...ASSIGNABLE_ROLES]}
                           />
                         </div>
+                        <Button size="sm" variant="ghost" onClick={() => setDetailsFor(m)}>Details</Button>
                         <Switch checked={m.active !== false} onCheckedChange={(v) => onToggleActive(m, v)} />
                       </>
                     ) : (

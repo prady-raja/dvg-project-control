@@ -32,6 +32,34 @@
     "planned_villa_count": {
       "type": "number"
     },
+    "working_days": {
+      "type": "array",
+      "items": { "type": "number" },
+      "description": "Working weekdays, 1 = Monday to 7 = Sunday. Default Monday to Saturday."
+    },
+    "holidays": {
+      "type": "array",
+      "items": { "type": "string", "format": "date" },
+      "description": "Non-working dates (festivals, site closures)"
+    },
+    "stale_days": {
+      "type": "number",
+      "description": "Working days without a site report before work is called stale"
+    },
+    "at_risk_window_days": {
+      "type": "number",
+      "description": "Working days before the finish date inside which unfinished work is at risk"
+    },
+    "backdate_limit_days": {
+      "type": "number",
+      "description": "How many days back a daily report may be dated"
+    },
+    "report_cutoff_time": {
+      "type": "string",
+      "description": "Time of day (HH:MM, IST) by which the day's reports are expected"
+    },
+    "site_lat": { "type": "number" },
+    "site_lng": { "type": "number" },
     "notes": {
       "type": "string"
     },

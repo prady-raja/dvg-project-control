@@ -108,6 +108,15 @@
     "contractor_id": {
       "type": "string"
     },
+    "assignee_user_id": {
+      "type": "string",
+      "description": "The project member this work is assigned to. responsible_engineer keeps the name as text for older screens and exports."
+    },
+    "watcher_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Project members who follow this task"
+    },
     "responsible_engineer": {
       "type": "string",
       "description": "The DVG engineer or coordinator responsible for this work. Left blank when the source list does not say, and reported as a data-quality gap."

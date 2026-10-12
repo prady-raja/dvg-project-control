@@ -17,7 +17,7 @@
  * meaning. A blocker is a condition beside the execution stage, not a stage.
  */
 
-import { isBlocked, isCountable, isOutstanding, isAwaitingVerification, shiftDay, toDay } from './dashboardCore.ts';
+import { isBlocked, isCountable, isOutstanding, isAwaitingVerification, isStale, toDay } from './dashboardCore.ts';
 import { normalizeAreaName } from './villaAreas.ts';
 import { looseKey, plotNumbersOf } from './villaResolve.ts';
 
@@ -111,7 +111,7 @@ export const ATTENTION_CODES = {
   no_coordinator: { label: 'No responsible DVG coordinator', severity: 'incomplete' },
   no_dates: { label: 'No baseline or forecast date', severity: 'incomplete' },
   progress_unknown: { label: 'Progress not measured', severity: 'incomplete' },
-  stale_update: { label: 'No site update in the last 7 days', severity: 'incomplete' },
+  stale_update: { label: 'No site update for too long', severity: 'incomplete' },
   unverified_complete: { label: 'Executed but not verified', severity: 'incomplete' },
   incomplete_predecessor: { label: 'A recorded predecessor is not closed', severity: 'incomplete' },
   possible_duplicate: { label: 'Possibly the same work listed twice', severity: 'invalid' },
@@ -153,8 +153,7 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     });
   };
 
-  const staleBefore = shiftDay(asOf, -7);
-  const lastReport = (task) => ix?.lastReportAt(task.id) || task.updated_date || '';
+  const lastReport = (task) => ix?.lastReportAt(task.id) || task.latest_report_date || task.updated_date || '';
   const roomfulVillas = new Set((areas || []).map((area) => area.location_id));
 
   const seen = new Map();
@@ -181,8 +180,13 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     if (isAwaitingVerification(task)) {
       add('unverified_complete', { task, detail: `${life.executed_by || 'Site team'} reported the work executed; verification is pending.`, readiness: readiness.state });
     }
-    if (lastReport(task) && String(lastReport(task)).slice(0, 10) < staleBefore) {
-      add('stale_update', { task, detail: `Last site update ${String(lastReport(task)).slice(0, 10)}.`, readiness: readiness.state });
+    const settings = ix?.settings ? ix.settings(task.project_id) : undefined;
+    if (lastReport(task) && isStale(lastReport(task), asOf, settings)) {
+      add('stale_update', {
+        task,
+        detail: `Last site update ${String(lastReport(task)).slice(0, 10)}; more than ${settings?.stale_days ?? 7} working days ago.`,
+        readiness: readiness.state,
+      });
     }
     if (readiness.reasons.some((reason) => reason.code === 'predecessor')) {
       add('incomplete_predecessor', { task, detail: readiness.reasons.find((reason) => reason.code === 'predecessor').label, readiness: readiness.state });

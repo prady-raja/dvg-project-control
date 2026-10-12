@@ -3,6 +3,7 @@ import { isAppAdmin } from '../../shared/access.ts';
 import { createDb } from '../../shared/db.ts';
 import { MIGRATIONS, migrationById } from '../../shared/migrations/index.ts';
 import { runMigration } from '../../shared/migrations/runner.ts';
+import { assignNamesMigration } from '../../shared/migrations/userMatching.ts';
 import { actorName, fail } from '../../shared/records.ts';
 import { withLog } from '../../shared/log.ts';
 
@@ -35,6 +36,14 @@ async function handler(req) {
       // Dry run unless the caller explicitly says otherwise.
       const result = await runMigration(db, migration, { dryRun: body?.dryRun !== false, actor: actorName(user) });
       return Response.json(result);
+    }
+
+    // The fix-up screen: typed names chosen by hand, applied to one project.
+    if (body?.action === 'assign_names') {
+      const projectId = String(body?.projectId || '');
+      if (!projectId) throw fail('A project is required.');
+      const migration = assignNamesMigration({ projectId, mapping: body?.mapping });
+      return Response.json(await runMigration(db, migration, { dryRun: body?.dryRun === true, actor: actorName(user) }));
     }
 
     throw fail('Unknown action.');

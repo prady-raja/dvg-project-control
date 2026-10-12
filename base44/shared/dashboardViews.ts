@@ -9,7 +9,7 @@ import {
   actionFor, compareFinish, dueWithin, finishDate,
   heldLocationIds, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
   isExecuting, isOutstanding, isOverdue, isParentRow, isUnscheduled, scopeTasks,
-  priorityScore, shiftDay, splitHeld, statusCounts, taskRow, weightedProgress,
+  priorityScore, shiftDay, splitHeld, isStale, statusCounts, taskRow, weightedProgress,
 } from './dashboardCore.ts';
 
 const priorityRow = (task, ix, asOf) => {
@@ -240,7 +240,6 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
     heldIds,
   );
 
-  const staleBefore = shiftDay(asOf, -7);
   const weekAgo = shiftDay(asOf, -7);
   const rows = contractors
     .filter((c) => c.active !== false || scoped.some((t) => t.contractor_id === c.id))
@@ -253,8 +252,8 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
         .slice()
         .sort((a, b) => String(b.reported_at).localeCompare(String(a.reported_at)))[0] || null;
       const stale = open.filter((t) => {
-        const last = ix.lastReportAt(t.id) || t.updated_date || '';
-        return !last || String(last).slice(0, 10) < staleBefore;
+        const last = ix.lastReportAt(t.id) || t.latest_report_date || t.updated_date || '';
+        return isStale(last, asOf, ix.settings(t.project_id));
       });
       const crossContractor = open.filter(
         (t) => t.blocker_responsible_party

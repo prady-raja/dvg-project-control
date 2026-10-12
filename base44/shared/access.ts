@@ -79,6 +79,9 @@ export async function activeMembers(base44, projectId) {
     user_id: m.user_id,
     role: m.role,
     email: m.user_email,
+    name: m.user_name || '',
+    phone: m.phone || '',
+    initials: m.initials || '',
   }));
 }
 

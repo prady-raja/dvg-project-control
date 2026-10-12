@@ -14,6 +14,7 @@ import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
 import { withLog } from '../../shared/log.ts';
+import { settingsProblems } from '../../shared/calendar.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 
 const DRAWING_TYPES = [
@@ -25,7 +26,11 @@ const DELETABLE = ['ProjectMembership', 'Project', 'TaskDependency'];
 
 /** Only these fields are ever accepted from the browser — nothing else is written. */
 const FIELDS = {
-  Project: ['name', 'code', 'location', 'status', 'enabled_disciplines', 'planned_villa_count', 'notes'],
+  Project: [
+    'name', 'code', 'location', 'status', 'enabled_disciplines', 'planned_villa_count', 'notes',
+    'working_days', 'holidays', 'stale_days', 'at_risk_window_days', 'backdate_limit_days',
+    'report_cutoff_time', 'site_lat', 'site_lng',
+  ],
   Phase: ['project_id', 'name', 'code', 'planned_villa_count', 'status', 'sort_order', 'notes'],
   Location: [
     'project_id', 'phase_id', 'villa_code', 'location_type', 'plot_numbers',
@@ -37,10 +42,10 @@ const FIELDS = {
   ContractorDefault: ['project_id', 'phase_id', 'discipline', 'contractor_id', 'active', 'notes'],
   Contractor: ['name', 'classification', 'trade', 'contact_person', 'phone', 'email', 'active', 'notes'],
   Discipline: ['name', 'code', 'sort_order', 'active', 'notes'],
-  ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes'],
+  ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes', 'phone', 'initials'],
   MeetingCommitment: [
     'project_id', 'phase_id', 'contractor_id', 'task_id', 'meeting_date', 'commitment',
-    'responsible_person', 'promised_date', 'status', 'fulfilled_date', 'remarks',
+    'responsible_person', 'responsible_user_id', 'promised_date', 'status', 'fulfilled_date', 'remarks',
   ],
   AiSettings: [
     'enabled', 'allowed_roles', 'model', 'provider', 'provider_api', 'base_url', 'daily_request_limit', 'context_item_limit',
@@ -115,6 +120,11 @@ async function handler(req) {
       }
     });
 
+    if (entityName === 'Project') {
+      const problems = settingsProblems(payload);
+      if (problems.length) throw fail(problems.join(' '));
+    }
+
     const existing = id ? await getOne(target, id) : null;
     if (action !== 'create' && !existing) throw fail('Record not found.', 404);
 
@@ -162,6 +172,14 @@ async function handler(req) {
       await target.delete(id);
       if (entityName === 'ProjectMembership') await syncProjectMemberIds(base44, projectId);
       return Response.json({ ok: true, deleted: id });
+    }
+
+    // A villa's engineer is a real member; their name is kept as text for older screens.
+    if (entityName === 'Location' && payload.assigned_engineer_user_id) {
+      const members = await activeMembers(base44, projectId);
+      const member = members.find((m) => m.user_id === payload.assigned_engineer_user_id);
+      if (!member) throw fail('The engineer must be an active member of this project.');
+      payload.assigned_engineer = member.name || member.email || null;
     }
 
     const isProjectScoped = PROJECT_SCOPED.includes(entityName);

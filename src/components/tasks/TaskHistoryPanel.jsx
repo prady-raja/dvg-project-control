@@ -17,6 +17,8 @@ const FIELD_LABELS = {
   status: 'Status',
   contractor_id: 'Contractor',
   responsible_engineer: 'Responsible engineer',
+  assignee_user_id: 'Assigned to',
+  watcher_ids: 'Watchers',
   progress_percent: 'Progress %',
   baseline_start: 'Baseline start',
   baseline_finish: 'Baseline finish',

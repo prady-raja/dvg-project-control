@@ -125,6 +125,7 @@ async function handler(req) {
         const list = metricTasks(data.tasks, metric, asOf, {
           locations: data.locations,
           heldIds,
+          settingsFor: (projectId) => ix.settings(projectId),
           projectId: options.projectId,
           phaseId: options.phaseId,
           includeDemo: options.includeDemo,

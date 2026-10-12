@@ -9,6 +9,7 @@ import {
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { withLog } from '../../shared/log.ts';
+import { assigneeFor } from '../../shared/assignees.ts';
 
 const WORK_FIELDS = [
   'description', 'priority', 'work_package', 'contractor_id', 'responsible_engineer',
@@ -122,7 +123,8 @@ async function handler(req) {
 
     if (!targets.length) throw fail('No villas match that selection.');
 
-    const memberIds = memberIdsOf(await activeMembers(base44, projectId));
+    const members = await activeMembers(base44, projectId);
+    const memberIds = memberIdsOf(members);
     // One block of permanent references: the assignment and every villa under it.
     const claims = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, targets.length + 1, {
       memberIds,
@@ -173,6 +175,14 @@ async function handler(req) {
         archived: false,
         member_ids: memberIds,
         ...Object.fromEntries(WORK_FIELDS.map((field) => [field, clean(work[field])])),
+        // Each villa's own engineer takes the work unless one was chosen for all.
+        ...assigneeFor({
+          requested: work.assignee_user_id,
+          members,
+          location,
+          isCreate: true,
+          typedName: String(work.responsible_engineer || '').trim(),
+        }),
       }));
 
     const children = rows.length ? listAll(await svc.Task.bulkCreate(rows)) : [];

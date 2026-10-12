@@ -6,7 +6,7 @@ import FormDialog from '@/components/common/FormDialog';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { createRecord } from '@/lib/recordService';
-import { MEMBERSHIP_ROLES } from '@/lib/constants';
+import { ASSIGNABLE_ROLES } from '@shared/enums.ts';
 
 /**
  * Invites a genuine application user and records their project membership at the
@@ -115,7 +115,7 @@ export default function InviteUserDialog({ open, onOpenChange, projects, default
         />
       </Field>
       <Field label="Permission level" required hint="All five staff users use Project Editor.">
-        <EnumSelect value={form.role} onChange={(v) => setForm((f) => ({ ...f, role: v }))} options={MEMBERSHIP_ROLES} />
+        <EnumSelect value={form.role} onChange={(v) => setForm((f) => ({ ...f, role: v }))} options={ASSIGNABLE_ROLES} />
       </Field>
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <MailPlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />

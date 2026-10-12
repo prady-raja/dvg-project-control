@@ -5,7 +5,6 @@ import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shar
 import { actorName, fail, getOne } from '../../shared/records.ts';
 import { BLOCKER_CATEGORIES, TASK_STATUSES } from '../../shared/enums.ts';
 import {
-  BACKDATE_LIMIT_DAYS,
   isOlderThanLatest,
   MAX_REPORT_PHOTOS,
   reportDateProblem,
@@ -13,6 +12,7 @@ import {
 } from '../../shared/dailyReportRules.ts';
 import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
+import { projectSettings } from '../../shared/calendar.ts';
 
 /**
  * The only path that records site work.
@@ -69,7 +69,7 @@ async function handler(req) {
     /* ------------------------------------------------------------- the report */
     const updateDate = isDate(body?.update_date) ? String(body.update_date) : todayIst();
     const project = await getOne(svc.Project, task.project_id);
-    const dateProblem = reportDateProblem(updateDate, todayIst(), project?.backdate_limit_days ?? BACKDATE_LIMIT_DAYS);
+    const dateProblem = reportDateProblem(updateDate, todayIst(), projectSettings(project).backdate_limit_days);
     if (dateProblem) throw fail(dateProblem);
     let status = STATUSES.includes(body?.status) ? body.status : task.status || 'Not Started';
 

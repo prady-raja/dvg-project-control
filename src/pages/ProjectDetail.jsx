@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, ArrowRight, Settings2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCatalogs } from '@/lib/CatalogContext';
 import PageHeader from '@/components/common/PageHeader';
 import Pill from '@/components/common/Pill';
 import { Metric } from '@/components/common/Metric';
 import PhaseDialog from '@/components/projects/PhaseDialog';
+import ProjectSettingsDialog from '@/components/projects/ProjectSettingsDialog';
 import BaselineSection from '@/components/baselines/BaselineSection';
 import { useAccess } from '@/lib/AccessContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ export default function ProjectDetail() {
   const [phaseCounts, setPhaseCounts] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const project = cat.projectById(projectId);
   const phases = cat.phasesFor(projectId);
@@ -103,6 +105,11 @@ export default function ProjectDetail() {
         actions={
           <>
             <Pill value={project.status} />
+            {canManage && (
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setSettingsOpen(true)}>
+                <Settings2 className="h-4 w-4" /> Settings
+              </Button>
+            )}
             {canManage && (
               <Button
                 size="sm"
@@ -221,6 +228,8 @@ export default function ProjectDetail() {
           : ' No villa is on hold.'}
         {' '}Latest data change: {formatDate(project.updated_date)}.
       </div>
+
+      <ProjectSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} project={project} onSaved={cat.refresh} />
 
       <PhaseDialog
         open={dialogOpen}

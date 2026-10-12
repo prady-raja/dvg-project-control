@@ -4,6 +4,7 @@ import { actorName, fail, getOne } from '../../shared/records.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveKindPrefix } from '../../shared/taskRef.ts';
 import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
+import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 
 /**
  * The guarded path for snags.
@@ -78,6 +79,19 @@ async function handler(req) {
       const task = payload.task_id ? await getOne(svc.Task, payload.task_id) : null;
       if (task && task.project_id !== projectId) throw fail('That task belongs to a different project.');
       if (task && !payload.location_id) payload.location_id = task.location_id || null;
+
+      // Where in the villa the defect is, checked against the villa's own floors and rooms.
+      const scope = payload.location_id
+        ? await resolveTaskScope(svc, {
+          projectId,
+          locationId: payload.location_id,
+          floorId: body?.snag?.floor_id,
+          areaIds: body?.snag?.area_ids,
+        })
+        : null;
+      payload.floor_id = scope?.floor_id || null;
+      payload.area_ids = scope?.area_ids || [];
+      payload.area_label = scope?.area_label || null;
 
       const photos = (Array.isArray(body?.snag?.photo_uris) ? body.snag.photo_uris : [])
         .filter((uri) => typeof uri === 'string' && uri.trim())

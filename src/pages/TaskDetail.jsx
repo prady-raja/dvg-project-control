@@ -9,6 +9,7 @@ import Pill from '@/components/common/Pill';
 import DetailList from '@/components/common/DetailList';
 import ProgressMeter from '@/components/tasks/ProgressMeter';
 import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
+import ResolveScopeDialog from '@/components/tasks/ResolveScopeDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { archiveTask, restoreTask } from '@/lib/taskService';
@@ -34,6 +35,7 @@ export default function TaskDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [task, setTask] = useState(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
   const [parentTask, setParentTask] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -154,6 +156,21 @@ export default function TaskDetail() {
               { label: 'Project', value: project?.name },
               { label: 'Phase', value: phase ? `${phase.code ? `${phase.code} — ` : ''}${phase.name}` : '' },
               { label: 'Villa / Location', value: location?.villa_code },
+              ...(location?.location_type === 'Villa'
+                ? [{
+                  label: 'Where in the villa',
+                  value: (
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <span>{task.area_label || (task.scope_type === 'Entire Villa' ? 'Entire villa' : 'Not stated')}</span>
+                      {canEdit && !task.is_villa_work_parent && (
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setScopeOpen(true)}>
+                          {task.area_label ? 'Change' : 'Resolve scope'}
+                        </Button>
+                      )}
+                    </span>
+                  ),
+                }]
+                : []),
               { label: 'Discipline', value: cat.disciplineName(task.discipline) },
               { label: 'Work package', value: task.work_package },
               { label: 'Villa Work', value: isParent ? `${task.child_villa_count || 0} villas` : '' },
@@ -289,6 +306,8 @@ export default function TaskDetail() {
       <div className="mt-5">
         <TaskHistoryPanel taskId={task.id} />
       </div>
+
+      <ResolveScopeDialog task={task} open={scopeOpen} onOpenChange={setScopeOpen} onSaved={load} />
 
       <QuickUpdateDialog
         task={task}

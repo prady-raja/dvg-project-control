@@ -27,6 +27,11 @@ export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
           <span>{cat.disciplineName(task.discipline)}</span>
           {task.work_package && <span className="truncate">{task.work_package}</span>}
         </div>
+        {location?.location_type === 'Villa' && (
+          <p className="mt-1.5 truncate text-xs text-muted-foreground">
+            {task.area_label || (task.scope_type === 'Entire Villa' ? 'Entire villa' : 'Scope not stated')}
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <ProgressMeter value={task.progress_percent} />
           <span className="field-mono inline-flex items-center gap-1 text-xs text-foreground">

@@ -1,7 +1,7 @@
 export const TASK_FORM_FIELDS = [
   'project_id', 'phase_id', 'location_id', 'discipline', 'work_package', 'parent_task_id',
   'name', 'description', 'priority', 'status',
-  'contractor_id', 'responsible_engineer',
+  'contractor_id', 'responsible_engineer', 'assignee_user_id', 'floor_id', 'area_ids',
   'progress_percent', 'planned_quantity', 'completed_quantity', 'measurement_unit',
   'baseline_start', 'baseline_finish', 'baseline_approval_status',
   'current_forecast_finish', 'actual_start', 'actual_finish', 'date_revision_reason',
@@ -15,7 +15,7 @@ export const TASK_FORM_FIELDS = [
 export const emptyTaskForm = () => ({
   project_id: '', phase_id: '', location_id: '', discipline: '', work_package: '', parent_task_id: '',
   name: '', description: '', priority: 'Medium', status: 'Not Started',
-  contractor_id: '', responsible_engineer: '',
+  contractor_id: '', responsible_engineer: '', assignee_user_id: '', floor_id: '', area_ids: [],
   progress_percent: '', planned_quantity: '', completed_quantity: '', measurement_unit: '',
   baseline_start: '', baseline_finish: '', baseline_approval_status: 'Not Submitted',
   current_forecast_finish: '', actual_start: '', actual_finish: '', date_revision_reason: '',

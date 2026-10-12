@@ -4,6 +4,7 @@ import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import UserPicker from '@/components/common/UserPicker';
 import { ACTIVE_STATUSES, LOCATION_TYPES, POSSESSION_STATUSES, WORKS_STAGES } from '@/lib/constants';
 import { createRecord, updateRecord } from '@/lib/recordService';
 
@@ -20,6 +21,7 @@ const empty = {
   on_hold_since: '',
   villa_type: '',
   assigned_engineer: '',
+  assigned_engineer_user_id: '',
   sort_order: '',
   notes: '',
 };
@@ -48,6 +50,7 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
             on_hold_since: location.on_hold_since || '',
             villa_type: location.villa_type || '',
             assigned_engineer: location.assigned_engineer || '',
+            assigned_engineer_user_id: location.assigned_engineer_user_id || '',
             sort_order: location.sort_order ?? '',
             notes: location.notes || '',
           }
@@ -127,7 +130,12 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
           <Input value={form.plot_numbers} onChange={(e) => setForm((f) => ({ ...f, plot_numbers: e.target.value }))} placeholder="e.g. Plots 5 & 6" />
         </Field>
         <Field label="Assigned engineer">
-          <Input value={form.assigned_engineer} onChange={(e) => setForm((f) => ({ ...f, assigned_engineer: e.target.value }))} />
+          <UserPicker
+            projectId={projectId}
+            value={form.assigned_engineer_user_id}
+            onChange={(userId) => setForm((f) => ({ ...f, assigned_engineer_user_id: userId }))}
+            placeholder="Unassigned"
+          />
         </Field>
         <Field label="Possession status">
           <EnumSelect value={form.possession_status} onChange={(v) => setForm((f) => ({ ...f, possession_status: v }))} options={POSSESSION_STATUSES} />
