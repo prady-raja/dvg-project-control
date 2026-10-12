@@ -24,6 +24,7 @@ import {
 import { actorName, fail, getOne, listAll, pick } from '../../shared/records.ts';
 import { withLog } from '../../shared/log.ts';
 import { assigneeFor, checkWatchers } from '../../shared/assignees.ts';
+import { clearOpenConstraints } from '../../shared/constraints.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 
 /**
@@ -266,6 +267,7 @@ async function handler(req) {
       patch.updated_by_name = actorName(user);
       patch.member_ids = memberIds;
       const updated = await svc.Task.update(id, patch);
+      await clearOpenConstraints(svc, task, { userName: actorName(user), nextStatus: patch.status });
 
       await writeTaskHistory(base44, {
         task,

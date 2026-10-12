@@ -53,5 +53,21 @@ export function whatsappLink(phone, message) {
   return digits.length >= 8 ? `https://wa.me/${digits}?text=${text}` : '';
 }
 
+/**
+ * When a task leaves Blocked by any route (a daily report, the editor), its open
+ * blocker record is closed too, so the Blocker board and the task never disagree.
+ */
+export async function clearOpenConstraints(svc, task, { userName = '', nextStatus = '' } = {}) {
+  if (!svc?.TaskConstraint || task?.status !== 'Blocked' || nextStatus === 'Blocked' || !nextStatus) return 0;
+  const found = await svc.TaskConstraint.filter({ task_id: task.id, status: 'Open' }, { limit: 20 });
+  const open = Array.isArray(found) ? found : found?.items || [];
+  for (const row of open) {
+    await svc.TaskConstraint.update(row.id, {
+      status: 'Cleared', cleared_at: new Date().toISOString(), cleared_by_name: userName, clear_note: `Task moved to ${nextStatus}`,
+    });
+  }
+  return open.length;
+}
+
 /** Open and past its date. */
 export const isPastDue = (constraint, asOf) => constraint?.status === 'Open' && !!constraint.due_date && constraint.due_date < asOf;

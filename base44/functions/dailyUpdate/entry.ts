@@ -3,7 +3,7 @@ import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../sha
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
 import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
-import { BLOCKER_CATEGORIES, TASK_STATUSES } from '../../shared/enums.ts';
+import { BLOCKER_CATEGORIES, TASK_STATUSES, defaultOwnerTypeFor } from '../../shared/enums.ts';
 import {
   isOlderThanLatest,
   MAX_REPORT_PHOTOS,
@@ -15,6 +15,7 @@ import { todayIst } from '../../shared/dashboardCore.ts';
 import { projectSettings } from '../../shared/calendar.ts';
 import { delayCategoryFor } from '../../shared/delay.ts';
 import { appliedChanges, planVoid } from '../../shared/reportVoid.ts';
+import { clearOpenConstraints } from '../../shared/constraints.ts';
 
 /**
  * The only path that records site work.
@@ -65,6 +66,7 @@ async function handler(req) {
       if (plan.patch && original_task) {
         const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
         await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
+        await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
         await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
           task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
           field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
@@ -219,6 +221,21 @@ async function handler(req) {
         patch.member_ids = memberIds;
       }
       if (entries.length || task.latest_report_date !== updateDate) updatedTask = await svc.Task.update(task.id, patch);
+      await clearOpenConstraints(svc, task, { userName: actorName(user), nextStatus: patch.status });
+      // A blocker reported on a daily report is a blocker record too (F-02), so it has an owner and shows on the board.
+      if (blockerReported) {
+        const found = await svc.TaskConstraint.filter({ task_id: task.id, status: 'Open' }, { limit: 1 });
+        const open = (found?.items || found || [])[0];
+        const record = {
+          project_id: task.project_id, phase_id: task.phase_id || null, location_id: task.location_id || null,
+          task_id: task.id, task_ref: task.task_ref || '', status: 'Open', member_ids: memberIds,
+          category: blockerCategory, description: blockerDescription,
+          owner_type: defaultOwnerTypeFor(blockerCategory), owner_name: blockerResponsible || null,
+          due_date: expectedResolution || null,
+        };
+        if (open) await svc.TaskConstraint.update(open.id, record);
+        else await svc.TaskConstraint.create({ ...record, raised_by_name: actorName(user), raised_at: new Date().toISOString(), chase_count: 0 });
+      }
     }
 
     const report = await svc.DailyUpdate.create({

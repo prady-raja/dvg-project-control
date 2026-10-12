@@ -54,7 +54,7 @@ export default function DailyActivity() {
     if (!projectId) return;
     setLoading(true);
     setLoadError('');
-    const query = { project_id: projectId, update_date: date };
+    const query = { project_id: projectId, update_date: date, voided: { $ne: true } };
     if (scope !== 'All') query.work_scope = scope;
 
     try {
@@ -84,7 +84,7 @@ export default function DailyActivity() {
   const loadAllUpdates = async () => {
     setLoadingAll(true);
     try {
-      const query = { project_id: projectId, update_date: date };
+      const query = { project_id: projectId, update_date: date, voided: { $ne: true } };
       if (scope !== 'All') query.work_scope = scope;
       const all = await data.readAll('DailyUpdate', query, { sort: '-reported_at', max: 5000 });
       setRows(all.items);
