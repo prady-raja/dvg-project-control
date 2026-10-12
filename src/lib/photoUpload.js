@@ -75,3 +75,31 @@ export async function uploadPhotos(files, { onProgress, concurrency = UPLOAD_CON
   await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
   return { photos: uploaded.filter(Boolean), failed };
 }
+
+/**
+ * Upload any files (drawings, PDFs) a few at a time. Unlike uploadPhotos the result
+ * keeps every file's place: `{ file, file_uri }` on success or `{ file, error }`,
+ * so a failed file can be retried on its own.
+ */
+export async function uploadFiles(files, { onProgress, concurrency = UPLOAD_CONCURRENCY, upload = (f) => data.uploadPrivate(f) } = {}) {
+  const queue = files.map((file, index) => ({ file, index }));
+  const results = new Array(files.length);
+  let done = 0;
+  const worker = async () => {
+    while (queue.length) {
+      const { file, index } = queue.shift();
+      try {
+        const small = await compressImage(file);
+        const file_uri = await upload(small);
+        if (!file_uri) throw new Error('The upload returned no file.');
+        results[index] = { file, file_uri };
+      } catch (e) {
+        results[index] = { file, error: e?.message || 'The upload failed.' };
+      }
+      done += 1;
+      onProgress?.({ done, total: files.length, index });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+  return results;
+}

@@ -114,6 +114,12 @@ export default function VillaExecution() {
             { label: 'Possession date', value: formatDate(villa.possession_date), mono: true },
             { label: 'Construction works status', value: <Pill value={villa.works_stage} /> },
             { label: 'Assigned engineer', value: villa.assigned_engineer || 'Not assigned' },
+            {
+              label: data.forecast?.label || 'Forecast handover',
+              value: data.forecast?.state === 'complete' ? 'No pending works'
+                : data.forecast?.date ? formatDate(data.forecast.date) : `Not scheduled${data.forecast?.undated ? ` (${data.forecast.undated} undated)` : ''}`,
+              mono: true,
+            },
             { label: 'Planned completion', value: formatDate(villa.planned_completion_date), mono: true },
           ]}
         />

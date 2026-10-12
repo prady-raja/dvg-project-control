@@ -14,6 +14,7 @@ import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
 import { withLog } from '../../shared/log.ts';
+import { compareRevisions } from '../../shared/drawingIntake.ts';
 import { settingsProblems } from '../../shared/calendar.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 
@@ -59,6 +60,7 @@ const FIELDS = {
   Drawing: [
     'project_id', 'phase_id', 'location_id', 'floor_id', 'title', 'drawing_type', 'revision',
     'revision_date', 'uploaded_date', 'file_uri', 'file_name', 'status', 'supersedes_id', 'notes', 'is_demo',
+    'drawing_number', 'villa_type',
   ],
   TaskDependency: [
     'project_id', 'predecessor_task_id', 'successor_task_id', 'dependency_type', 'lag_days', 'active', 'notes',
@@ -286,15 +288,34 @@ async function handler(req) {
         payload.uploaded_by_id = user.id;
         payload.uploaded_by_name = actorName(user);
 
-        if (location) {
-          const current = listAll(
-            await svc.Drawing.filter(
-              { location_id: location.id, title: payload.title, status: 'Current' },
-              { limit: 5 },
-            ),
-          );
-          priorDrawing = current[0] || null;
-          if (priorDrawing) payload.supersedes_id = priorDrawing.id;
+        if (!location && !String(payload.villa_type || '').trim()) {
+          throw fail('Say which villa, common area or villa type this drawing is for.');
+        }
+        payload.drawing_number = String(payload.drawing_number || '').trim() || null;
+        payload.villa_type = location ? null : String(payload.villa_type || '').trim();
+
+        // The same drawing within the same scope: by its own number when it has one,
+        // otherwise by title. Newer revisions supersede the current one; an older
+        // one is kept as history and the current one stays current.
+        const scopeFilter = location
+          ? { location_id: location.id, ...(payload.floor_id ? { floor_id: payload.floor_id } : {}) }
+          : { project_id: projectId, villa_type: payload.villa_type };
+        const same = listAll(await svc.Drawing.filter(
+          payload.drawing_number ? { ...scopeFilter, drawing_number: payload.drawing_number } : { ...scopeFilter, title: payload.title },
+          { limit: 200 },
+        ));
+        // Only a revision that is actually named can be a duplicate; two unlabelled files are a re-filing.
+        const named = String(payload.revision || '').trim().toLowerCase();
+        if (named && same.some((d) => String(d.revision || '').trim().toLowerCase() === named)) {
+          throw fail(`${payload.drawing_number || payload.title} revision ${payload.revision || '—'} is already on the register.`);
+        }
+        const current = same.filter((d) => d.status === 'Current').sort((a, b) => compareRevisions(b.revision, a.revision))[0];
+        if (current && compareRevisions(payload.revision, current.revision) < 0) {
+          payload.status = 'Superseded';
+          payload.superseded_by_id = current.id;
+        } else if (current) {
+          priorDrawing = current;
+          payload.supersedes_id = current.id;
         }
       }
 

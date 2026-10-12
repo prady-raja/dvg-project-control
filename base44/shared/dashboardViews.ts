@@ -5,6 +5,7 @@
  * unmeasured figure as a measured one.
  */
 
+import { villaForecast } from './villaViews.ts';
 import {
   actionFor, compareFinish, dueWithin, finishDate,
   heldLocationIds, healthFor, delayCauses, actorFor, ragOf, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
@@ -211,6 +212,7 @@ export function villaExecutionView({ tasks, location, ix, asOf, snags = [], depe
       on_hold: location.active_status === 'On Hold',
     },
     counts: statusCounts(mine, asOf),
+    forecast: villaForecast(location, outstanding),
     progress: weightedProgress(mine),
     disciplines,
     contractors: contractorMix(mine, ix, asOf),
