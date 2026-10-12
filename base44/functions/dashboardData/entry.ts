@@ -7,6 +7,7 @@ import { contractorBoardView, executiveView, planningView, villaExecutionView } 
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
 import { attentionFor } from '../../shared/attention.ts';
 import { countsView, myWorkView } from '../../shared/myWork.ts';
+import { villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
@@ -27,7 +28,7 @@ const needsFor = (view) => ({
   updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
   commitments: ['meeting', 'myWork'].includes(view),
-  snags: ['handover', 'villa', 'myWork', 'counts'].includes(view),
+  snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
 });
@@ -98,6 +99,20 @@ async function handler(req) {
         return Response.json({ ...header, ...meetingReportView({ ...common, dependencies: data.dependencies, commitments: data.commitments }) });
       case 'handover':
         return Response.json({ ...header, ...handoverBoardView({ ...common, snags: data.snags }) });
+      case 'matrix':
+        return Response.json({
+          ...header,
+          ...villaMatrixView({
+            tasks: data.tasks, locations: data.locations, ix, asOf,
+            options: { ...options, possession: ['Handed Over', 'Not Handed Over'].includes(body?.possession) ? body.possession : '' },
+          }),
+        });
+      case 'statement': {
+        const location = data.locations.find((l) => l.id === options.locationId);
+        if (!location) throw fail('That villa was not found in your projects.', 404);
+        const floors = (await makeDb({ entities: base44.asServiceRole.entities }).readAll('VillaFloor', { location_id: location.id })).items;
+        return Response.json({ ...header, ...villaStatementView({ location, tasks: data.tasks, snags: data.snags, floors, ix, asOf, options }) });
+      }
       case 'myWork':
         return Response.json({
           ...header,
@@ -145,12 +160,16 @@ async function handler(req) {
           phaseId: options.phaseId,
           includeDemo: options.includeDemo,
         });
+        // A matrix cell opens one villa's discipline; other tiles leave these blank.
+        const narrowed = list.filter((t) => (!options.locationId || t.location_id === options.locationId)
+          && (!options.discipline || t.discipline === options.discipline)
+          && (!options.contractorId || t.contractor_id === options.contractorId));
         return Response.json({
           ...header,
           metric,
-          total: list.length,
+          total: narrowed.length,
           offset: options.offset,
-          rows: list.slice(options.offset, options.offset + options.itemLimit).map((task) => {
+          rows: narrowed.slice(options.offset, options.offset + options.itemLimit).map((task) => {
             const row = taskRow(task, ix, asOf);
             return { ...row, action: actionFor(row) };
           }),

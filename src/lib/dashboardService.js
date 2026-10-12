@@ -22,5 +22,7 @@ export const DASHBOARD_VIEWS = [
   'attention',
   'myWork',
   'counts',
+  'matrix',
+  'statement',
   'tasks',
 ];

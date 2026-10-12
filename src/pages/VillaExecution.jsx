@@ -94,6 +94,7 @@ export default function VillaExecution() {
           <>
             <Pill value={villa.possession_status} />
             <Pill value={villa.active_status} />
+            <Button asChild variant="outline" size="sm"><Link to={`/villas/${locationId}/statement`}>Pending works statement</Link></Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>Refresh</Button>
             {canEdit && (
               <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ locationId })}>

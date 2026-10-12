@@ -443,6 +443,7 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
   const scoped = scopeTasks(tasks, { projectId: options.projectId, phaseId: options.phaseId, includeDemo: options.includeDemo });
   const active = scoped.filter((t) => !t.location_id || !heldIds.has(t.location_id));
   switch (metric) {
+    case 'all_tasks': return active;
     case 'open': return active.filter(isOutstanding);
     case 'executing': return active.filter(isExecuting);
     case 'overdue': return active.filter((t) => isOverdue(t, asOf));

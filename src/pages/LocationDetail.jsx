@@ -110,6 +110,11 @@ export default function LocationDetail() {
           <>
             <Pill value={location.possession_status} />
             <Pill value={location.active_status} />
+            {location.location_type === 'Villa' && (
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link to={`/villas/${location.id}/statement`}>Pending works statement</Link>
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to={`/locations/${location.id}/execution`}>
                 <Activity className="h-3.5 w-3.5" /> Execution dashboard

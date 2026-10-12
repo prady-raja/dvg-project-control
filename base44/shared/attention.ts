@@ -117,6 +117,7 @@ export const ATTENTION_CODES = {
   possible_duplicate: { label: 'Possibly the same work listed twice', severity: 'invalid' },
   ambiguous_reference: { label: 'Ambiguous villa or plot reference', severity: 'invalid' },
   room_register_missing: { label: 'Villa has no rooms registered', severity: 'incomplete' },
+  completed_with_open_work: { label: 'Villa marked Works Completed but work is still open', severity: 'invalid' },
   unassigned_location: { label: 'Villa work with no villa recorded', severity: 'invalid' },
 };
 
@@ -228,6 +229,27 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       detail: `${villa.villa_code} has outstanding work but no floors or rooms registered, so room-level scope cannot be stated yet.`,
       link: `/locations/${villa.id}`,
       readiness: '',
+    });
+  });
+
+  // The register says the works are finished while tasks are still open — one of the two is wrong.
+  villasWithWork.forEach((locationId) => {
+    const villa = (locations || []).find((item) => item.id === locationId);
+    if (!villa || villa.works_stage !== 'Completed') return;
+    const openHere = scope.filter((task) => isOutstanding(task) && task.location_id === locationId && !task.is_villa_work_parent).length;
+    items.push({
+      code: 'completed_with_open_work',
+      label: ATTENTION_CODES.completed_with_open_work.label,
+      severity: 'invalid',
+      task_id: '',
+      task_ref: '',
+      task_name: '',
+      villa: villa.villa_code,
+      discipline: '',
+      detail: `${villa.villa_code} is marked Works Completed but ${openHere} task(s) are still open. Either close the work or correct the villa's works stage.`,
+      link: `/locations/${villa.id}`,
+      readiness: '',
+      since: toDay(villa.updated_date),
     });
   });
 
