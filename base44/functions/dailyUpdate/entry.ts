@@ -3,6 +3,7 @@ import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../sha
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
 import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
+import { BLOCKER_CATEGORIES, TASK_STATUSES } from '../../shared/enums.ts';
 import {
   BACKDATE_LIMIT_DAYS,
   isOlderThanLatest,
@@ -10,6 +11,7 @@ import {
   reportDateProblem,
   reportTargetProblem,
 } from '../../shared/dailyReportRules.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * The only path that records site work.
@@ -22,14 +24,7 @@ import {
  * browser claims about the user or about the previous values.
  */
 
-const STATUSES = [
-  'Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed',
-];
-
-const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete', 'Materials Pending', 'Client Selection Pending', 'Owner Access Pending',
-  'Drawing / Design Clarification', 'Contractor Manpower', 'DVG Approval', 'External Utility / Authority', 'Other',
-];
+const STATUSES = TASK_STATUSES;
 
 /** Task fields a daily report is allowed to move. Baselines are deliberately absent. */
 const REPORT_FIELDS = [
@@ -51,7 +46,7 @@ const text = (value, max = MAX_TEXT) => {
   return cleaned ? cleaned.slice(0, max) : null;
 };
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -301,3 +296,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('dailyUpdate', handler);

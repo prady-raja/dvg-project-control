@@ -166,6 +166,11 @@
     "date_revision_reason": {
       "type": "string"
     },
+    "date_revision_category": {
+      "type": "string",
+      "enum": ["Drawing/Design", "Material", "Labour", "Predecessor", "Client decision", "Weather", "Access", "Rework", "Other"],
+      "description": "Why the forecast moved, chosen from a fixed list so delay causes can be counted"
+    },
     "planned_manpower": {
       "type": "number"
     },

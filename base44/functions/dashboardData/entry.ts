@@ -7,7 +7,8 @@ import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } 
 import { attentionFor } from '../../shared/attention.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
-import { listAll } from '../../shared/records.ts';
+import { makeDb } from '../../shared/dbCore.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -21,13 +22,13 @@ import { listAll } from '../../shared/records.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover', 'attention'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention'].includes(view),
   commitments: ['meeting'].includes(view),
   snags: ['handover', 'villa'].includes(view),
 });
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -52,7 +53,10 @@ export default async function (req) {
       contractorId: String(body?.contractorId || ''),
       discipline: String(body?.discipline || ''),
       includeDemo: isAppAdmin(user) && body?.includeDemo === true,
-      itemLimit: Math.min(Math.max(Number(body?.itemLimit) || 40, 10), 200),
+      itemLimit: Math.min(Math.max(Number(body?.itemLimit) || 40, 10), 500),
+      code: String(body?.code || ''),
+      offset: Math.max(Number(body?.offset) || 0, 0),
+      meetingDate: DATE.test(String(body?.meetingDate || '')) ? String(body.meetingDate) : '',
     };
 
     const data = await loadProjectData(base44, user, {
@@ -62,12 +66,15 @@ export default async function (req) {
       ...needsFor(view),
     });
     const ix = data.ix;
+    options.locations = data.locations;
     const heldIds = heldLocationIds(data.locations);
     const header = {
       ...viewHeader(asOf, { project_id: scope.projectId, phase_id: phaseId }),
       view,
       projects: data.projects.map((p) => ({ id: p.id, name: p.name, code: p.code || '' })),
       phases: data.phases.map((p) => ({ id: p.id, project_id: p.project_id, name: p.name, code: p.code || '' })),
+      // Which collections were read only in part, so a screen can say so instead of showing a short list as whole.
+      meta: data.meta,
     };
     const common = { tasks: data.tasks, locations: data.locations, phases: data.phases, projects: data.projects, ix, options, asOf };
 
@@ -92,17 +99,19 @@ export default async function (req) {
       case 'attention': {
         // The review view that goes with the register: what is missing, what is
         // contradictory, and what is ready. Read-only by design.
+        const db = makeDb({ entities: base44.asServiceRole.entities });
+        const registerFilter = scope.projectId ? { project_id: scope.projectId } : { project_id: { $in: scope.projectIds } };
         const [areasRes, floorsRes] = await Promise.all([
-          base44.asServiceRole.entities.VillaArea.filter({ project_id: scope.projectId }, { limit: 500 }),
-          base44.asServiceRole.entities.VillaFloor.filter({ project_id: scope.projectId }, { limit: 300 }),
+          db.readAll('VillaArea', registerFilter),
+          db.readAll('VillaFloor', registerFilter),
         ]);
         return Response.json({
           ...header,
           ...attentionFor({
             tasks: data.tasks,
             locations: data.locations,
-            areas: listAll(areasRes),
-            floors: listAll(floorsRes),
+            areas: areasRes.items,
+            floors: floorsRes.items,
             dependencies: data.dependencies,
             updates: data.updates,
             asOf,
@@ -124,7 +133,8 @@ export default async function (req) {
           ...header,
           metric,
           total: list.length,
-          rows: list.slice(0, options.itemLimit).map((task) => {
+          offset: options.offset,
+          rows: list.slice(options.offset, options.offset + options.itemLimit).map((task) => {
             const row = taskRow(task, ix, asOf);
             return { ...row, action: actionFor(row) };
           }),
@@ -137,3 +147,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('dashboardData', handler);

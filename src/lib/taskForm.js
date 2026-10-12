@@ -1,5 +1,5 @@
 import { toDateInput } from '@/lib/format';
-import { TASK_STATUSES } from '@/lib/constants';
+import { allowedNextStatuses, TASK_STATUSES } from '@shared/enums.ts';
 
 /**
  * Pure helpers behind the task edit dialogs. A dialog builds its form from the
@@ -10,24 +10,12 @@ import { TASK_STATUSES } from '@/lib/constants';
 /** Same rule as base44/shared/taskRef.ts escapeRegex; src does not import base44/shared. */
 export const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Mirrors base44/shared/taskWriteRules.ts APPROVABLE_FROM / CLOSABLE_FROM.
-const APPROVABLE_FROM = ['Execution Complete', 'Under Inspection'];
-const CLOSABLE_FROM = ['Approved', 'Execution Complete', 'Under Inspection'];
-
 /** Planning rows carry forecast_finish; task records carry current_forecast_finish. */
 export const forecastOf = (task) =>
   toDateInput(task?.current_forecast_finish ?? task?.forecast_finish ?? task?.baseline_finish);
 
 /** Statuses the server will accept as the next status of this task. */
-export function legalNextStatuses(current) {
-  const from = current || 'Not Started';
-  return TASK_STATUSES.filter((status) => {
-    if (status === from) return true;
-    if (status === 'Approved') return APPROVABLE_FROM.includes(from);
-    if (status === 'Closed') return CLOSABLE_FROM.includes(from);
-    return true;
-  });
-}
+export const legalNextStatuses = allowedNextStatuses;
 
 export const quickUpdateForm = (task) => ({
   status: task?.status || 'Not Started',

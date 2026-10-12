@@ -1,13 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { canEditTasks, resolveRank } from '../../shared/access.ts';
 import { peekTaskRef } from '../../shared/taskRef.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * Allocates the next permanent task reference for a project + phase,
  * e.g. IMG-A-0001. Project-level common work uses the GEN phase code.
  * Only a user who may create tasks on that project can obtain one.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -37,3 +38,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('nextTaskRef', handler);

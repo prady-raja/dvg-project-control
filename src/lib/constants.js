@@ -1,35 +1,8 @@
-export const TASK_STATUSES = [
-  'Not Started',
-  'In Progress',
-  'Blocked',
-  'Execution Complete',
-  'Under Inspection',
-  'Approved',
-  'Closed',
-];
+import { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES } from '@shared/enums.ts';
 
-export const OPEN_TASK_STATUSES = [
-  'Not Started',
-  'In Progress',
-  'Blocked',
-  'Execution Complete',
-  'Under Inspection',
-  'Approved',
-];
+export { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES };
 
 export const TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-
-export const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete',
-  'Materials Pending',
-  'Client Selection Pending',
-  'Owner Access Pending',
-  'Drawing / Design Clarification',
-  'Contractor Manpower',
-  'DVG Approval',
-  'External Utility / Authority',
-  'Other',
-];
 
 export const BASELINE_APPROVAL_STATUSES = ['Not Submitted', 'Submitted', 'Approved', 'Rejected'];
 export const SELECTION_STATUSES = ['Not Required', 'Pending Selection', 'Selected'];
@@ -47,8 +20,6 @@ export const POSSESSION_STATUSES = ['Handed Over', 'Not Handed Over'];
 export const WORKS_STAGES = ['Not Started', 'Under Construction', 'Works Pending', 'Completed'];
 export const ACTIVE_STATUSES = ['Active', 'On Hold'];
 export const CONTRACTOR_CLASSIFICATIONS = ['Internal Execution Team', 'External Contractor'];
-// Same list, same order as base44/shared/access.ts MEMBERSHIP_ROLES (a test keeps them equal).
-export const MEMBERSHIP_ROLES = ['Project Editor', 'Viewer', 'Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor'];
 
 export const WORK_PACKAGE_REQUIRED_DISCIPLINES = ['Finishes'];
 

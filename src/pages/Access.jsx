@@ -1,3 +1,5 @@
+import DataState from '@/components/common/DataState';
+import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -29,18 +31,25 @@ export default function Access() {
   const [memberships, setMemberships] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(false);
   const [presetProject, setPresetProject] = useState('');
 
   const load = async () => {
     setLoading(true);
-    const res = await base44.entities.ProjectMembership.filter({}, { sort: 'user_email', limit: 300 });
-    setMemberships(items(res));
-    if (appAdmin) {
-      const listed = await base44.entities.User.list();
-      setUsers(items(listed));
+    setLoadError('');
+    try {
+      const res = await base44.entities.ProjectMembership.filter({}, { sort: 'user_email', limit: 300 });
+      setMemberships(items(res));
+      if (appAdmin) {
+        const listed = await base44.entities.User.list();
+        setUsers(items(listed));
+      }
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The people and access lists could not be loaded.'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -100,7 +109,9 @@ export default function Access() {
         </div>
       )}
 
-      {loading || cat.loading ? (
+      {loadError ? (
+        <DataState error={loadError} onRetry={load} />
+      ) : loading || cat.loading ? (
         <Skeleton className="h-56 rounded-xl" />
       ) : (
         <div className="space-y-6">

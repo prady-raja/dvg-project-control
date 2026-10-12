@@ -17,7 +17,7 @@
  * meaning. A blocker is a condition beside the execution stage, not a stage.
  */
 
-import { isOutstanding, isAwaitingVerification, shiftDay, toDay } from './dashboardCore.ts';
+import { isBlocked, isCountable, isOutstanding, isAwaitingVerification, shiftDay, toDay } from './dashboardCore.ts';
 import { normalizeAreaName } from './villaAreas.ts';
 import { looseKey, plotNumbersOf } from './villaResolve.ts';
 
@@ -33,7 +33,7 @@ export const LIFECYCLE_STAGES = [
 /** The standard stage for a stored status, plus the blocker condition beside it. */
 export function lifecycleOf(task) {
   const status = task?.status || 'Not Started';
-  const blocked = status === 'Blocked' || !!task?.blocker_description;
+  const blocked = isBlocked(task);
   let stage = 'Not Started';
   if (status === 'Closed') stage = 'Verified / Closed';
   else if (status === 'Approved') stage = 'Verified / Closed';
@@ -77,7 +77,7 @@ export function readinessOf(task, { dependencies = [], tasksById } = {}) {
   );
   const openPredecessors = predecessors.filter((link) => {
     const before = tasksById?.get(link.predecessor_task_id);
-    return before ? before.status !== 'Closed' : true;
+    return before ? !['Closed', 'Approved'].includes(before.status) : true;
   });
   if (openPredecessors.length) {
     reasons.push({
@@ -130,8 +130,10 @@ const SEVERITY_ORDER = { invalid: 0, incomplete: 1 };
  */
 export function attentionFor({ tasks = [], locations = [], areas = [], floors = [], dependencies = [], updates = [], asOf, ix, options = {} }) {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  // Demo and archived records never reach the review list; the same filter as every board.
   const scope = (options.projectId ? tasks.filter((task) => task.project_id === options.projectId) : tasks)
-    .filter((task) => (options.phaseId ? task.phase_id === options.phaseId : true));
+    .filter((task) => (options.phaseId ? task.phase_id === options.phaseId : true))
+    .filter((task) => isCountable(task, { includeDemo: options.includeDemo === true }));
   const items = [];
   const add = (code, row) => {
     const meta = ATTENTION_CODES[code] || { label: code, severity: 'incomplete' };
@@ -147,6 +149,7 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       detail: row.detail,
       link: row.task?.id ? `/tasks/${row.task.id}` : '',
       readiness: row.readiness || '',
+      since: toDay(row.task?.updated_date || row.task?.created_date),
     });
   };
 
@@ -257,9 +260,11 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     });
   });
 
+  // Most serious first, then by kind, then oldest first inside each kind.
   items.sort((a, b) =>
     SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
     || a.code.localeCompare(b.code)
+    || String(a.since || '9999').localeCompare(String(b.since || '9999'))
     || String(a.villa).localeCompare(String(b.villa))
     || String(a.task_ref).localeCompare(String(b.task_ref)));
 
@@ -294,8 +299,24 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     by_code: byCode,
     readiness,
     readiness_reasons: [...readinessReasons.values()].sort((a, b) => b.count - a.count),
-    items: items.slice(0, Math.min(Math.max(Number(options.itemLimit) || 200, 20), 500)),
+    ...pageOf(items, options),
     data_date: asOf,
+  };
+}
+
+/**
+ * The list is filtered by issue code and paged on the server, so a code late in
+ * the severity order is never cut off by a cap on the whole list, and each page
+ * says how many there are in all.
+ */
+export function pageOf(items, options = {}) {
+  const code = options.code || '';
+  const filtered = code ? items.filter((item) => item.code === code) : items;
+  const limit = Math.min(Math.max(Number(options.itemLimit) || 100, 10), 500);
+  const offset = Math.max(Number(options.offset) || 0, 0);
+  return {
+    items: filtered.slice(offset, offset + limit),
+    page: { code, offset, limit, total: filtered.length, has_more: offset + limit < filtered.length },
   };
 }
 

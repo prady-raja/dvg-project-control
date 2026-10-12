@@ -13,6 +13,7 @@ import {
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
+import { withLog } from '../../shared/log.ts';
 
 const DRAWING_TYPES = [
   'Floor Plan', 'Furniture Layout', 'Electrical Layout', 'Plumbing Layout',
@@ -88,7 +89,7 @@ const clientFor = (svc, name) =>
  * Note: because the app cannot read the user directory, a member is recorded by
  * email and matched to their account the first time they sign in.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -364,3 +365,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('saveRecord', handler);

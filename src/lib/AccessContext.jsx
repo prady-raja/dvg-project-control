@@ -24,8 +24,8 @@ export function AccessProvider({ children }) {
         roles[m.project_id] = m.role;
       });
       setState({ loading: false, appAdmin: !!data.app_admin, ranks, roles, user: data.user || null, failed: false });
-    } catch {
-      setState({ ...EMPTY, loading: false, failed: true });
+    } catch (error) {
+      setState({ ...EMPTY, loading: false, failed: true, error: error?.message || '' });
     }
   }, []);
 

@@ -13,6 +13,7 @@ import { canEditTasks, canManageProject } from '../../shared/access.ts';
 import {
   APPLYING_LEASE_MS, FINAL_STATUSES, alreadyWritten, applyProposal, indexOfAction, proposalStatus, resultKey,
 } from '../../shared/assistApply.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * Ask DVG AI.
@@ -164,7 +165,7 @@ const deterministicProposal = (text, candidates) => {
   };
 };
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -722,3 +723,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('aiAction', handler);

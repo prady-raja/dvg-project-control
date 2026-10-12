@@ -11,17 +11,23 @@
 import {
   compareFinish, daysBetween, dueWithin, isAwaitingClosure, isAwaitingVerification,
   isBlocked, isDemoTask, isExecuting, isOutstanding, isOverdue, isParentRow,
-  isUnscheduled, shiftDay, statusCounts, taskRow, weightedProgress,
+  isUnscheduled, scopeTasks, shiftDay, statusCounts, taskRow, toDay, weightedProgress,
 } from './dashboardCore.ts';
 
 const scopeBoardTasks = (tasks, options) =>
-  tasks.filter((t) => {
-    if (t.archived === true || isParentRow(t)) return false;
-    if (!options.includeDemo && isDemoTask(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
-    return true;
-  });
+  scopeTasks(tasks, { projectId: options.projectId, phaseId: options.phaseId, includeDemo: options.includeDemo });
+
+/**
+ * When the blocker is expected to clear: the newest report filed since the task
+ * was blocked that names a date. Older reports describe an earlier blocker.
+ */
+export function expectedResolutionFor(task, ix) {
+  const since = toDay(task?.blocked_since);
+  const reports = ix?.reportsFor ? ix.reportsFor(task.id) : [];
+  const hit = reports.find((report) => report.expected_resolution_date
+    && (!since || toDay(report.update_date || report.reported_at) >= since));
+  return hit?.expected_resolution_date || '';
+}
 
 const chainNode = (task, ix, asOf) => {
   const row = taskRow(task, ix, asOf);
@@ -47,7 +53,7 @@ function walkChain(startId, successors, byId, ix, asOf, limit, depth = 0, seen =
     seen.add(nextId);
     const task = byId.get(nextId);
     if (!task) return;
-    out.push(chainNode(task, ix, asOf));
+    out.push({ ...chainNode(task, ix, asOf), depth: depth + 1, parent_id: startId });
     out.push(...walkChain(nextId, successors, byId, ix, asOf, limit, depth + 1, seen));
   });
   return out;
@@ -69,12 +75,11 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
 
   const outstanding = scoped.filter(isOutstanding);
   const rows = outstanding
-    .filter((t) => isBlocked(t) || t.blocker_description)
+    .filter(isBlocked)
     .map((task) => {
       const row = taskRow(task, ix, asOf);
-      const latest = ix.latestReportFor(task.id);
       const chain = walkChain(task.id, successors, byId, ix, asOf, 6);
-      const resolution = latest?.expected_resolution_date || '';
+      const resolution = expectedResolutionFor(task, ix);
       return {
         ...row,
         identified: row.blocked_since,
@@ -91,7 +96,7 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
   const chains = rows
     .filter((row) => row.downstream.length)
     .map((row) => ({
-      root: { ref: row.ref, name: row.name, villa: row.villa, discipline_name: row.discipline_name, status: row.status, finish: row.finish },
+      root: { id: row.id, ref: row.ref, name: row.name, villa: row.villa, discipline_name: row.discipline_name, status: row.status, finish: row.finish },
       nodes: row.downstream,
     }));
 
@@ -120,8 +125,9 @@ export function blockerBoardView({ tasks, dependencies = [], ix, options, asOf, 
     rows,
     chains,
     counts: {
-      blocked: rows.filter((r) => r.status === 'Blocked').length,
-      with_blocker_recorded: rows.length,
+      blocked: rows.length,
+      status_blocked: rows.filter((r) => r.status === 'Blocked').length,
+      with_blocker_recorded: rows.filter((r) => r.blocker).length,
       blocked_by_another_party: otherContractorBlockers.length,
       overdue_and_blocked: rows.filter((r) => r.overdue_days > 0).length,
       resolution_overdue: rows.filter((r) => r.resolution_overdue).length,
@@ -213,12 +219,13 @@ export function meetingReportView({ tasks, commitments = [], dependencies = [], 
       contractor_id: options.contractorId || '',
       contractor: ix.contractorName(options.contractorId),
       project: ix.projectName(options.projectId),
+      meeting_date: meetingDate,
     },
     counts: {
       outstanding: rows.length,
       overdue: rows.filter((r) => r.overdue_days > 0).length,
       due_7: rows.filter((r) => r.due_in_days !== null && r.due_in_days <= 7).length,
-      blocked: rows.filter((r) => r.status === 'Blocked' || r.blocker).length,
+      blocked: rows.filter((r) => r.blocked).length,
       awaiting_verification: rows.filter((r) => r.status === 'Execution Complete' || r.status === 'Under Inspection').length,
       awaiting_closure: rows.filter((r) => r.status === 'Approved').length,
       dependencies_on_others: dependenciesOnOthers.length,
@@ -230,7 +237,7 @@ export function meetingReportView({ tasks, commitments = [], dependencies = [], 
     by_villa: [...villaGroups.values()].sort((a, b) => b.rows.length - a.rows.length),
     overdue: rows.filter((r) => r.overdue_days > 0),
     due_7: rows.filter((r) => r.due_in_days !== null && r.due_in_days <= 7),
-    blockers: rows.filter((r) => r.status === 'Blocked' || r.blocker),
+    blockers: rows.filter((r) => r.blocked),
     dependencies_on_others: dependenciesOnOthers,
     pending_decisions: rows.filter((r) => r.decisions.length),
     commitments: commitmentsForScope.slice(0, 100),
@@ -243,6 +250,9 @@ export function meetingReportView({ tasks, commitments = [], dependencies = [], 
 }
 
 /** Stage A / 8 — Handover and snagging. */
+/** Open first, then waiting for reinspection, then closed; oldest first inside each. */
+const SNAG_ORDER = { Open: 0, 'Awaiting Reinspection': 1, Closed: 2 };
+
 export function handoverBoardView({ tasks, locations, snags = [], ix, asOf, options }) {
   const villas = locations.filter(
     (l) => l.location_type === 'Villa'
@@ -308,15 +318,16 @@ export function handoverBoardView({ tasks, locations, snags = [], ix, asOf, opti
     snags: snags
       .filter((s) => s.status !== 'Closed' || String(s.closed_date || '') >= shiftDay(asOf, -60))
       .slice()
-      .sort((a, b) => String(a.status).localeCompare(String(b.status)) || String(b.raised_date).localeCompare(String(a.raised_date)))
-      .slice(0, 200),
+      .sort((a, b) => (SNAG_ORDER[a.status] ?? 9) - (SNAG_ORDER[b.status] ?? 9)
+        || String(a.raised_date).localeCompare(String(b.raised_date)))
+      .slice(0, 500),
     summary: {
       villas: rows.length,
       handed_over: rows.filter((r) => r.possession_status === 'Handed Over').length,
       handed_over_with_open_works: rows.filter((r) => r.possession_status === 'Handed Over' && r.outstanding > 0).length,
       handed_over_with_open_snags: rows.filter((r) => r.possession_status === 'Handed Over' && (r.open_snags + r.snags_awaiting_reinspection) > 0).length,
       ready_for_handover: rows.filter((r) => r.handover_stage === 'Ready for handover').length,
-      works_complete_possession_pending: rows.filter((r) => !r.possession_status.includes('Handed') && r.outstanding === 0).length,
+      works_complete_possession_pending: rows.filter((r) => r.possession_status !== 'Handed Over' && r.outstanding === 0).length,
       open_snags: openSnagsAll.filter((s) => s.status === 'Open').length,
       snags_awaiting_reinspection: snags.filter((s) => s.status === 'Awaiting Reinspection').length,
       snags_blocking_handover: openSnagsAll.filter((s) => s.handover_blocker).length,
@@ -333,14 +344,9 @@ export function handoverBoardView({ tasks, locations, snags = [], ix, asOf, opti
 /** Stage A / 9 — Common infrastructure and site-wide works. */
 export function siteWideView({ tasks, locations, ix, options, asOf }) {
   const byId = new Map(locations.map((l) => [l.id, l]));
-  const scoped = tasks.filter((t) => {
-    if (t.archived === true || isParentRow(t)) return false;
-    if (!options.includeDemo && isDemoTask(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
+  const scoped = scopeBoardTasks(tasks, options).filter((t) => {
     const villa = t.location_id ? byId.get(t.location_id) : null;
-    if (t.location_id && villa?.location_type === 'Villa') return false;
-    return true;
+    return !(t.location_id && villa?.location_type === 'Villa');
   });
 
   const outstanding = scoped.filter(isOutstanding);

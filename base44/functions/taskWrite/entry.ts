@@ -23,6 +23,7 @@ import {
 } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne, listAll, pick } from '../../shared/records.ts';
 import { describeScope } from '../../shared/villaAreas.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * A task's floor and rooms are checked against the villa's own register before
@@ -58,7 +59,7 @@ async function resolveTaskScope(svc, { projectId, locationId, floorId, areaIds, 
  * before/after values, and approved baselines and approval separation are
  * enforced regardless of what the browser sends.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -371,3 +372,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('taskWrite', handler);

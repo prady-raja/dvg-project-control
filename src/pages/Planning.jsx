@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 /** Stage A / 5 — Daily and weekly planning. */
 const BUCKETS = [
   { key: 'overdue', label: 'Overdue', tone: 'danger' },
+  { key: 'verification', label: 'Verification pending' },
   { key: 'today', label: "Today's activities" },
   { key: 'tomorrow', label: "Tomorrow's activities" },
   { key: 'week_7', label: '7-day look-ahead' },
@@ -163,8 +164,8 @@ export default function Planning() {
         <div className="mt-5 space-y-5">
           <DataCaveats items={data.warnings} />
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {BUCKETS.slice(0, 6).map((bucket) => (
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {BUCKETS.map((bucket) => (
               <StatTile
                 key={bucket.key}
                 label={bucket.label}

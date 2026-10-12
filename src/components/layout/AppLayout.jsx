@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, LogOut } from 'lucide-react';
 import { CatalogProvider } from '@/lib/CatalogContext';
-import { AccessProvider } from '@/lib/AccessContext';
+import { AccessProvider, useAccess } from '@/lib/AccessContext';
+import { useCatalogs } from '@/lib/CatalogContext';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+import DataState from '@/components/common/DataState';
+import { installGlobalErrorHandlers, setErrorContext } from '@/lib/clientErrors';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -11,7 +15,34 @@ import DesktopSidebar from '@/components/layout/DesktopSidebar';
 import NavList from '@/components/layout/NavList';
 import BrandMark from '@/components/layout/BrandMark';
 
+installGlobalErrorHandlers();
+
+/** Says so when the user's access or the project lists could not be loaded, instead of silently showing nothing. */
+function LoadBanners() {
+  const access = useAccess();
+  const cat = useCatalogs();
+  React.useEffect(() => {
+    setErrorContext({ userId: access.user?.id || '', userEmail: access.user?.email || '' });
+  }, [access.user]);
+  if (access.failed) {
+    return (
+      <div className="mb-4">
+        <DataState error="Your access could not be loaded, so some buttons are hidden." onRetry={access.refresh} />
+      </div>
+    );
+  }
+  if (cat.error) {
+    return (
+      <div className="mb-4">
+        <DataState error={cat.error} onRetry={cat.refresh} />
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function AppLayout() {
+  const routerLocation = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -62,7 +93,10 @@ export default function AppLayout() {
 
           <div className="lg:pl-[264px]">
             <div className="mx-auto w-full max-w-[1500px] px-4 pb-20 pt-5 sm:px-6 lg:px-8 lg:pt-8">
-              <Outlet />
+              <LoadBanners />
+              <ErrorBoundary resetKey={routerLocation.pathname}>
+                <Outlet />
+              </ErrorBoundary>
             </div>
           </div>
         </div>

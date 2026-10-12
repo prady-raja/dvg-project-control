@@ -50,7 +50,14 @@ export const isExecuting = (task) => EXECUTING_STATUSES.includes(task?.status);
 export const isAwaitingVerification = (task) => VERIFICATION_STATUSES.includes(task?.status);
 export const isAwaitingClosure = (task) => CLOSURE_STATUSES.includes(task?.status);
 export const isOutstanding = (task) => !!task && task.status !== 'Closed';
-export const isBlocked = (task) => task?.status === 'Blocked';
+/**
+ * Blocked means work that is still to be executed and either has the status
+ * Blocked or carries a recorded blocker. Every board uses this one reading, so
+ * the Villa page, the Blocker board, the Contractor board and the meeting report
+ * can never disagree (X-06). Finished work with a leftover blocker note is not blocked.
+ */
+export const isBlocked = (task) =>
+  !!task && isExecuting(task) && (task.status === 'Blocked' || !!String(task.blocker_description || '').trim());
 
 /** The one date the application schedules against. */
 export const finishDate = (task) => toDay(task?.current_forecast_finish) || toDay(task?.baseline_finish);
@@ -90,36 +97,45 @@ export const quantityProgress = (task) => {
   return Math.round((completed / planned) * 1000) / 10;
 };
 
+/** Progress as recorded: finished work counts as 100%, everything else only when it was measured. */
+export const measuredProgress = (task) => {
+  if (!task) return null;
+  if (['Approved', 'Closed'].includes(task.status)) return 100;
+  return typeof task.progress_percent === 'number' ? task.progress_percent : null;
+};
+
 /**
  * Weighted completion, only from measured progress.
  *
- * A percentage is produced only when EVERY outstanding task in the set carries
- * a measured progress value; otherwise the answer is null and the screens show
- * status counts instead. Nothing is averaged blindly and nothing is invented.
- * Weight is the task's estimated man-hours (1 when unset).
+ * A percentage is produced only when EVERY task in the set is measured —
+ * Approved and Closed work counts as 100% — otherwise the answer is null and the
+ * screens show status counts plus "N of M tasks measured" instead. Nothing is
+ * averaged blindly and nothing is invented. Weight is the task's estimated
+ * man-hours (1 when unset).
  */
 export function weightedProgress(tasks) {
-  const counted = (tasks || []).filter(isOutstanding);
-  const measured = counted.filter((task) => typeof task.progress_percent === 'number');
+  const counted = tasks || [];
+  const measured = counted.filter((task) => measuredProgress(task) !== null);
   let weight = 0;
   let acc = 0;
   measured.forEach((task) => {
     const w = Number(task.estimated_manhours) > 0 ? Number(task.estimated_manhours) : 1;
     weight += w;
-    acc += w * (Number(task.progress_percent) || 0);
+    acc += w * measuredProgress(task);
   });
   const reliable = counted.length > 0 && measured.length === counted.length;
   return {
     percent: reliable && weight > 0 ? Math.round((acc / weight) * 10) / 10 : null,
     measured: measured.length,
     total: counted.length,
+    measured_share: counted.length ? Math.round((measured.length / counted.length) * 100) : 0,
     reliable,
     basis: 'Estimated man-hours',
     reason: !counted.length
-      ? 'No outstanding task records in this scope'
+      ? 'No task records in this scope'
       : reliable
         ? ''
-        : `Measured progress exists for ${measured.length} of ${counted.length} outstanding tasks`,
+        : `Measured progress exists for ${measured.length} of ${counted.length} tasks`,
   };
 }
 
@@ -179,17 +195,24 @@ export function buildIndex({ projects = [], phases = [], locations = [], contrac
 export const heldLocationIds = (locations = []) =>
   new Set(locations.filter((l) => l.active_status === 'On Hold').map((l) => l.id));
 
-/** The single filter used by every dashboard screen. */
+/**
+ * The one exclusion filter every dashboard screen uses (X-06): archived rows,
+ * villa-work parents (assignment holders, never work) and demo records are left
+ * out of every figure. Villas on hold are handled by splitHeld, so their work is
+ * reported separately rather than hidden.
+ */
+export const isCountable = (task, { includeDemo = false } = {}) =>
+  !!task && !isArchived(task) && !isParentRow(task) && (includeDemo || !isDemoTask(task));
+
 export function scopeTasks(tasks, options = {}) {
   const { projectId, phaseId, locationId, contractorId, discipline, includeDemo = false } = options;
   return (tasks || []).filter((task) => {
-    if (!task || isArchived(task) || isParentRow(task)) return false;
+    if (!isCountable(task, { includeDemo })) return false;
     if (projectId && task.project_id !== projectId) return false;
     if (phaseId && task.phase_id !== phaseId) return false;
     if (locationId && task.location_id !== locationId) return false;
     if (contractorId && task.contractor_id !== contractorId) return false;
     if (discipline && task.discipline !== discipline) return false;
-    if (!includeDemo && isDemoTask(task)) return false;
     return true;
   });
 }
@@ -213,7 +236,7 @@ export function taskRow(task, ix, asOf) {
   if (task.access_status === 'Pending') decisions.push('Owner access pending');
   if (task.selection_status === 'Pending Selection') decisions.push('Client selection pending');
   if (['To Order', 'Ordered'].includes(task.procurement_status)) decisions.push(`${task.procurement_status} material`);
-  if (isBlocked(task) || task.blocker_description) decisions.push('Blocker to clear');
+  if (isBlocked(task)) decisions.push('Blocker to clear');
 
   return {
     id: task.id,
@@ -250,6 +273,7 @@ export function taskRow(task, ix, asOf) {
     finish_source: finishSource(task),
     overdue_days: overdue,
     due_in_days: dueInDays(task, asOf),
+    blocked: isBlocked(task),
     blocked_since: toDay(task.blocked_since),
     blocked_days: task.blocked_since ? daysBetween(task.blocked_since, asOf) : null,
     blocker: task.blocker_description || '',
@@ -307,14 +331,8 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
   const staleBefore = shiftDay(asOf, -7);
   const villaOf = new Map(locations.map((l) => [l.id, l]));
   // The list behind a headline figure is scoped exactly like the figure itself:
-  // same project, same phase, same demo rule.
-  const scoped = (tasks || []).filter((t) => {
-    if (!t || isArchived(t) || isParentRow(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
-    if (!options.includeDemo && isDemoTask(t)) return false;
-    return true;
-  });
+  // same project, same phase, same exclusion filter.
+  const scoped = scopeTasks(tasks, { projectId: options.projectId, phaseId: options.phaseId, includeDemo: options.includeDemo });
   const active = scoped.filter((t) => !t.location_id || !heldIds.has(t.location_id));
   switch (metric) {
     case 'open': return active.filter(isOutstanding);

@@ -7,8 +7,8 @@
 
 import {
   actionFor, compareFinish, dueWithin, finishDate,
-  heldLocationIds, isAwaitingClosure, isAwaitingVerification, isBlocked, isDemoTask,
-  isExecuting, isOutstanding, isOverdue, isParentRow, isUnscheduled,
+  heldLocationIds, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
+  isExecuting, isOutstanding, isOverdue, isParentRow, isUnscheduled, scopeTasks,
   priorityScore, shiftDay, splitHeld, statusCounts, taskRow, weightedProgress,
 } from './dashboardCore.ts';
 
@@ -47,13 +47,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
   const heldIds = heldLocationIds(locations);
   const projectIds = new Set((projects || []).map((p) => p.id));
   const inScope = tasks.filter((t) => projectIds.has(t.project_id));
-  const filtered = inScope.filter((t) => {
-    if (t.archived === true || isParentRow(t)) return false;
-    if (!includeDemo && isDemoTask(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
-    return true;
-  });
+  const filtered = scopeTasks(inScope, { projectId: options.projectId, phaseId: options.phaseId, includeDemo });
   // Every row recorded in this exact scope, demo included, so an excluded count
   // is drawn from the same set the totals below are drawn from.
   const scopedAll = inScope.filter(
@@ -98,7 +92,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
 
   const priorities = active
     .map((task) => priorityRow(task, ix, asOf))
-    .filter((row) => row.score > 0 || isUnscheduled(row))
+    .filter((row) => row.score > 0 || !row.finish)
     .sort((a, b) => b.score - a.score || compareFinish(a, b))
     .slice(0, options.itemLimit || 25)
     .map((row, index) => ({ ...row, rank: index + 1 }));
@@ -149,8 +143,8 @@ export function disciplineCounts(tasks, ix, asOf) {
 }
 
 /** Stage A / 3 — Villa execution dashboard. */
-export function villaExecutionView({ tasks, location, ix, asOf, snags = [], dependencies = [] }) {
-  const mine = tasks.filter((t) => t.location_id === location.id && !t.archived && !isParentRow(t));
+export function villaExecutionView({ tasks, location, ix, asOf, snags = [], dependencies = [], options = {} }) {
+  const mine = tasks.filter((t) => t.location_id === location.id && isCountable(t, { includeDemo: options.includeDemo === true }));
   const outstanding = mine.filter(isOutstanding);
   const groups = new Map();
   mine.forEach((task) => {
@@ -198,7 +192,7 @@ export function villaExecutionView({ tasks, location, ix, asOf, snags = [], depe
     progress: weightedProgress(mine),
     disciplines,
     contractors: contractorMix(mine, ix, asOf),
-    blockers: outstanding.filter((t) => isBlocked(t) || t.blocker_description).map((t) => taskRow(t, ix, asOf)),
+    blockers: outstanding.filter(isBlocked).map((t) => taskRow(t, ix, asOf)),
     overdue: outstanding.filter((t) => isOverdue(t, asOf)).map((t) => taskRow(t, ix, asOf)),
     this_week: outstanding
       .filter((t) => dueWithin(t, asOf, 7) || (finishDate(t) && finishDate(t) <= weekEnd && isExecuting(t)))
@@ -238,15 +232,13 @@ export function contractorMix(tasks, ix, asOf) {
 /** Stage A / 4 — Contractor dashboard. */
 export function contractorBoardView({ tasks, contractors, ix, options, asOf, updates = [] }) {
   const heldIds = heldLocationIds(options.locations || []);
-  const scoped = tasks.filter((t) => {
-    if (t.archived === true || isParentRow(t)) return false;
-    if (!options.includeDemo && isDemoTask(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
-    if (options.locationId && t.location_id !== options.locationId) return false;
-    if (options.discipline && t.discipline !== options.discipline) return false;
-    return true;
-  });
+  const { active: scoped, held: heldScoped } = splitHeld(
+    scopeTasks(tasks, {
+      projectId: options.projectId, phaseId: options.phaseId, locationId: options.locationId,
+      discipline: options.discipline, includeDemo: options.includeDemo,
+    }),
+    heldIds,
+  );
 
   const staleBefore = shiftDay(asOf, -7);
   const weekAgo = shiftDay(asOf, -7);
@@ -288,7 +280,7 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
         stale_tasks: stale.length,
         needs_intervention: crossContractor.map((t) => taskRow(t, ix, asOf)),
         villas: [...new Set(open.map((t) => ix.villaCode(t.location_id) || 'Site-wide'))].filter(Boolean),
-        on_hold_tasks: open.filter((t) => t.location_id && heldIds.has(t.location_id)).length,
+        on_hold_tasks: heldScoped.filter((t) => t.contractor_id === contractor.id && isOutstanding(t)).length,
         tasks: open.slice().sort((a, b) => compareFinish(taskRow(a, ix, asOf), taskRow(b, ix, asOf))).map((t) => taskRow(t, ix, asOf)),
       };
     })
@@ -316,57 +308,51 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
   };
 }
 
+export const PLANNING_BUCKETS = ['overdue', 'verification', 'today', 'tomorrow', 'week_7', 'week_14', 'later', 'unscheduled'];
+
+/**
+ * Every outstanding row falls into exactly one bucket, so the buckets always add
+ * up to the open count. Work already executed is "verification" whatever its
+ * date: it waits on an inspector, not on a crew.
+ */
+export function planningBucketOf(row, asOf) {
+  if (['Execution Complete', 'Under Inspection', 'Approved'].includes(row.status)) return 'verification';
+  if (row.overdue_days > 0) return 'overdue';
+  if (!row.finish) return 'unscheduled';
+  if (row.finish === asOf) return 'today';
+  if (row.finish === shiftDay(asOf, 1)) return 'tomorrow';
+  if (row.finish <= shiftDay(asOf, 7)) return 'week_7';
+  if (row.finish <= shiftDay(asOf, 14)) return 'week_14';
+  return 'later';
+}
+
 /** Stage A / 5 — Daily and weekly planning. */
 export function planningView({ tasks, ix, options, asOf }) {
   const heldIds = heldLocationIds(options.locations || []);
   const { active, held } = splitHeld(
-    tasks.filter((t) => {
-      if (t.archived === true || isParentRow(t)) return false;
-      if (!options.includeDemo && isDemoTask(t)) return false;
-      if (options.projectId && t.project_id !== options.projectId) return false;
-      if (options.phaseId && t.phase_id !== options.phaseId) return false;
-      if (options.contractorId && t.contractor_id !== options.contractorId) return false;
-      if (options.discipline && t.discipline !== options.discipline) return false;
-      if (options.locationId && t.location_id !== options.locationId) return false;
-      return true;
+    scopeTasks(tasks, {
+      projectId: options.projectId, phaseId: options.phaseId, contractorId: options.contractorId,
+      discipline: options.discipline, locationId: options.locationId, includeDemo: options.includeDemo,
     }),
     heldIds,
   );
 
   const outstanding = active.filter(isOutstanding);
   const rows = outstanding.map((t) => taskRow(t, ix, asOf));
-  const tomorrow = shiftDay(asOf, 1);
-  const bucket = (predicate) => rows.filter(predicate).sort(compareFinish);
+  const buckets = Object.fromEntries(PLANNING_BUCKETS.map((name) => [name, []]));
+  rows.forEach((row) => buckets[planningBucketOf(row, asOf)].push(row));
+  PLANNING_BUCKETS.forEach((name) => buckets[name].sort(compareFinish));
+  const counts = Object.fromEntries(PLANNING_BUCKETS.map((name) => [name, buckets[name].length]));
+  const heldOpen = held.filter(isOutstanding).length;
 
   return {
     as_of: asOf,
-    held_work_excluded: held.filter(isOutstanding).length,
-    buckets: {
-      overdue: bucket((r) => r.overdue_days > 0),
-      today: bucket((r) => r.finish === asOf),
-      tomorrow: bucket((r) => r.finish === tomorrow),
-      week_7: bucket((r) => r.finish > tomorrow && r.finish <= shiftDay(asOf, 7)),
-      week_14: bucket((r) => r.finish > shiftDay(asOf, 7) && r.finish <= shiftDay(asOf, 14)),
-      unscheduled: bucket((r) => !r.finish),
-      later: bucket((r) => r.finish > shiftDay(asOf, 14)),
-    },
-    counts: {
-      overdue: rows.filter((r) => r.overdue_days > 0).length,
-      today: rows.filter((r) => r.finish === asOf).length,
-      tomorrow: rows.filter((r) => r.finish === tomorrow).length,
-      week_7: rows.filter((r) => r.finish > tomorrow && r.finish <= shiftDay(asOf, 7)).length,
-      week_14: rows.filter((r) => r.finish > shiftDay(asOf, 7) && r.finish <= shiftDay(asOf, 14)).length,
-      unscheduled: rows.filter((r) => !r.finish).length,
-      later: rows.filter((r) => r.finish > shiftDay(asOf, 14)).length,
-      executing: outstanding.filter(isExecuting).length,
-    },
+    held_work_excluded: heldOpen,
+    buckets,
+    counts: { ...counts, open: rows.length, executing: outstanding.filter(isExecuting).length },
     warnings: [
-      rows.some((r) => !r.finish)
-        ? `${rows.filter((r) => !r.finish).length} outstanding task(s) have no reliable date and appear under Unscheduled.`
-        : '',
-      held.slice(0, 1).length && held.filter(isOutstanding).length
-        ? `${held.filter(isOutstanding).length} task(s) belong to villas on hold and are excluded from the look-ahead.`
-        : '',
+      counts.unscheduled ? `${counts.unscheduled} outstanding task(s) have no reliable date and appear under Unscheduled.` : '',
+      heldOpen ? `${heldOpen} task(s) belong to villas on hold and are excluded from the look-ahead.` : '',
     ].filter(Boolean),
   };
 }

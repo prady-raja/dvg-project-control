@@ -18,6 +18,7 @@ import { aiHintsFor } from '../../shared/reconcileAi.ts';
 import { reconciledWorkbook } from '../../shared/reconcileSheets.ts';
 import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
 import { loadAiSettings, providerFor, usageToday } from '../../shared/ai.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * Work import — Excel or CSV in, reconciled and reviewed changes out.
@@ -76,7 +77,7 @@ async function reconcileWithDetails({ svc, validated, ctx, links }) {
   return reconcileRows({ rows: validated.rows, ctx, links });
 }
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -607,3 +608,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('workImport', handler);

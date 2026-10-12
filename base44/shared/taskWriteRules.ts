@@ -13,21 +13,11 @@ import { canApproveWork, canManageProject } from './access.ts';
 import { BASELINE_FIELDS } from './history.ts';
 import { actorName, fail } from './records.ts';
 
-export const TASK_STATUSES = [
-  'Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed',
-];
+import {
+  APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES,
+} from './enums.ts';
 
-export const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete', 'Materials Pending', 'Client Selection Pending', 'Owner Access Pending',
-  'Drawing / Design Clarification', 'Contractor Manpower', 'DVG Approval', 'External Utility / Authority', 'Other',
-];
-
-/** Every task starts here. Completion, inspection, approval and closure are recorded on the task. */
-export const OPENING_STATUSES = ['Not Started', 'In Progress', 'Blocked'];
-
-/** Work may only be approved from one of these, and closed from these or Approved. */
-export const APPROVABLE_FROM = ['Execution Complete', 'Under Inspection'];
-export const CLOSABLE_FROM = ['Approved', 'Execution Complete', 'Under Inspection'];
+export { APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES };
 
 /**
  * A source work list saying any of these means the work is *reported* as done.

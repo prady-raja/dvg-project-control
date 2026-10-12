@@ -8,6 +8,7 @@ import {
 } from '../../shared/access.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
+import { withLog } from '../../shared/log.ts';
 
 const WORK_FIELDS = [
   'description', 'priority', 'work_package', 'contractor_id', 'responsible_engineer',
@@ -37,7 +38,7 @@ const historyRow = (task, projectId, memberIds, user, label) => ({
  * excluded unless a Project Manager explicitly includes them, and a retry with
  * the same key returns the work already created instead of duplicating it.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -221,3 +222,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('villaWorkCreate', handler);

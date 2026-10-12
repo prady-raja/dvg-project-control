@@ -1,3 +1,7 @@
+import { data } from '@/api/data';
+import DataState from '@/components/common/DataState';
+import TruncationBanner from '@/components/common/TruncationBanner';
+import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil } from 'lucide-react';
@@ -22,6 +26,8 @@ export default function ContractorDetail() {
   const [tasks, setTasks] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [loadingAll, setLoadingAll] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   const contractor = cat.contractorById(contractorId);
@@ -29,15 +35,35 @@ export default function ContractorDetail() {
   const load = useCallback(async () => {
     if (!contractorId) return;
     setLoading(true);
-    const query = { contractor_id: contractorId, archived: { $ne: true } };
-    const [page, count] = await Promise.all([
-      base44.entities.Task.filter(query, { sort: '-created_date', limit: 100 }),
-      base44.entities.Task.count(query),
-    ]);
-    setTasks(items(page));
-    setTotal(count || 0);
-    setLoading(false);
+    setLoadError('');
+    // Closed work is finished, so it is neither listed nor counted as active.
+    const query = { contractor_id: contractorId, archived: { $ne: true }, status: { $ne: 'Closed' } };
+    try {
+      const [page, count] = await Promise.all([
+        base44.entities.Task.filter(query, { sort: '-created_date', limit: 100 }),
+        base44.entities.Task.count(query),
+      ]);
+      setTasks(items(page));
+      setTotal(count || 0);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'This contractor\'s tasks could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
   }, [contractorId]);
+
+  const loadAll = async () => {
+    setLoadingAll(true);
+    try {
+      const all = await data.readAll('Task', { contractor_id: contractorId, archived: { $ne: true }, status: { $ne: 'Closed' } }, { sort: '-created_date', max: 5000 });
+      setTasks(all.items);
+      setTotal(all.items.length);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The full list could not be loaded.'));
+    } finally {
+      setLoadingAll(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -99,7 +125,9 @@ export default function ContractorDetail() {
           Tasks assigned to {contractor.name}
         </h2>
 
-        {loading ? (
+        {loadError ? (
+          <DataState error={loadError} onRetry={load} />
+        ) : loading ? (
           <Skeleton className="h-56 rounded-xl" />
         ) : tasks.length === 0 ? (
           <div className="rounded-xl border border-border bg-card">
@@ -111,6 +139,7 @@ export default function ContractorDetail() {
           </div>
         ) : (
           <>
+            <TruncationBanner shown={tasks.length} total={total} noun="active tasks" onLoadAll={loadAll} loading={loadingAll} to={`/tasks?contractor=${contractor.id}`} className="mb-3" />
             <div className="overflow-hidden rounded-xl border border-border bg-card">
               <TaskTable tasks={tasks} cat={cat} onOpen={(t) => navigate(`/tasks/${t.id}`)} />
             </div>

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { base44 } from '@/api/base44Client';
 import { useAccess } from '@/lib/AccessContext';
 import { byId, items } from '@/lib/dataHelpers';
+import { errorMessageOf } from '@/lib/clientErrors';
 
 const CatalogContext = createContext(null);
 
@@ -24,8 +25,11 @@ export function CatalogProvider({ children }) {
   const access = useAccess();
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
+    setError('');
+    try {
     const [projects, phases, locations, contractors, disciplines, workPackages, contractorDefaults] =
       await Promise.all([
         base44.entities.Project.filter({}, { sort: 'name', limit: 200 }),
@@ -51,7 +55,11 @@ export function CatalogProvider({ children }) {
       workPackages: items(workPackages),
       contractorDefaults: items(contractorDefaults),
     });
-    setLoading(false);
+    } catch (e) {
+      setError(errorMessageOf(e, 'The project lists could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Access resolves first: a membership recorded against this person's email is
@@ -76,6 +84,7 @@ export function CatalogProvider({ children }) {
       ...data,
       ...maps,
       loading,
+      error,
       refresh,
       projectById: (id) => maps.projectMap.get(id),
       phaseById: (id) => maps.phaseMap.get(id),
@@ -114,7 +123,7 @@ export function CatalogProvider({ children }) {
       },
     };
     return api;
-  }, [data, loading, refresh]);
+  }, [data, loading, error, refresh]);
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
 }

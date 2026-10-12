@@ -4,19 +4,9 @@
  * action is re-checked on the server from the signed-in session.
  */
 
-export const ROLE_RANK = {
-  Viewer: 0,
-  Supervisor: 1,
-  'Site Engineer': 1,
-  // The one operational level used by the site, MEP, procurement, planning and
-  // management users. Job designations are labels and never change access.
-  'Project Editor': 2,
-  // Legacy levels, kept so older records still resolve.
-  'Project Manager': 2,
-  'Project Admin': 3,
-};
+import { APP_ADMIN_RANK, ROLE_RANK } from '@shared/enums.ts';
 
-export const APP_ADMIN_RANK = 4;
+export { APP_ADMIN_RANK, ROLE_RANK };
 
 export const rankForRole = (role) =>
   Object.prototype.hasOwnProperty.call(ROLE_RANK, role) ? ROLE_RANK[role] : -1;

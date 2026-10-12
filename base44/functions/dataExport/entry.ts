@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { isAppAdmin } from '../../shared/access.ts';
+import { withLog } from '../../shared/log.ts';
 
 const ENTITIES = [
   'Project', 'Phase', 'Location', 'Contractor', 'ContractorDefault', 'WorkPackage', 'Discipline',
@@ -13,7 +14,7 @@ const ENTITIES = [
  * timestamps are returned untouched; the caller stitches the pages together.
  * Application administrators only, and profiles only — never credentials.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -85,3 +86,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('dataExport', handler);

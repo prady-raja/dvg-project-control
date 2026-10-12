@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { activeMembers, canEditTasks, canManageProject, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveKindPrefix } from '../../shared/taskRef.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * The guarded path for snags.
@@ -32,7 +33,7 @@ const text = (value, max = 2000) => {
 
 const isDate = (value) => DATE.test(String(value || ''));
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -149,3 +150,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('snagWrite', handler);

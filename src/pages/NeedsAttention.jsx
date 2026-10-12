@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDate, todayIst } from '@/lib/format';
 
+const PAGE = 100;
+
 const SEVERITY_TONE = {
   invalid: 'bg-red-50 text-red-700 border-red-200',
   incomplete: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -37,6 +39,8 @@ export default function NeedsAttention() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [more, setMore] = useState([]);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (cat.loading || projectId || !cat.projects.length) return;
@@ -49,15 +53,29 @@ export default function NeedsAttention() {
     setLoading(true);
     setError('');
     try {
-      const payload = await loadDashboard('attention', { projectId, phaseId, date, itemLimit: 300 });
+      const payload = await loadDashboard('attention', { projectId, phaseId, date, code, itemLimit: PAGE });
       setData(payload);
+      setMore([]);
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || 'The review could not be prepared.');
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [projectId, phaseId, date]);
+  }, [projectId, phaseId, date, code]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const shown = (data?.items?.length || 0) + more.length;
+      const payload = await loadDashboard('attention', { projectId, phaseId, date, code, itemLimit: PAGE, offset: shown });
+      setMore((prev) => [...prev, ...(payload.items || [])]);
+    } catch (e) {
+      setError(e?.response?.data?.error || e?.message || 'More rows could not be loaded.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -68,7 +86,8 @@ export default function NeedsAttention() {
   const phases = projectId ? cat.phasesFor(projectId) : [];
   const counts = data?.counts || {};
   const readiness = data?.readiness || {};
-  const items = (data?.items || []).filter((item) => (code ? item.code === code : true));
+  const items = [...(data?.items || []), ...more];
+  const total = data?.page?.total ?? items.length;
 
   return (
     <>
@@ -203,8 +222,8 @@ export default function NeedsAttention() {
           )}
 
           <BoardSection
-            title={code ? `Flagged records · ${items.length}` : `Flagged records · ${items.length}`}
-            description="Newest calculation first — open a record to correct it."
+            title={`Flagged records · ${total}`}
+            description="Most serious first, then oldest first — open a record to correct it."
             className="mt-5"
           >
             {!items.length ? (
@@ -237,6 +256,14 @@ export default function NeedsAttention() {
                   </li>
                 ))}
               </ul>
+            )}
+            {items.length < total && (
+              <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                <span>Showing {items.length} of {total}.</span>
+                <Button size="sm" variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
             )}
           </BoardSection>
         </>
