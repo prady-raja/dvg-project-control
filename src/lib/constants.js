@@ -42,6 +42,7 @@ export const NAV_ITEMS = [
   { label: 'Meetings', to: '/meetings', icon: 'CalendarClock', group: 'Teams' },
   { label: 'Ask DVG AI', to: '/ai', icon: 'Bot', group: 'Intelligence' },
   { label: 'Import Works', to: '/import', icon: 'Upload', group: 'Data' },
+  { label: 'Import history', to: '/import/history', icon: 'History', group: 'Data' },
   { label: 'Administration', to: '/admin', icon: 'Settings2', group: 'Setup' },
   { label: 'Users & Access', to: '/access', icon: 'UserCog', group: 'Setup' },
 ];

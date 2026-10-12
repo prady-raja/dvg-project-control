@@ -19,8 +19,23 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
     if (event) event.target.value = '';
   };
 
+  const [dragging, setDragging] = useState(false);
+
   const handleChange = async (event) => {
-    const chosen = event.target.files?.[0];
+    await takeFile(event.target.files?.[0], event);
+  };
+
+  const onDrop = async (event) => {
+    event.preventDefault();
+    setDragging(false);
+    if (!projectId) {
+      onError('Choose the project first, then drop the file.');
+      return;
+    }
+    await takeFile(event.dataTransfer?.files?.[0], null);
+  };
+
+  const takeFile = async (chosen, event) => {
     if (!chosen) return;
     onError('');
 
@@ -29,7 +44,7 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
       return;
     }
     if (chosen.size > MAX_FILE_BYTES) {
-      refuse('That file is larger than 1.5 MB. Split the work list into smaller files.', event);
+      refuse('That file is larger than 8 MB. Split the work list into smaller files.', event);
       return;
     }
     if (EXCEL_EXTENSION.test(chosen.name)) {
@@ -40,7 +55,7 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
         onError(error.message);
       } finally {
         setReading(false);
-        event.target.value = '';
+        if (event) event.target.value = '';
       }
       return;
     }
@@ -50,12 +65,17 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
     }
 
     onFile({ name: chosen.name, text: await chosen.text(), sheet: '', rowNumbers: [] });
-    event.target.value = '';
+    if (event) event.target.value = '';
   };
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section
+        className={`rounded-xl border bg-card p-5 transition-colors ${dragging ? 'border-primary bg-secondary/40' : 'border-border'}`}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground" htmlFor="import-project">
@@ -91,7 +111,7 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
                   {file.rows ? ` · ${file.rows} work row(s)` : ''}
                 </>
               ) : projectId ? (
-                'Nothing is written until you review the preview and confirm.'
+                'Drop the file here or choose it. Nothing is written until you review the preview and confirm.'
               ) : (
                 'Choose the project first.'
               )}

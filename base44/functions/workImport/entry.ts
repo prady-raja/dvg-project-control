@@ -19,6 +19,7 @@ import { reconciledWorkbook } from '../../shared/reconcileSheets.ts';
 import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
 import { loadAiSettings, providerFor, usageToday } from '../../shared/ai.ts';
 import { withLog } from '../../shared/log.ts';
+import { addCounts } from '../../shared/importChunks.ts';
 
 /**
  * Work import — Excel or CSV in, reconciled and reviewed changes out.
@@ -102,6 +103,12 @@ async function handler(req) {
     // a row number list that does not line up is ignored rather than trusted.
     const sourceSheet = String(body?.source_sheet || '').trim().slice(0, 80);
     const rowNumbers = Array.isArray(body?.row_numbers) ? body.row_numbers.slice(0, MAX_IMPORT_ROWS + 1) : [];
+    // A big file arrives in chunks of rows under one batch: the first commit creates
+    // the batch, later ones name it with batch_id and add to it.
+    const batchId = String(body?.batch_id || '');
+    const chunkIndex = Math.max(Number(body?.chunk_index) || 0, 0);
+    const chunkTotal = Math.max(Number(body?.chunk_total) || 1, 1);
+    const totalRows = Math.max(Number(body?.total_rows) || 0, 0);
     const useAi = body?.use_ai === true;
     const aiNote = String(body?.ai_status || '').slice(0, 400);
 
@@ -259,16 +266,25 @@ async function handler(req) {
 
     const memberIds = memberIdsOf(await activeMembers(base44, projectId));
     const startedAt = new Date();
-    const batchRef = batchRefFor(startedAt);
     const classification = reconciled.summary;
 
-    const batch = await svc.ImportBatch.create({
+    let previousBatch = null;
+    if (batchId) {
+      previousBatch = await getOne(svc.ImportBatch, batchId);
+      if (!previousBatch || previousBatch.project_id !== projectId || previousBatch.imported_by_id !== user.id) {
+        throw fail('That import batch was not found.', 404);
+      }
+      if (previousBatch.status !== 'Importing') throw fail('That import has already finished.');
+    }
+    const batchRef = previousBatch ? previousBatch.batch_ref : batchRefFor(startedAt);
+
+    const batch = previousBatch || await svc.ImportBatch.create({
       batch_ref: batchRef,
       project_id: projectId,
       source_file: fileName,
       source_sheet: sourceSheet || null,
       source_checksum: checksum,
-      row_count: reconciled.rows.length,
+      row_count: totalRows || reconciled.rows.length,
       created_count: 0,
       updated_count: 0,
       unchanged_count: 0,
@@ -304,8 +320,8 @@ async function handler(req) {
       contractor: row.resolved.contractor_name || '',
       changed: extra.changed || [],
       missing: extra.missing || [],
-      issues: row.issues.map((issue) => issue.message),
-      note: extra.note || '',
+      issues: row.issues.slice(0, 3).map((issue) => String(issue.message).slice(0, 160)),
+      note: String(extra.note || '').slice(0, 240),
     });
 
     const applied = {};
@@ -552,23 +568,37 @@ async function handler(req) {
     const deferredRows = of('deferred');
     const linkedRows = of('linked');
     const failedRows = of('failed');
-    const status = failedRows.length ? (createdRows.length + updatedRows.length ? 'Completed with exceptions' : 'Failed') : 'Completed';
+
+    // Counts and the per-row report add up across chunks; the batch only finishes on the last one.
+    const before = previousBatch || {};
+    const total = (key, now) => (Number(before[key]) || 0) + now;
+    const failedTotal = total('failed_count', failedRows.length);
+    const writtenTotal = total('created_count', createdRows.length) + total('updated_count', updatedRows.length);
+    const lastChunk = chunkIndex >= chunkTotal - 1;
+    const status = !lastChunk
+      ? 'Importing'
+      : failedTotal ? (writtenTotal ? 'Completed with exceptions' : 'Failed') : 'Completed';
 
     const updated = await svc.ImportBatch.update(batch.id, {
-      created_count: createdRows.length,
-      updated_count: updatedRows.length,
-      unchanged_count: unchangedRows.length,
-      skipped_count: skippedRows.length,
-      deferred_count: deferredRows.length,
-      linked_count: linkedRows.length,
-      failed_count: failedRows.length,
+      created_count: total('created_count', createdRows.length),
+      updated_count: total('updated_count', updatedRows.length),
+      unchanged_count: total('unchanged_count', unchangedRows.length),
+      skipped_count: total('skipped_count', skippedRows.length),
+      deferred_count: total('deferred_count', deferredRows.length),
+      linked_count: total('linked_count', linkedRows.length),
+      failed_count: failedTotal,
+      attention_count: total('attention_count', validated.summary.blocking),
+      classification: addCounts(before.classification || {}, classification),
       status,
-      report,
+      report: [...(Array.isArray(before.report) ? before.report : []), ...report],
     });
 
     return Response.json({
       batch: updated,
+      batch_id: updated.id,
       batch_ref: batchRef,
+      chunk_index: chunkIndex,
+      chunk_total: chunkTotal,
       counts: {
         rows: reconciled.rows.length,
         created: createdRows.length,

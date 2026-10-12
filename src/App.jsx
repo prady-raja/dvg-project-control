@@ -25,6 +25,7 @@ import Admin from '@/pages/Admin';
 import Access from '@/pages/Access';
 import DailyActivity from '@/pages/DailyActivity';
 import WorkImport from '@/pages/WorkImport';
+import ImportHistory from '@/pages/ImportHistory';
 import Dashboard from '@/pages/Dashboard';
 import Planning from '@/pages/Planning';
 import BlockerBoard from '@/pages/BlockerBoard';
@@ -86,6 +87,7 @@ const AuthenticatedApp = () => {
           <Route path="/ai" element={<AskDvgAi />} />
           <Route path="/attention" element={<NeedsAttention />} />
           <Route path="/import" element={<WorkImport />} />
+          <Route path="/import/history" element={<ImportHistory />} />
           <Route path="/tasks" element={<TaskRegister />} />
           <Route path="/tasks/new" element={<TaskEditor />} />
           <Route path="/tasks/:taskId" element={<TaskDetail />} />

@@ -1,3 +1,4 @@
+import { makeDb } from './dbCore.ts';
 /**
  * CSV work import.
  *
@@ -59,7 +60,6 @@ export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.map((column) => column.lab
 
 export const MAX_IMPORT_ROWS = 500;
 export const MAX_IMPORT_TEXT = 1500000;
-export const TASK_SCAN_LIMIT = 2000;
 
 export const CATEGORY_VILLA = 'Villa Work';
 export const CATEGORY_SITE = 'Site-Wide Work';
@@ -408,39 +408,39 @@ export function resolveLocation(raw, ctx, phaseIdHint) {
 /* ------------------------------------------------------------------ context */
 
 async function loadProjectData(base44, projectId) {
-  const svc = base44.asServiceRole.entities;
+  // Everything is read to the end, so a full Imagine register is matched against
+  // the whole of the existing work and never a capped slice of it (I-01).
+  const db = makeDb({ entities: base44.asServiceRole.entities });
   const [projectRes, phasesRes, locationsRes, areasRes, floorsRes] = await Promise.all([
-    svc.Project.filter({ id: projectId }, { limit: 1 }),
-    svc.Phase.filter({ project_id: projectId }, { limit: 100 }),
-    svc.Location.filter({ project_id: projectId }, { limit: 500 }),
-    svc.VillaArea.filter({ project_id: projectId }, { limit: 500 }),
-    svc.VillaFloor.filter({ project_id: projectId }, { limit: 300 }),
+    db.readAll('Project', { id: projectId }),
+    db.readAll('Phase', { project_id: projectId }),
+    db.readAll('Location', { project_id: projectId }),
+    db.readAll('VillaArea', { project_id: projectId }),
+    db.readAll('VillaFloor', { project_id: projectId }),
   ]);
   const [disciplinesRes, contractorsRes, defaultsRes, packagesRes, tasksRes] = await Promise.all([
-    svc.Discipline.filter({}, { limit: 200 }),
-    svc.Contractor.filter({}, { limit: 300 }),
-    svc.ContractorDefault.filter({ project_id: projectId }, { limit: 500 }),
-    svc.WorkPackage.filter({ project_id: projectId }, { limit: 1000 }),
-    svc.Task.filter(
+    db.readAll('Discipline', {}),
+    db.readAll('Contractor', {}),
+    db.readAll('ContractorDefault', { project_id: projectId }),
+    db.readAll('WorkPackage', { project_id: projectId }),
+    db.readAll(
+      'Task',
       { project_id: projectId },
-      {
-        limit: TASK_SCAN_LIMIT,
-        fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number'],
-      },
+      { fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number'], max: 50000 },
     ),
   ]);
 
   return {
-    project: listOf(projectRes)[0],
-    phases: listOf(phasesRes),
-    locations: listOf(locationsRes),
-    areas: listOf(areasRes),
-    floors: listOf(floorsRes),
-    disciplines: listOf(disciplinesRes),
-    contractors: listOf(contractorsRes),
-    defaults: listOf(defaultsRes),
-    packages: listOf(packagesRes),
-    tasks: listOf(tasksRes),
+    project: projectRes.items[0],
+    phases: phasesRes.items,
+    locations: locationsRes.items,
+    areas: areasRes.items,
+    floors: floorsRes.items,
+    disciplines: disciplinesRes.items,
+    contractors: contractorsRes.items,
+    defaults: defaultsRes.items,
+    packages: packagesRes.items,
+    tasks: tasksRes.items,
   };
 }
 
