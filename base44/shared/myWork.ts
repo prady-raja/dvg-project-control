@@ -178,7 +178,7 @@ export function myWorkView({
  * view. `attention` counts only the records that need a decision, not the long
  * tail of things merely to fill in.
  */
-export function countsView({ tasks = [], locations = [], snags = [], dependencies = [], ix, asOf, user, options = {} }) {
+export function countsView({ tasks = [], locations = [], snags = [], dependencies = [], dismissals = [], ix, asOf, user, options = {} }) {
   const me = { id: user.id, name: user.full_name || '' };
   const heldIds = heldLocationIds(locations);
   const { active } = splitHeld(
@@ -187,7 +187,7 @@ export function countsView({ tasks = [], locations = [], snags = [], dependencie
   );
   const open = active.filter(isOutstanding);
   const mineOpen = open.filter((t) => isMine(t, me));
-  const attention = attentionFor({ tasks, locations, areas: [], floors: [], dependencies, updates: [], asOf, ix, options });
+  const attention = attentionFor({ tasks, locations, areas: [], floors: [], dependencies, updates: [], dismissals, asOf, ix, options });
   return {
     as_of: asOf,
     today: mineOpen.filter((t) => isOverdue(t, asOf) || isBlocked(t)).length,

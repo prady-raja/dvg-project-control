@@ -27,6 +27,7 @@ import DailyActivity from '@/pages/DailyActivity';
 import WorkImport from '@/pages/WorkImport';
 import ImportHistory from '@/pages/ImportHistory';
 import Today from '@/pages/Today';
+import Help from '@/pages/Help';
 import VillaMatrix from '@/pages/VillaMatrix';
 import VillaStatement from '@/pages/VillaStatement';
 import HomeRedirect from '@/components/layout/HomeRedirect';
@@ -79,6 +80,7 @@ const AuthenticatedApp = () => {
           <Route path="/today" element={<Today />} />
           <Route path="/overview" element={<Dashboard />} />
           <Route path="/matrix" element={<VillaMatrix />} />
+          <Route path="/help" element={<Help />} />
           <Route path="/villas/:locationId/statement" element={<VillaStatement />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />

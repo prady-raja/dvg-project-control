@@ -8,6 +8,8 @@ import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } 
 import { attentionFor } from '../../shared/attention.ts';
 import { countsView, myWorkView } from '../../shared/myWork.ts';
 import { villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
+import { adoptionView } from '../../shared/adoption.ts';
+import { activeMembers } from '../../shared/access.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
@@ -25,12 +27,13 @@ import { withLog } from '../../shared/log.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
   commitments: ['meeting', 'myWork'].includes(view),
   snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
+  dismissals: ['attention', 'counts'].includes(view),
 });
 
 async function handler(req) {
@@ -99,6 +102,19 @@ async function handler(req) {
         return Response.json({ ...header, ...meetingReportView({ ...common, dependencies: data.dependencies, commitments: data.commitments }) });
       case 'handover':
         return Response.json({ ...header, ...handoverBoardView({ ...common, snags: data.snags }) });
+      case 'adoption': {
+        if (!isAppAdmin(user)) throw fail('Administrator access required.', 403);
+        const members = scope.projectId
+          ? await activeMembers(base44, scope.projectId)
+          : [];
+        return Response.json({
+          ...header,
+          ...adoptionView({
+            updates: data.updates, members, locations: data.locations.filter((l) => !scope.projectId || l.project_id === scope.projectId),
+            settings: ix.settings(scope.projectId || data.projects[0]?.id), asOf,
+          }),
+        });
+      }
       case 'matrix':
         return Response.json({
           ...header,
@@ -122,7 +138,7 @@ async function handler(req) {
           }),
         });
       case 'counts':
-        return Response.json({ ...header, ...countsView({ ...common, snags: data.snags, dependencies: data.dependencies, user }) });
+        return Response.json({ ...header, ...countsView({ ...common, snags: data.snags, dependencies: data.dependencies, dismissals: data.dismissals, user }) });
       case 'sitewide':
         return Response.json({ ...header, ...siteWideView(common) });
       case 'attention': {
@@ -143,6 +159,7 @@ async function handler(req) {
             floors: floorsRes.items,
             dependencies: data.dependencies,
             updates: data.updates,
+            dismissals: data.dismissals,
             asOf,
             ix,
             options,

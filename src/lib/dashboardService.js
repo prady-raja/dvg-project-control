@@ -24,5 +24,6 @@ export const DASHBOARD_VIEWS = [
   'counts',
   'matrix',
   'statement',
+  'adoption',
   'tasks',
 ];

@@ -20,6 +20,7 @@
 import { isBlocked, isCountable, isOutstanding, isAwaitingVerification, isStale, toDay } from './dashboardCore.ts';
 import { normalizeAreaName } from './villaAreas.ts';
 import { looseKey, plotNumbersOf } from './villaResolve.ts';
+import { isDismissed } from './attentionActions.ts';
 
 export const READINESS_STATES = ['Ready', 'Waiting', 'Unknown'];
 
@@ -129,7 +130,7 @@ const SEVERITY_ORDER = { invalid: 0, incomplete: 1 };
  * before it can be trusted) or merely incomplete (acceptable to import and fill
  * in later).
  */
-export function attentionFor({ tasks = [], locations = [], areas = [], floors = [], dependencies = [], updates = [], asOf, ix, options = {} }) {
+export function attentionFor({ tasks = [], locations = [], areas = [], floors = [], dependencies = [], updates = [], dismissals = [], asOf, ix, options = {} }) {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   // Demo and archived records never reach the review list; the same filter as every board.
   const scope = (options.projectId ? tasks.filter((task) => task.project_id === options.projectId) : tasks)
@@ -286,6 +287,12 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     });
   });
 
+  // Dismissed with a reason (or snoozed to a date not yet reached): kept out of the list, counted apart.
+  const kept = items.filter((item) => !isDismissed(item, dismissals, asOf));
+  const dismissedCount = items.length - kept.length;
+  items.length = 0;
+  items.push(...kept);
+
   // Most serious first, then by kind, then oldest first inside each kind.
   items.sort((a, b) =>
     SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
@@ -321,6 +328,7 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       invalid: items.filter((item) => item.severity === 'invalid').length,
       incomplete: items.filter((item) => item.severity === 'incomplete').length,
       total: items.length,
+      dismissed: dismissedCount,
     },
     by_code: byCode,
     readiness,

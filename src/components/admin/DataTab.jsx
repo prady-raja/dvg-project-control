@@ -4,12 +4,59 @@ import { errorMessageOf } from '@/lib/clientErrors';
 import DataState from '@/components/common/DataState';
 import BoardSection from '@/components/common/BoardSection';
 import { Button } from '@/components/ui/button';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, todayIst } from '@/lib/format';
+import { loadDashboard } from '@/lib/dashboardService';
+import { useCatalogs } from '@/lib/CatalogContext';
+import EnumSelect from '@/components/common/EnumSelect';
 
 /**
  * Data health for the administrator: the one-off backfills (dry run first, then
  * apply) and the latest errors caught in people's browsers.
  */
+/** How much the app is being used: reports per person per working day, and villas reported today. */
+function AdoptionPanel() {
+  const cat = useCatalogs();
+  const [projectId, setProjectId] = useState('');
+  const [state, setState] = useState({ loading: false, error: '', view: null });
+
+  useEffect(() => {
+    if (!projectId && cat.projects.length) setProjectId(cat.projects.find((p) => p.status === 'Active')?.id || cat.projects[0].id);
+  }, [cat.projects, projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    setState((s) => ({ ...s, loading: true, error: '' }));
+    loadDashboard('adoption', { projectId, date: todayIst() })
+      .then((view) => setState({ loading: false, error: '', view }))
+      .catch((e) => setState({ loading: false, error: errorMessageOf(e, 'Adoption could not be read.'), view: null }));
+  }, [projectId]);
+
+  const v = state.view;
+  return (
+    <BoardSection
+      title="Adoption"
+      description="Counted from the daily reports themselves: how often each person reported over the last working days, and how many villas have a report today."
+      actions={<div className="w-48"><EnumSelect value={projectId} onChange={setProjectId} options={cat.projects.map((p) => ({ value: p.id, label: p.name }))} /></div>}
+    >
+      <DataState loading={state.loading} error={state.error}>
+        {v && (
+          <>
+            <p className="text-sm"><strong>{v.villas_reported_today}</strong> of {v.villas_total} villas reported today · {v.reports_today} report{v.reports_today === 1 ? '' : 's'} today.</p>
+            <table className="mt-3 w-full text-sm">
+              <thead><tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground"><th className="py-1">Person</th><th>Reports</th><th>Per working day</th><th>Days reported</th></tr></thead>
+              <tbody>
+                {v.rows.map((r) => (
+                  <tr key={r.user_id} className="border-t border-border/60"><td className="py-1.5">{r.name}</td><td className="tnum">{r.total}</td><td className="tnum">{r.per_working_day}</td><td className="tnum">{r.days_reported} of {v.working_days}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </DataState>
+    </BoardSection>
+  );
+}
+
 export default function DataTab() {
   const [state, setState] = useState({ loading: true, error: '', migrations: [], runs: [], errors: [] });
   const [results, setResults] = useState({});
@@ -48,6 +95,7 @@ export default function DataTab() {
 
   return (
     <div className="space-y-6">
+      <AdoptionPanel />
       <DataState loading={state.loading} error={state.error} onRetry={load}>
         <BoardSection
           title="Backfills"

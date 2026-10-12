@@ -1,0 +1,25 @@
+{
+  "name": "AttentionDismissal",
+  "type": "object",
+  "description": "A Needs Attention item that a person has dismissed with a reason, either for good or until a date (D-03). Written only by the attentionAction function.",
+  "properties": {
+    "project_id": { "type": "string" },
+    "code": { "type": "string", "description": "The issue code, for example no_contractor" },
+    "item_key": { "type": "string", "description": "code plus the task id (or the villa for register gaps)" },
+    "task_id": { "type": "string" },
+    "villa": { "type": "string" },
+    "reason": { "type": "string" },
+    "snooze_until": { "type": "string", "format": "date", "description": "Empty means dismissed for good" },
+    "active": { "type": "boolean", "default": true },
+    "dismissed_by_name": { "type": "string" },
+    "dismissed_at": { "type": "string", "format": "date-time" },
+    "member_ids": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["project_id", "code", "item_key", "reason"],
+  "rls": {
+    "read": { "$or": [{ "data.member_ids": "{{user.id}}" }, { "user_condition": { "role": "admin" } }] },
+    "create": { "user_condition": { "role": "server-only" } },
+    "update": { "user_condition": { "role": "server-only" } },
+    "delete": false
+  }
+}

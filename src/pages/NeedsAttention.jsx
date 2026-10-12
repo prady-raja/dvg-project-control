@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDate, todayIst } from '@/lib/format';
+import { data as api } from '@/api/data';
+import { useAccess } from '@/lib/AccessContext';
+import { FIX_FOR, isTaskItem } from '@/lib/attentionService';
+import { useInvalidateWork } from '@/hooks/useDashboardQuery';
+import { FixDialog, DismissDialog } from '@/components/attention/AttentionDialogs';
+import ResolveScopeDialog from '@/components/tasks/ResolveScopeDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const PAGE = 100;
 
@@ -41,6 +48,12 @@ export default function NeedsAttention() {
   const [error, setError] = useState('');
   const [more, setMore] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const access = useAccess();
+  const invalidateWork = useInvalidateWork();
+  const [picked, setPicked] = useState({});
+  const [fix, setFix] = useState(null); // { kind, taskIds, label }
+  const [dismiss, setDismiss] = useState(null); // items
+  const [scopeTask, setScopeTask] = useState(null);
 
   useEffect(() => {
     if (cat.loading || projectId || !cat.projects.length) return;
@@ -81,6 +94,21 @@ export default function NeedsAttention() {
     load();
   }, [load]);
 
+  const after = async () => {
+    setPicked({});
+    await invalidateWork();
+    await load();
+  };
+
+  const keyOf = (item) => `${item.code}|${item.task_id || item.villa || ''}`;
+  const openScope = async (item) => {
+    try {
+      setScopeTask(await api.get('Task', item.task_id));
+    } catch (e) {
+      setError(e?.message || 'The task could not be opened.');
+    }
+  };
+
   if (cat.loading) return <Skeleton className="h-96 rounded-xl" />;
 
   const phases = projectId ? cat.phasesFor(projectId) : [];
@@ -88,13 +116,16 @@ export default function NeedsAttention() {
   const readiness = data?.readiness || {};
   const items = [...(data?.items || []), ...more];
   const total = data?.page?.total ?? items.length;
+  const canAct = projectId ? access.can(projectId, 'manage_project') : false;
+  const chosen = items.filter((item) => picked[keyOf(item)]);
+  const chosenTasks = [...new Set(chosen.filter(isTaskItem).map((i) => i.task_id))];
 
   return (
     <>
       <PageHeader
         eyebrow="Data quality"
         title="Needs Attention"
-        description="What the register is missing, what contradicts itself, and what is ready to start. Read-only — each row opens the record it is about."
+        description="What the register is missing, what contradicts itself, and what is ready to start. Fix a row in place, assign it, or dismiss it with a reason."
       />
 
       <div className="rounded-xl border border-border bg-card p-4">
@@ -175,6 +206,11 @@ export default function NeedsAttention() {
             <Stat label="Total flags" value={counts.total ?? 0} />
           </div>
 
+          <p className={cn('mt-3 rounded-lg border px-4 py-2.5 text-sm', (counts.invalid ?? 0) === 0 ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-red-300 bg-red-50 text-red-900')} role="status">
+            Go-live gate: <strong>{counts.invalid ?? 0}</strong> item{counts.invalid === 1 ? '' : 's'} need a decision. Go live only when this is 0.
+            {counts.dismissed > 0 && <span className="ml-2 text-xs">{counts.dismissed} dismissed with a reason.</span>}
+          </p>
+
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <Stat label="Ready to start" value={readiness.Ready ?? 0} tone="text-[hsl(var(--success))]" />
             <Stat label="Waiting on something recorded" value={readiness.Waiting ?? 0} tone="text-[hsl(var(--warning))]" />
@@ -226,6 +262,20 @@ export default function NeedsAttention() {
             description="Most serious first, then oldest first — open a record to correct it."
             className="mt-5"
           >
+            {canAct && chosen.length > 0 && (
+              <div className="sticky top-14 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background/95 p-2 backdrop-blur lg:top-0" role="toolbar" aria-label="Actions for the selected items">
+                <span className="text-xs font-medium">{chosen.length} selected</span>
+                {chosenTasks.length > 0 && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setFix({ kind: 'contractor', taskIds: chosenTasks, label: `${chosenTasks.length} task(s)` })}>Set contractor</Button>
+                    <Button size="sm" variant="outline" onClick={() => setFix({ kind: 'dates', taskIds: chosenTasks, label: `${chosenTasks.length} task(s)` })}>Set dates</Button>
+                    <Button size="sm" variant="outline" onClick={() => setFix({ kind: 'assignee', taskIds: chosenTasks, label: `${chosenTasks.length} task(s)` })}>Assign</Button>
+                  </>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setDismiss(chosen)}>Dismiss</Button>
+                <Button size="sm" variant="ghost" onClick={() => setPicked({})}>Clear</Button>
+              </div>
+            )}
             {!items.length ? (
               <EmptyState
                 icon={ClipboardCheck}
@@ -234,27 +284,43 @@ export default function NeedsAttention() {
               />
             ) : (
               <ul className="divide-y divide-border">
-                {items.map((item) => (
-                  <li key={`${item.code}-${item.task_id}-${item.task_ref}`} className="flex flex-wrap items-start gap-2 py-2.5">
-                    <span className={cn('mt-0.5 rounded-full border px-2 py-0.5 text-[11px] font-medium', SEVERITY_TONE[item.severity] || 'border-border text-muted-foreground')}>
-                      {item.label}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm">
-                        {item.link || item.task_id ? (
-                          <Link to={item.link || `/tasks/${item.task_id}`} className="hover:underline">
-                            {item.task_ref ? `${item.task_ref} · ` : ''}{item.task_name || 'Register gap'}
-                          </Link>
-                        ) : (
-                          <span>{item.task_name || 'Register gap'}</span>
+                {items.map((item) => {
+                  const kind = FIX_FOR[item.code];
+                  return (
+                    <li key={keyOf(item) + item.detail} className="flex flex-wrap items-start gap-2 py-2.5">
+                      {canAct && (
+                        <Checkbox className="mt-1" checked={!!picked[keyOf(item)]} onCheckedChange={(v) => setPicked((p) => ({ ...p, [keyOf(item)]: v === true }))} aria-label={`Select ${item.task_ref || item.villa}`} />
+                      )}
+                      <span className={cn('mt-0.5 rounded-full border px-2 py-0.5 text-[11px] font-medium', SEVERITY_TONE[item.severity] || 'border-border text-muted-foreground')}>
+                        {item.label}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          {item.link || item.task_id ? (
+                            <Link to={item.link || `/tasks/${item.task_id}`} className="hover:underline">
+                              {item.task_ref ? `${item.task_ref} · ` : ''}{item.task_name || 'Register gap'}
+                            </Link>
+                          ) : (
+                            <span>{item.task_name || 'Register gap'}</span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {item.villa || 'Site-wide'}{item.detail ? ` · ${item.detail}` : ''}
+                        </p>
+                        {canAct && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {kind && kind !== 'scope' && item.task_id && (
+                              <Button size="sm" variant="outline" className="h-7" onClick={() => setFix({ kind, taskIds: [item.task_id], label: item.task_ref })}>Fix</Button>
+                            )}
+                            {kind === 'scope' && item.task_id && <Button size="sm" variant="outline" className="h-7" onClick={() => openScope(item)}>Fix</Button>}
+                            {item.task_id && <Button size="sm" variant="ghost" className="h-7" onClick={() => setFix({ kind: 'assignee', taskIds: [item.task_id], label: item.task_ref })}>Assign</Button>}
+                            <Button size="sm" variant="ghost" className="h-7 text-muted-foreground" onClick={() => setDismiss([item])}>Dismiss</Button>
+                          </div>
                         )}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {item.villa || 'Site-wide'}{item.detail ? ` · ${item.detail}` : ''}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {items.length < total && (
@@ -268,6 +334,10 @@ export default function NeedsAttention() {
           </BoardSection>
         </>
       )}
+
+      <FixDialog kind={fix?.kind} projectId={projectId} taskIds={fix?.taskIds || []} label={fix?.label || ''} onClose={() => setFix(null)} onDone={after} />
+      <DismissDialog open={!!dismiss} projectId={projectId} items={dismiss || []} onClose={() => setDismiss(null)} onDone={after} />
+      <ResolveScopeDialog task={scopeTask} open={!!scopeTask} onOpenChange={(v) => !v && setScopeTask(null)} onSaved={after} />
     </>
   );
 }

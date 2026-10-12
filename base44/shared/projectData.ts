@@ -66,6 +66,7 @@ export async function loadProjectData(base44, user, options = {}) {
     snags: options.snags === true,
     proposals: options.proposals === true,
     constraints: options.constraints === true,
+    dismissals: options.dismissals === true,
   };
   const asOf = options.asOf || todayIst();
 
@@ -79,7 +80,7 @@ export async function loadProjectData(base44, user, options = {}) {
 
   const updatesFrom = shiftDay(asOf, -UPDATE_WINDOW_DAYS);
   const empty = { items: [], truncated: false };
-  const [tasksRes, updatesRes, dependenciesRes, commitmentsRes, snagsRes, proposalsRes, constraintsRes] = await Promise.all([
+  const [tasksRes, updatesRes, dependenciesRes, commitmentsRes, snagsRes, proposalsRes, constraintsRes, dismissalsRes] = await Promise.all([
     db.readAll('Task', { project_id: inScope, archived: { $ne: true } }, { max: MAX_ROWS }),
     load.updates
       ? db.readAll('DailyUpdate', { project_id: inScope, voided: { $ne: true }, reported_at: { $gte: `${updatesFrom}T00:00:00Z` } }, { sort: '-reported_at', max: MAX_ROWS })
@@ -89,6 +90,7 @@ export async function loadProjectData(base44, user, options = {}) {
     load.snags ? db.readAll('Snag', { project_id: inScope }, { sort: '-raised_date', max: MAX_ROWS }) : empty,
     load.proposals ? db.readAll('AiProposal', { project_id: inScope, user_id: user.id, status: 'Proposed' }, { sort: '-proposed_at', max: 200 }) : empty,
     load.constraints ? db.readAll('TaskConstraint', { project_id: inScope, status: 'Open' }, { max: MAX_ROWS }) : empty,
+    load.dismissals ? db.readAll('AttentionDismissal', { project_id: inScope, active: true }, { max: MAX_ROWS }) : empty,
   ]);
 
   const tasks = tasksRes.items;
@@ -126,6 +128,7 @@ export async function loadProjectData(base44, user, options = {}) {
     snags,
     proposals: proposalsRes.items,
     constraints: constraintsRes.items,
+    dismissals: dismissalsRes.items,
     ix,
     reportWindow: { from: shiftDay(asOf, -7), to: asOf },
     meta: { truncated, updates_from: load.updates ? updatesFrom : '', counts: { tasks: tasks.length, snags: snags.length, commitments: commitments.length } },
