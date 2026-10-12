@@ -13,7 +13,7 @@
  * reported as a model answer.
  */
 
-import { callOpenAi, recordUsage } from './ai.ts';
+import { recordUsage } from './ai.ts';
 import { cleanText, listOf, looseKey } from './workImport.ts';
 
 /** Rows sent to the provider in one call, to bound cost and exposure. */
@@ -66,17 +66,17 @@ function referenceLists(ctx, rows) {
  * plus a plain statement of whether the model was available — which is also what
  * is recorded on the batch.
  */
-export async function aiHintsFor({ apiKey, base44, settings, rows, ctx, limit = AI_ROW_LIMIT }) {
+export async function aiHintsFor({ provider, base44, settings, rows, ctx, limit = AI_ROW_LIMIT }) {
   const needing = (rows || []).filter((row) => ['clarify', 'duplicate'].includes(row.reconcile?.outcome)).slice(0, limit);
-  const status = { available: false, model: settings?.model || '', rows: needing.length, note: '', error: '', hints: new Map() };
+  const status = { available: false, model: provider?.model || settings?.model || '', rows: needing.length, note: '', error: '', hints: new Map() };
 
   if (!needing.length) {
     status.note = 'No row needed an interpretation — the file was read entirely from its own columns.';
     return status;
   }
-  if (!apiKey) {
-    status.error = 'No OpenAI key is configured.';
-    status.note = 'Interpretation was not requested: no OpenAI key is configured. The deterministic reading is shown.';
+  if (!provider) {
+    status.error = 'No AI provider is configured.';
+    status.note = 'Interpretation was not requested: no AI provider is configured. The deterministic reading is shown.';
     return status;
   }
   if (settings && settings.enabled === false) {
@@ -99,9 +99,7 @@ export async function aiHintsFor({ apiKey, base44, settings, rows, ctx, limit = 
   }));
 
   try {
-    const answer = await callOpenAi({
-      apiKey,
-      model: status.model || 'gpt-4o-mini',
+    const answer = await provider.complete({
       system: 'You reconcile construction work lists with a task register. You only choose from the lists you are given and you never invent a value.',
       user: reconcilePrompt({ projectName: ctx.project.name, rows: payload, ...lists }),
       json: true,

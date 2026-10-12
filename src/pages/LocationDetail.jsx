@@ -15,8 +15,6 @@ import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
 import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
-import VillaScopePanel from '@/components/villa/VillaScopePanel';
-import DrawingRegister from '@/components/drawings/DrawingRegister';
 import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
 import { useAccess } from '@/lib/AccessContext';
 import { Button } from '@/components/ui/button';

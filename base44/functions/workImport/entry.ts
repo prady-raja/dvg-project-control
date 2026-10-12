@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
-import { secrets } from 'base44:runtime';
 import { activeMembers, canManageProject, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { createdHistoryRows } from '../../shared/history.ts';
 import { COMPLETION_NOTE } from '../../shared/taskWriteRules.ts';
@@ -18,7 +17,7 @@ import { reconcileRows } from '../../shared/reconcile.ts';
 import { aiHintsFor } from '../../shared/reconcileAi.ts';
 import { reconciledWorkbook } from '../../shared/reconcileSheets.ts';
 import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
-import { aiKeyPresent, loadAiSettings, OPENAI_KEY_SECRET, usageToday } from '../../shared/ai.ts';
+import { loadAiSettings, providerFor, usageToday } from '../../shared/ai.ts';
 
 /**
  * Work import — Excel or CSV in, reconciled and reviewed changes out.
@@ -146,8 +145,9 @@ export default async function (req) {
       };
       if (useAi) {
         const settings = await loadAiSettings(svc);
-        if (!aiKeyPresent()) {
-          ai = { ...ai, requested: true, error: 'No OpenAI key is configured.', note: 'OpenAI is not configured on this app, so interpretation was skipped. Every row was read from its own columns.' };
+        const provider = providerFor(base44, settings);
+        if (!provider) {
+          ai = { ...ai, requested: true, error: 'No AI provider is configured.', note: 'No AI provider is configured on this app, so interpretation was skipped. Every row was read from its own columns.' };
         } else {
           const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
           const used = await usageToday(svc, user.id, day);
@@ -156,7 +156,7 @@ export default async function (req) {
             ai = { ...ai, requested: true, note: `The daily AI request limit (${limit}) is reached for today. Every row was read from its own columns.` };
           } else {
             const result = await aiHintsFor({
-              apiKey: secrets.get(OPENAI_KEY_SECRET) || '',
+              provider,
               base44,
               settings,
               rows: reconciled.rows,
@@ -167,7 +167,7 @@ export default async function (req) {
               requested: true,
               note: result.note,
               error: result.error,
-              model: settings.model,
+              model: result.model || settings.model,
               rows_helped: result.hints.size,
             };
             reconciled.rows.forEach((row) => {

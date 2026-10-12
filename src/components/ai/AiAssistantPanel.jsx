@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Bot, Send, Sparkles, TriangleAlert } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import {
-  SITE_MESSAGE_EXAMPLES, aiAssist, aiAssistCancel, aiAssistConfirm, aiAssistFinish, newProposalKey,
+  SITE_MESSAGE_EXAMPLES, aiAssist, aiAssistCancel, aiAssistConfirm, newProposalKey,
 } from '@/lib/aiService';
-import { applyProposalActions } from '@/lib/assistApply';
 import { items } from '@/lib/dataHelpers';
 import AiProposalReview from '@/components/ai/AiProposalReview';
 import { Button } from '@/components/ui/button';
@@ -69,27 +68,16 @@ export default function AiAssistantPanel({ projectId, phaseId, date, onWritten }
     setBusy(true);
     setError('');
     try {
+      // The server writes the confirmed actions and records each outcome.
       const step = await aiAssistConfirm({ projectId, phaseId, key: turn.key, actionIds, edits });
-      if (step.replay || !(step.actions || []).length) {
-        patchTurn(turn.key, {
-          outcome: {
-            status: step.replay ? step.status || 'Applied' : 'Failed',
-            message: step.message || (step.refused || []).map((row) => row.reason).join(' ') || 'Nothing was written.',
-            results: (step.refused || []).map((row) => ({ action_id: row.action_id, summary: row.summary, ok: false, error: row.reason })),
-          },
-        });
-        return;
-      }
-      const results = await applyProposalActions(step.actions);
-      const finish = await aiAssistFinish({ projectId, phaseId, key: turn.key, results });
       patchTurn(turn.key, {
         outcome: {
-          status: finish.status || 'Applied',
-          message: finish.message || '',
-          results: (finish.results || []).length ? finish.results : results,
+          status: step.status || 'Failed',
+          message: step.message || 'Nothing was written.',
+          results: step.results || [],
         },
       });
-      onWritten?.();
+      if (!step.replay && step.written) onWritten?.();
     } catch (e) {
       patchTurn(turn.key, {
         outcome: {

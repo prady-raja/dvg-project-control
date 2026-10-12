@@ -19,6 +19,15 @@ export const ROLE_RANK = {
   'Project Admin': 3,
 };
 
+/**
+ * The one list of project roles a membership may carry. Project Editor (the
+ * default for every invite) leads; the legacy roles stay valid until they are
+ * migrated to Project Editor or Viewer.
+ */
+export const MEMBERSHIP_ROLES = ['Project Editor', 'Viewer', 'Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor'];
+
+export const isMembershipRole = (role) => MEMBERSHIP_ROLES.includes(String(role || ''));
+
 /** Application administrator — set by the app owner in App Users, never by the app itself. */
 export const APP_ADMIN_RANK = 4;
 
@@ -101,32 +110,52 @@ const sameIds = (a, b) => {
   return left.length === right.length && left.every((id, i) => id === right[i]);
 };
 
-export async function syncProjectMemberIds(base44, projectId, memberIds) {
+/** Every entity whose read access rule depends on the member_ids mirror. */
+export const MEMBER_ID_ENTITIES = [
+  'Task',
+  'TaskHistory',
+  'DailyUpdate',
+  'BaselineVersion',
+  'Location',
+  'Phase',
+  'WorkPackage',
+  'ContractorDefault',
+  'TaskDependency',
+  'ProjectMembership',
+  'VillaFloor',
+  'VillaArea',
+  'Drawing',
+  'MeetingCommitment',
+  'Snag',
+  'ImportBatch',
+  'RecordAudit',
+  'RefAllocation',
+  'AiProposal',
+];
+
+// Safety bound on updateMany batches per entity, far above any real project.
+const MAX_SYNC_BATCHES = 200;
+
+/**
+ * `force` re-stamps every record even when Project.member_ids already matches,
+ * which is how sync_all backfills records created before someone joined.
+ */
+export async function syncProjectMemberIds(base44, projectId, memberIds, { force = false } = {}) {
   if (!projectId) return [];
   const svc = base44.asServiceRole.entities;
   const ids = memberIds || memberIdsOf(await activeMembers(base44, projectId));
 
   // The common case is "nothing changed" — that must cost one read, not a sweep.
-  const projectRes = await svc.Project.filter({ id: projectId }, { limit: 1 });
-  const project = (projectRes?.items || projectRes || [])[0];
-  if (project && sameIds(project.member_ids || [], ids)) return ids;
+  if (!force) {
+    const projectRes = await svc.Project.filter({ id: projectId }, { limit: 1 });
+    const project = (projectRes?.items || projectRes || [])[0];
+    if (project && sameIds(project.member_ids || [], ids)) return ids;
+  }
 
-  const targets = [
-    svc.Task,
-    svc.TaskHistory,
-    svc.DailyUpdate,
-    svc.BaselineVersion,
-    svc.Location,
-    svc.Phase,
-    svc.WorkPackage,
-    svc.ContractorDefault,
-    svc.TaskDependency,
-    svc.ProjectMembership,
-  ];
-  for (const target of targets) {
-    // updateMany works in batches; the loop is bounded so a large project
-    // cannot spin here.
-    for (let i = 0; i < 3; i += 1) {
+  for (const name of MEMBER_ID_ENTITIES) {
+    const target = svc[name];
+    if (!target) continue;
+    for (let i = 0; i < MAX_SYNC_BATCHES; i += 1) {
       const res = await target.updateMany({ project_id: projectId }, { $set: { member_ids: ids } });
       if (!res?.has_more) break;
     }

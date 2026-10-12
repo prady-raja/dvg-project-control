@@ -22,7 +22,21 @@
     "model": {
       "type": "string",
       "default": "gpt-4o-mini",
-      "description": "OpenAI model used for every request"
+      "description": "Model used for every request when the provider is an API key (OpenAI or Anthropic)"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["auto", "fetch", "base44"],
+      "default": "auto",
+      "description": "auto: a stored key if present, otherwise Base44 InvokeLLM. fetch: OpenAI/Anthropic-compatible API key only. base44: platform InvokeLLM only (interim)."
+    },
+    "provider_api": {
+      "type": "string",
+      "description": "openai or anthropic; blank picks from the stored key"
+    },
+    "base_url": {
+      "type": "string",
+      "description": "Optional compatible endpoint, e.g. a proxy; blank uses the provider's own"
     },
     "daily_request_limit": {
       "type": "number",

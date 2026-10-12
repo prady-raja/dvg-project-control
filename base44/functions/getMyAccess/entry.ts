@@ -28,7 +28,7 @@ export default async function (req) {
       if (!appAdmin) return Response.json({ error: 'Administrator access required' }, { status: 403 });
       const projects = (await svc.Project.filter({}, { limit: 200 })).items || [];
       const memberships = (await svc.ProjectMembership.filter({}, { limit: 500 })).items || [];
-      for (const project of projects) await syncProjectMemberIds(base44, project.id);
+      for (const project of projects) await syncProjectMemberIds(base44, project.id, undefined, { force: true });
       return Response.json({ ok: true, projects: projects.length, memberships: memberships.length });
     }
 

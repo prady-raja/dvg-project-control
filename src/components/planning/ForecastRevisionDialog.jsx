@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import { Input } from '@/components/ui/input';
 import { updateTask } from '@/lib/taskService';
-import { toDateInput } from '@/lib/format';
+import { forecastOf } from '@/lib/taskForm';
 
 /**
  * Revising a forecast finish. The reason is mandatory and the approved baseline
@@ -11,10 +11,18 @@ import { toDateInput } from '@/lib/format';
  * date at all.
  */
 export default function ForecastRevisionDialog({ task, open, onOpenChange, user, onSaved }) {
-  const [date, setDate] = useState(toDateInput(task?.current_forecast_finish) || toDateInput(task?.baseline_finish));
+  const [date, setDate] = useState(() => forecastOf(task));
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Mounted while closed: start from the chosen row's dates on every open.
+  useEffect(() => {
+    if (!open) return;
+    setDate(forecastOf(task));
+    setReason('');
+    setError('');
+  }, [open, task?.id]);
 
   if (!task) return null;
 
@@ -43,8 +51,8 @@ export default function ForecastRevisionDialog({ task, open, onOpenChange, user,
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Revise forecast — ${task.ref}`}
-      description={`${task.name} · current forecast ${task.forecast_finish || 'not set'}`}
+      title={`Revise forecast — ${task.ref || task.task_ref}`}
+      description={`${task.name} · current forecast ${task.current_forecast_finish || task.forecast_finish || 'not set'}`}
       onSubmit={save}
       submitting={saving}
       submitLabel="Save revision"

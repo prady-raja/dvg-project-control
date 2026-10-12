@@ -153,13 +153,24 @@ function guardApproval({ task, entries, rank, user }) {
  * blocker is cleared when the work moves on.
  */
 export function blockedStateFor({ task, next = {}, isCreate = false }) {
-  const status = String(
-    next.status !== undefined && next.status !== null && next.status !== ''
+  const statusGiven = next.status !== undefined && next.status !== null && next.status !== '';
+  let status = String(
+    statusGiven
       ? next.status
       : (isCreate ? 'Not Started' : (task && task.status) || 'Not Started'),
   );
   const has = (field) => Object.prototype.hasOwnProperty.call(next, field);
   const valueOf = (field) => (has(field) ? next[field] : (task ? task[field] : null));
+
+  // A newly recorded blocker means the work is blocked: on open work it moves the
+  // task to Blocked (with blocked_since) rather than being stored on a task that
+  // still reads In Progress. Moving a Blocked task on to another status still
+  // clears it below.
+  const newCategory = has('blocker_category') && String(next.blocker_category || '').trim()
+    && next.blocker_category !== (task ? task.blocker_category : null);
+  const leavingBlocked = statusGiven && status !== 'Blocked' && task && task.status === 'Blocked';
+  const impliedBlocked = newCategory && !leavingBlocked && OPENING_STATUSES.includes(status) && status !== 'Blocked';
+  if (impliedBlocked) status = 'Blocked';
 
   if (status !== 'Blocked') {
     const wasBlocked = task && (task.status === 'Blocked' || task.blocked_since);
@@ -196,7 +207,9 @@ export function blockedStateFor({ task, next = {}, isCreate = false }) {
   // The date the work was first blocked is set once and kept: editing an
   // already-blocked task never restarts the clock.
   const alreadyBlocked = task && task.status === 'Blocked' && task.blocked_since;
-  return { patch: { blocked_since: alreadyBlocked ? task.blocked_since : todayIst() }, cleared: [] };
+  const patch = { blocked_since: alreadyBlocked ? task.blocked_since : todayIst() };
+  if (impliedBlocked) patch.status = 'Blocked';
+  return { patch, cleared: [] };
 }
 
 /* ----------------------------------------------------------------- the guards */

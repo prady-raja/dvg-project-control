@@ -12,7 +12,6 @@ import DataCaveats from '@/components/common/DataCaveats';
 import DetailList from '@/components/common/DetailList';
 import Pill from '@/components/common/Pill';
 import ProgressNote from '@/components/common/ProgressNote';
-import EmptyState from '@/components/common/EmptyState';
 import ActivityRows from '@/components/common/ActivityRows';
 import DisciplineSection from '@/components/villa/DisciplineSection';
 import SnagList from '@/components/handover/SnagList';

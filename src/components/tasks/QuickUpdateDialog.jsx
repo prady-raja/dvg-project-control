@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { TASK_STATUSES } from '@/lib/constants';
 import { updateTask } from '@/lib/taskService';
 import { toDateInput } from '@/lib/format';
+import { changedFields, legalNextStatuses, quickUpdateForm } from '@/lib/taskForm';
 
 /** Sub-minute on-site update: status, progress, forecast finish, remarks. */
 export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSaved }) {
-  const [form, setForm] = useState({
-    status: task?.status || 'Not Started',
-    progress_percent: task?.progress_percent ?? '',
-    current_forecast_finish: toDateInput(task?.current_forecast_finish),
-    date_revision_reason: task?.date_revision_reason || '',
-    remarks: task?.remarks || '',
-    latest_update: task?.latest_update || '',
-  });
+  const [form, setForm] = useState(() => quickUpdateForm(task));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // The dialog stays mounted while closed, so rebuild the form from the task on
+  // every open and whenever the task is saved elsewhere.
+  useEffect(() => {
+    if (!open) return;
+    setForm(quickUpdateForm(task));
+    setError('');
+  }, [open, task?.id, task?.updated_date]);
 
   const forecastChanged = (form.current_forecast_finish || '') !== toDateInput(task?.current_forecast_finish);
 
@@ -35,19 +36,9 @@ export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSa
     setSaving(true);
     setError('');
     try {
-      // Send only the fields this dialog owns.
-      await updateTask(
-        task.id,
-        {
-          status: form.status,
-          progress_percent: form.progress_percent,
-          current_forecast_finish: form.current_forecast_finish,
-          date_revision_reason: form.date_revision_reason,
-          latest_update: form.latest_update,
-          remarks: form.remarks,
-        },
-        user,
-      );
+      // Send only the fields the user changed.
+      const changes = changedFields(task, form);
+      if (Object.keys(changes).length) await updateTask(task.id, changes, user);
       onSaved();
     } catch (e) {
       setError(e?.message || 'Could not save the update.');
@@ -71,7 +62,7 @@ export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSa
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Status">
-          <EnumSelect value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v }))} options={TASK_STATUSES} />
+          <EnumSelect value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v }))} options={legalNextStatuses(task.status)} />
         </Field>
         <Field label="Progress %" hint="Leave blank when progress is unknown.">
           <Input

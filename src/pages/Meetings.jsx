@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, Copy, Download, Plus, Printer, RefreshCw } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
-import { items } from '@/lib/dataHelpers';
 import { formatDate, todayIst } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';

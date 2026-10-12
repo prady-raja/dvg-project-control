@@ -3,9 +3,11 @@ import { Plus } from 'lucide-react';
 import Pill from '@/components/common/Pill';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import EnumSelect from '@/components/common/EnumSelect';
+import { MEMBERSHIP_ROLES } from '@/lib/constants';
 
 /** One section per project: who is on it, at what level, and whether access is live. */
-export default function MembershipList({ groups, onToggleActive, onAdd }) {
+export default function MembershipList({ groups, canEdit = false, onToggleActive, onChangeRole, onAdd }) {
   return (
     <div className="space-y-5">
       {groups.map(({ project, members }) => (
@@ -19,9 +21,11 @@ export default function MembershipList({ groups, onToggleActive, onAdd }) {
               <span className="field-mono text-xs text-muted-foreground">
                 {members.length} member{members.length === 1 ? '' : 's'}
               </span>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onAdd(project.id)}>
-                <Plus className="h-3.5 w-3.5" /> Add
-              </Button>
+              {canEdit && (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onAdd(project.id)}>
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </Button>
+              )}
             </div>
           </header>
           {members.length === 0 ? (
@@ -41,8 +45,20 @@ export default function MembershipList({ groups, onToggleActive, onAdd }) {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <Pill value={m.user_id ? 'Active' : 'Pending Setup'} />
-                    <Pill value={m.role} className="border-border bg-muted text-foreground" />
-                    <Switch checked={m.active !== false} onCheckedChange={(v) => onToggleActive(m, v)} />
+                    {canEdit ? (
+                      <>
+                        <div className="w-40">
+                          <EnumSelect
+                            value={m.role}
+                            onChange={(v) => v && v !== m.role && onChangeRole?.(m, v)}
+                            options={MEMBERSHIP_ROLES.includes(m.role) ? MEMBERSHIP_ROLES : [m.role, ...MEMBERSHIP_ROLES]}
+                          />
+                        </div>
+                        <Switch checked={m.active !== false} onCheckedChange={(v) => onToggleActive(m, v)} />
+                      </>
+                    ) : (
+                      <Pill value={m.role} className="border-border bg-muted text-foreground" />
+                    )}
                   </div>
                 </li>
               ))}

@@ -57,4 +57,27 @@ export default [
       "react-hooks/rules-of-hooks": "error",
     },
   },
+  {
+    // R-08: business rules in base44/shared stay pure. Only the adapter (db.ts)
+    // may import the platform SDK or runtime; everything else goes through it.
+    files: ["base44/shared/**/*.ts"],
+    ignores: ["base44/shared/db.ts"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+    },
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(npm:|base44:|@base44/)",
+              message: "Shared rules stay platform-free: go through base44/shared/db.ts (R-08).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

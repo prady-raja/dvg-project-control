@@ -34,11 +34,11 @@ export async function aiParseUpdate({ projectId, phaseId, text, date }) {
 
 /* ------------------------------------------------------------------ site message assistant
  *
- * Four guarded steps, and only the third one writes:
+ * Two guarded steps, and only the second one writes:
  *   1. propose  — the words are read by rule, a proposal is stored under a key
- *   2. confirm  — the selected actions come back with their final values
- *   3. apply    — the client writes them through the ordinary guarded services
- *   4. finish   — the outcome is recorded, so the proposal can never apply twice
+ *   2. confirm  — the server writes the selected actions through the ordinary
+ *                 guarded functions and records each outcome under the key, so
+ *                 confirming again retries only what was not written
  */
 
 export async function aiAssist({ projectId, phaseId, text, date, key }) {
@@ -58,17 +58,6 @@ export async function aiAssistConfirm({ projectId, phaseId, key, actionIds, edit
   return res?.data || {};
 }
 
-export async function aiAssistFinish({ projectId, phaseId, key, results }) {
-  const res = await base44.functions.invoke('aiAction', {
-    action: 'assist_finish',
-    projectId,
-    phaseId,
-    key,
-    results: results || [],
-  });
-  return res?.data || {};
-}
-
 export async function aiAssistCancel({ projectId, phaseId, key }) {
   const res = await base44.functions.invoke('aiAction', { action: 'assist_cancel', projectId, phaseId, key });
   return res?.data || {};
@@ -84,6 +73,15 @@ export const AI_MODELS = [
   { value: 'gpt-4o', label: 'gpt-4o — stronger reasoning, higher cost' },
   { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini — balanced' },
   { value: 'gpt-4.1', label: 'gpt-4.1 — highest quality, highest cost' },
+  { value: 'claude-haiku-5-5', label: 'claude-haiku-5-5 — Anthropic, lowest cost' },
+  { value: 'claude-sonnet-5-5', label: 'claude-sonnet-5-5 — Anthropic, balanced' },
+];
+
+/** Where model calls go. Mirrors base44/shared/aiProvider.ts. */
+export const AI_PROVIDERS = [
+  { value: 'auto', label: 'Automatic — a stored key if there is one, otherwise Base44' },
+  { value: 'fetch', label: 'API key (OpenAI or Anthropic) — portable' },
+  { value: 'base44', label: 'Base44 built-in AI — no key needed, interim only' },
 ];
 
 export const SUGGESTED_QUESTIONS = [
