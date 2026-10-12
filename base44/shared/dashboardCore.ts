@@ -378,6 +378,24 @@ export function taskRow(task, ix, asOf) {
   };
 }
 
+/** Who has to act on this: the contractor, DVG, or the villa owner. Read from recorded state only. */
+export function actorFor(row) {
+  if (row.status === 'Execution Complete' || row.status === 'Under Inspection' || row.status === 'Approved') return 'DVG';
+  if (row.blocker_category === 'DVG Approval') return 'DVG';
+  if (['Owner Access Pending', 'Client Selection Pending'].includes(row.blocker_category)) return 'Villa owner';
+  if (row.decisions?.some((d) => /owner access|client selection/i.test(d))) return 'Villa owner';
+  return 'Contractor';
+}
+
+/** Red / amber / green for a phase from its own counts — thresholds are stated on the dashboard. */
+export const RAG_RULES = { red_overdue_share: 0.15, red_blocked_share: 0.1 };
+export function ragOf({ open = 0, overdue = 0, blocked = 0, at_risk = 0 }) {
+  if (!open) return 'green';
+  if (overdue / open >= RAG_RULES.red_overdue_share || blocked / open >= RAG_RULES.red_blocked_share) return 'red';
+  if (overdue > 0 || blocked > 0 || at_risk > 0) return 'amber';
+  return 'green';
+}
+
 /** One line of "what to do about it" per task, derived from recorded state only. */
 export function actionFor(row) {
   if (row.status === 'Blocked') return `Clear blocker${row.blocker_category ? ` — ${row.blocker_category}` : ''}`;

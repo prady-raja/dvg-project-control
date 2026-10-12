@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { fail } from '../../shared/records.ts';
-import { heldLocationIds, metricTasks, taskRow, todayIst } from '../../shared/dashboardCore.ts';
+import { heldLocationIds, metricTasks, shiftDay, taskRow, todayIst } from '../../shared/dashboardCore.ts';
+import { buildSnapshots, changeSinceLastWeek, isSnapshotTime, snapshotMetricsOf } from '../../shared/snapshots.ts';
 import { actionFor } from '../../shared/dashboardCore.ts';
 import { contractorBoardView, executiveView, planningView, villaExecutionView } from '../../shared/dashboardViews.ts';
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
@@ -142,8 +143,47 @@ async function handler(req) {
           }),
         });
       }
-      default:
-        return Response.json({ ...header, ...executiveView(common) });
+      default: {
+        const view = executiveView(common);
+        // History starts being kept now: the day's snapshot is written lazily by the
+        // first read after 23:30 IST, and the change since last week is read back.
+        const db = makeDb({ entities: base44.asServiceRole.entities });
+        try {
+          if (asOf === todayIst() && isSnapshotTime()) {
+            const have = await db.count('MetricSnapshot', { project_id: { $in: scope.projectIds }, scope_type: 'project', snapshot_date: asOf });
+            if (have < data.projects.length) {
+              const members = Object.fromEntries(data.projects.map((p) => [p.id, p.member_ids || []]));
+              const rows = buildSnapshots({ data, asOf, memberIdsByProject: members });
+              for (const row of rows) await db.upsertByKey('MetricSnapshot', ['scope_type', 'scope_id', 'snapshot_date'], row);
+            }
+          }
+          const scopeType = phaseId ? 'phase' : 'project';
+          const filter = {
+            project_id: { $in: scope.projectId ? [scope.projectId] : scope.projectIds },
+            scope_type: scopeType,
+            ...(phaseId ? { scope_id: phaseId } : scope.projectId ? { scope_id: scope.projectId } : {}),
+            snapshot_date: { $gte: shiftDay(asOf, -8), $lte: shiftDay(asOf, -6) },
+          };
+          const found = await db.list('MetricSnapshot', filter, { limit: 100 });
+          // With no single project in view, add the projects' snapshots of the same day together.
+          const byDate = new Map();
+          found.forEach((s) => {
+            const sum = byDate.get(s.snapshot_date) || { snapshot_date: s.snapshot_date, metrics: {} };
+            Object.entries(s.metrics || {}).forEach(([k, v]) => { sum.metrics[k] = (sum.metrics[k] || 0) + (Number(v) || 0); });
+            byDate.set(s.snapshot_date, sum);
+          });
+          view.change_since_last_week = changeSinceLastWeek({
+            snapshots: [...byDate.values()],
+            current: snapshotMetricsOf(view),
+            asOf,
+          });
+        } catch (error) {
+          // History is an extra: a failure here never hides the figures themselves.
+          view.change_since_last_week = null;
+          view.snapshot_error = String(error?.message || error).slice(0, 200);
+        }
+        return Response.json({ ...header, ...view });
+      }
     }
   } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });

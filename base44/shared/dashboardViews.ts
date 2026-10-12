@@ -7,7 +7,7 @@
 
 import {
   actionFor, compareFinish, dueWithin, finishDate,
-  heldLocationIds, healthFor, delayCauses, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
+  heldLocationIds, healthFor, delayCauses, actorFor, ragOf, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
   isExecuting, isOutstanding, isOverdue, isParentRow, isUnscheduled, scopeTasks,
   priorityScore, shiftDay, splitHeld, isStale, statusCounts, taskRow, weightedProgress,
 } from './dashboardCore.ts';
@@ -63,6 +63,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
   );
 
   const counts = statusCounts(active, asOf);
+  const villaById = new Map(locations.map((l) => [l.id, l]));
   const metrics = {
     registered_villas: villas.length,
     active_villas: villas.filter((l) => l.active_status !== 'On Hold').length,
@@ -76,6 +77,9 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     overdue_tasks: counts.overdue,
     blocked_tasks: counts.blocked,
     at_risk_tasks: active.filter((t) => healthFor(t, ix, asOf) === 'At risk').length,
+    handed_over_open_tasks: active.filter((t) => isOutstanding(t) && villaById.get(t.location_id)?.possession_status === 'Handed Over').length,
+    handed_over_waiting_on_owner: active.filter((t) => isOutstanding(t) && villaById.get(t.location_id)?.possession_status === 'Handed Over'
+      && (t.access_status === 'Pending' || t.blocker_category === 'Owner Access Pending')).length,
     awaiting_verification: counts.awaitingVerification,
     awaiting_closure: counts.awaitingClosure,
     unscheduled_tasks: counts.unscheduled,
@@ -96,7 +100,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     .filter((row) => row.score > 0 || !row.finish)
     .sort((a, b) => b.score - a.score || compareFinish(a, b))
     .slice(0, options.itemLimit || 25)
-    .map((row, index) => ({ ...row, rank: index + 1 }));
+    .map((row, index) => ({ ...row, rank: index + 1, act_by: actorFor(row) }));
 
   const progress = weightedProgress(active);
   const warnings = [];
@@ -121,9 +125,25 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     warnings,
     counts_by_discipline: disciplineCounts(active, ix, asOf),
     delay_causes: delayCauses(active),
+    phase_health: phaseHealth({ phases, active, ix, asOf, options }),
     counts_by_status: statusCounts(active, asOf),
     demo_available: scopedAll.some(isDemoTask),
   };
+}
+
+/** A red/amber/green line per phase, from the same counts the headline numbers use. */
+export function phaseHealth({ phases = [], active, ix, asOf, options = {} }) {
+  return phases
+    .filter((phase) => !options.projectId || phase.project_id === options.projectId)
+    .filter((phase) => !options.phaseId || phase.id === options.phaseId)
+    .map((phase) => {
+      const mine = active.filter((t) => t.phase_id === phase.id);
+      const counts = statusCounts(mine, asOf);
+      const at_risk = mine.filter((t) => healthFor(t, ix, asOf) === 'At risk').length;
+      const row = { open: counts.open, overdue: counts.overdue, blocked: counts.blocked, at_risk };
+      return { phase_id: phase.id, name: phase.name, code: phase.code || '', ...row, rag: ragOf(row) };
+    })
+    .filter((row) => row.open > 0 || row.overdue > 0);
 }
 
 export function disciplineCounts(tasks, ix, asOf) {
