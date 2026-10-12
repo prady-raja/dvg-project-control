@@ -247,7 +247,7 @@ async function handler(req) {
 
       // Permission, the baseline lock, the approval separation and the reason
       // rule are decided once, for every write path into a task.
-      guardTaskChanges({ task, entries, rank, user, reason });
+      guardTaskChanges({ task, entries, rank, user, reason, category: changes.date_revision_category });
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 

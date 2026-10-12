@@ -13,6 +13,7 @@ import {
 import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { projectSettings } from '../../shared/calendar.ts';
+import { delayCategoryFor } from '../../shared/delay.ts';
 
 /**
  * The only path that records site work.
@@ -31,7 +32,7 @@ const STATUSES = TASK_STATUSES;
 const REPORT_FIELDS = [
   'status', 'progress_percent', 'latest_update', 'remarks', 'actual_manpower',
   'blocker_category', 'blocker_description', 'blocker_responsible_party', 'blocked_since',
-  'current_forecast_finish', 'date_revision_reason',
+  'current_forecast_finish', 'date_revision_reason', 'date_revision_category',
 ];
 
 const MAX_MANPOWER_ROWS = 12;
@@ -118,6 +119,7 @@ async function handler(req) {
       ? String(body.current_forecast_finish)
       : null;
     const revisionReason = text(body?.date_revision_reason, 400);
+    const revisionCategory = text(body?.date_revision_category, 40);
 
     const photoUris = (Array.isArray(body?.photo_uris) ? body.photo_uris : [])
       .filter((uri) => typeof uri === 'string' && uri.trim().length > 0)
@@ -145,6 +147,8 @@ async function handler(req) {
     if (forecastNew) {
       changes.current_forecast_finish = forecastNew;
       changes.date_revision_reason = revisionReason;
+      // A person chooses the category; a confirmed AI/site-message update has it read from the reason.
+      changes.date_revision_category = delayCategoryFor({ category: revisionCategory, reason: revisionReason, infer: body?.source === 'ai' });
     }
     if (blockerReported) {
       changes.blocker_category = blockerCategory;
@@ -171,8 +175,8 @@ async function handler(req) {
       entries = diffFields(task, changes, REPORT_FIELDS);
       // Permission, baseline lock, approval separation and the reason rule are
       // decided once, for every write path into a task.
-      guardTaskChanges({ task, entries, rank, user, reason: revisionReason });
-      effects = deriveTaskEffects({ task, entries, user });
+      guardTaskChanges({ task, entries, rank, user, reason: revisionReason, category: changes.date_revision_category, inferCategory: body?.source === 'ai' });
+      effects = deriveTaskEffects({ task, entries, user, onDate: updateDate });
     }
     const forecastEntry = entries.find((entry) => entry.field_changed === 'current_forecast_finish');
     const location = task.location_id ? await getOne(svc.Location, task.location_id) : null;

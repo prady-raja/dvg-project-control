@@ -23,7 +23,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
   updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting'].includes(view),
-  dependencies: ['blockers', 'meeting', 'villa', 'attention'].includes(view),
+  dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor'].includes(view),
   commitments: ['meeting'].includes(view),
   snags: ['handover', 'villa'].includes(view),
 });
@@ -126,6 +126,7 @@ async function handler(req) {
           locations: data.locations,
           heldIds,
           settingsFor: (projectId) => ix.settings(projectId),
+          dependencies: data.dependencies,
           projectId: options.projectId,
           phaseId: options.phaseId,
           includeDemo: options.includeDemo,

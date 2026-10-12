@@ -7,7 +7,7 @@
 
 import {
   actionFor, compareFinish, dueWithin, finishDate,
-  heldLocationIds, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
+  heldLocationIds, healthFor, delayCauses, isAwaitingClosure, isCountable, isAwaitingVerification, isBlocked, isDemoTask,
   isExecuting, isOutstanding, isOverdue, isParentRow, isUnscheduled, scopeTasks,
   priorityScore, shiftDay, splitHeld, isStale, statusCounts, taskRow, weightedProgress,
 } from './dashboardCore.ts';
@@ -75,6 +75,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     open_tasks: counts.open,
     overdue_tasks: counts.overdue,
     blocked_tasks: counts.blocked,
+    at_risk_tasks: active.filter((t) => healthFor(t, ix, asOf) === 'At risk').length,
     awaiting_verification: counts.awaitingVerification,
     awaiting_closure: counts.awaitingClosure,
     unscheduled_tasks: counts.unscheduled,
@@ -119,6 +120,7 @@ export function executiveView({ tasks, locations, phases, projects, ix, options,
     priorities,
     warnings,
     counts_by_discipline: disciplineCounts(active, ix, asOf),
+    delay_causes: delayCauses(active),
     counts_by_status: statusCounts(active, asOf),
     demo_available: scopedAll.some(isDemoTask),
   };
@@ -268,6 +270,7 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
         open: open.length,
         overdue: open.filter((t) => isOverdue(t, asOf)).length,
         blocked: open.filter(isBlocked).length,
+        at_risk: open.filter((t) => healthFor(t, ix, asOf) === 'At risk').length,
         due_this_week: open.filter((t) => dueWithin(t, asOf, 7)).length,
         awaiting_approval: mine.filter(isAwaitingVerification).length,
         unscheduled: open.filter(isUnscheduled).length,
@@ -293,6 +296,7 @@ export function contractorBoardView({ tasks, contractors, ix, options, asOf, upd
       open: rows.reduce((sum, r) => sum + r.open, 0),
       overdue: rows.reduce((sum, r) => sum + r.overdue, 0),
       blocked: rows.reduce((sum, r) => sum + r.blocked, 0),
+      at_risk: rows.reduce((sum, r) => sum + r.at_risk, 0),
       due_this_week: rows.reduce((sum, r) => sum + r.due_this_week, 0),
       awaiting_approval: rows.reduce((sum, r) => sum + r.awaiting_approval, 0),
       stale_tasks: rows.reduce((sum, r) => sum + r.stale_tasks, 0),
@@ -342,13 +346,16 @@ export function planningView({ tasks, ix, options, asOf }) {
   rows.forEach((row) => buckets[planningBucketOf(row, asOf)].push(row));
   PLANNING_BUCKETS.forEach((name) => buckets[name].sort(compareFinish));
   const counts = Object.fromEntries(PLANNING_BUCKETS.map((name) => [name, buckets[name].length]));
+  // At risk cuts across the date buckets (a task due this week can be at risk), so it is a list of its own.
+  const atRisk = rows.filter((row) => row.health === 'At risk').sort(compareFinish);
   const heldOpen = held.filter(isOutstanding).length;
 
   return {
     as_of: asOf,
     held_work_excluded: heldOpen,
     buckets,
-    counts: { ...counts, open: rows.length, executing: outstanding.filter(isExecuting).length },
+    at_risk: atRisk,
+    counts: { ...counts, at_risk: atRisk.length, open: rows.length, executing: outstanding.filter(isExecuting).length },
     warnings: [
       counts.unscheduled ? `${counts.unscheduled} outstanding task(s) have no reliable date and appear under Unscheduled.` : '',
       heldOpen ? `${heldOpen} task(s) belong to villas on hold and are excluded from the look-ahead.` : '',

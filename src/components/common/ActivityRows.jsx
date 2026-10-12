@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ActivityCard, { ActivityFlags } from '@/components/common/ActivityCard';
 import Pill from '@/components/common/Pill';
+import HealthBadge from '@/components/common/HealthBadge';
 import { formatDate } from '@/lib/format';
 
 const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
@@ -53,7 +54,10 @@ export default function ActivityRows({ rows = [], emptyLabel = 'Nothing to show 
                 <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{row.engineer || '—'}</TableCell>
                 <TableCell className="field-mono whitespace-nowrap text-xs text-muted-foreground">{formatDate(row.baseline_finish)}</TableCell>
                 <TableCell className="field-mono whitespace-nowrap text-xs">{formatDate(row.forecast_finish)}</TableCell>
-                <TableCell className="whitespace-nowrap"><Pill value={row.status} /></TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Pill value={row.status} />
+                  {row.health && <div className="mt-1"><HealthBadge health={row.health} slipDays={row.slip_days} /></div>}
+                </TableCell>
                 <TableCell className="max-w-[240px] text-xs text-muted-foreground">
                   {showAction ? row.action : row.blocker || '—'}
                 </TableCell>

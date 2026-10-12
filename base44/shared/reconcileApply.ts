@@ -16,6 +16,7 @@
  *    contractor empty cannot erase what is recorded.
  */
 
+import { delayCategoryFor } from './delay.ts';
 import { diffFields, TASK_FIELDS, writeTaskHistory } from './history.ts';
 import {
   blockedStateFor,
@@ -133,7 +134,7 @@ export async function applyTaskUpdate({
   const note = forecastChanged && reason ? `Forecast revision — ${reason}` : '';
 
   // The same permission, baseline and approval rules as the task editor.
-  guardTaskChanges({ task: fresh, entries, rank, user, reason });
+  guardTaskChanges({ task: fresh, entries, rank, user, reason, inferCategory: true });
 
   const effects = deriveTaskEffects({ task: fresh, entries, user, importedCompletion });
   const write = {};
@@ -143,7 +144,10 @@ export async function applyTaskUpdate({
   Object.assign(write, effects.patch);
   // The reason for moving a forecast date travels with the task as well as into
   // the audit trail, so the record always shows why its forecast last moved.
-  if (forecastChanged && reason) write.date_revision_reason = reason;
+  if (forecastChanged && reason) {
+    write.date_revision_reason = reason;
+    write.date_revision_category = delayCategoryFor({ reason, infer: true });
+  }
   // A reported completion is stamped on the task itself: the file's own word is
   // kept, and the completion is marked as waiting to be verified.
   if (importedCompletion) {

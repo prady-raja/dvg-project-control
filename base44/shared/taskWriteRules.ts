@@ -13,6 +13,7 @@ import { canApproveWork, canManageProject } from './access.ts';
 import { BASELINE_FIELDS } from './history.ts';
 import { actorName, fail } from './records.ts';
 import { todayIst } from './dashboardCore.ts';
+import { delayCategoryFor } from './delay.ts';
 
 import {
   APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES,
@@ -207,7 +208,7 @@ export function blockedStateFor({ task, next = {}, isCreate = false }) {
  * Throws when the caller may not make this change. `entries` are the genuinely
  * changed fields from diffFields, so an unchanged field never blocks a save.
  */
-export function guardTaskChanges({ task, entries, rank, user, reason }) {
+export function guardTaskChanges({ task, entries, rank, user, reason, category, inferCategory = false }) {
   const list = entries || [];
   const find = (field) => entryFor(list, field);
   const manager = canManageProject(rank);
@@ -234,6 +235,8 @@ export function guardTaskChanges({ task, entries, rank, user, reason }) {
   if (find('current_forecast_finish') && !String(reason || '').trim()) {
     throw fail('A forecast date change needs a date revision reason.');
   }
+  // ...and a category, chosen from the fixed list, so delay causes can be counted.
+  if (find('current_forecast_finish')) delayCategoryFor({ category, reason, infer: inferCategory });
 }
 
 /** A new task may not be born completed, approved or closed. */
@@ -255,13 +258,33 @@ export function guardTaskCreation({ changes }) {
  * in the session claims to have done it, so no completion actor is recorded and
  * the completion waits to be verified.
  */
-export function deriveTaskEffects({ task, entries, user, importedCompletion = false }) {
+export function deriveTaskEffects({ task, entries, user, importedCompletion = false, onDate = '' }) {
   const patch = {};
   const derived = [];
   const statusEntry = entryFor(entries, 'status');
   if (!statusEntry) return { patch, derived };
 
   const next = statusEntry.new_value;
+  const day = onDate || todayIst();
+
+  // Actual dates are stamped by the move itself, never typed: the first time work
+  // starts, and when it is reported executed. Reopening clears the finish.
+  if (['In Progress', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(next) && !task.actual_start) {
+    patch.actual_start = day;
+  }
+  if (['Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(next) && !task.actual_finish && !importedCompletion) {
+    patch.actual_finish = day;
+  }
+  if (['Not Started', 'In Progress', 'Blocked'].includes(next) && task.actual_finish) {
+    patch.actual_finish = null;
+    derived.push({
+      change_type: 'Status Change',
+      field_changed: 'actual_finish',
+      old_value: String(task.actual_finish).slice(0, 10),
+      new_value: '',
+      note: 'Reopened — the actual finish is cleared, and the history keeps it',
+    });
+  }
 
   if (next === 'Execution Complete') {
     if (importedCompletion) {

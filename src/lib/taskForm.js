@@ -22,6 +22,7 @@ export const quickUpdateForm = (task) => ({
   progress_percent: task?.progress_percent ?? '',
   current_forecast_finish: toDateInput(task?.current_forecast_finish),
   date_revision_reason: '',
+  date_revision_category: '',
   remarks: task?.remarks || '',
   latest_update: task?.latest_update || '',
 });
@@ -35,7 +36,10 @@ export function changedFields(task, form) {
   for (const field of ['status', 'progress_percent', 'current_forecast_finish', 'remarks', 'latest_update']) {
     if (comparable(form[field]) !== comparable(initial[field])) changes[field] = form[field];
   }
-  if ('current_forecast_finish' in changes) changes.date_revision_reason = String(form.date_revision_reason || '').trim();
+  if ('current_forecast_finish' in changes) {
+    changes.date_revision_reason = String(form.date_revision_reason || '').trim();
+    changes.date_revision_category = String(form.date_revision_category || '').trim();
+  }
   return changes;
 }
 

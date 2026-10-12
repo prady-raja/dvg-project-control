@@ -1,3 +1,4 @@
+import DelayCategorySelect from '@/components/common/DelayCategorySelect';
 import React from 'react';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
@@ -87,6 +88,7 @@ export default function TaskAdvancedFields({ form, update }) {
           <Field label="Actual Finish">
             <Input type="date" value={form.actual_finish} onChange={(e) => update({ actual_finish: e.target.value })} />
           </Field>
+          <DelayCategorySelect value={form.date_revision_category} onChange={(v) => update({ date_revision_category: v })} required={false} />
           <Field label="Date Revision Reason" hint="Required whenever the forecast finish changes.">
             <Input
               value={form.date_revision_reason}

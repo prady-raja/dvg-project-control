@@ -1,3 +1,4 @@
+import DelayCategorySelect from '@/components/common/DelayCategorySelect';
 import React, { useEffect, useState } from 'react';
 import { CalendarClock, CloudSun, HardHat, TriangleAlert, Camera } from 'lucide-react';
 import FormDialog from '@/components/common/FormDialog';
@@ -37,6 +38,7 @@ const blankForm = (task) => ({
   expected_resolution_date: '',
   forecast: toDateInput(task?.current_forecast_finish),
   reason: '',
+  category: '',
   photos: [],
 });
 
@@ -92,6 +94,10 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
       setError('Moving the forecast finish needs a reason.');
       return;
     }
+    if (show.forecast && forecastChanged && !form.category) {
+      setError('Choose the delay category for the date change.');
+      return;
+    }
     if (!form.update_date || form.update_date > today || form.update_date < earliest) {
       setError(`Choose a day between ${earliest} and today.`);
       return;
@@ -130,6 +136,7 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
         expected_resolution_date: form.expected_resolution_date,
         photo_uris: form.photos.map((photo) => photo.file_uri),
         date_revision_reason: show.forecast ? form.reason : '',
+        date_revision_category: show.forecast ? form.category : '',
       };
       if (show.forecast) payload.current_forecast_finish = form.forecast;
       const result = await submitDailyUpdate(payload);
@@ -281,6 +288,7 @@ export default function DailyUpdateDialog({ task, open, onOpenChange, onSaved })
           <Field label="New forecast finish">
             <Input type="date" value={form.forecast} onChange={(e) => set({ forecast: e.target.value })} />
           </Field>
+          {forecastChanged && <DelayCategorySelect value={form.category} onChange={(v) => set({ category: v })} />}
           {forecastChanged && (
             <Field label="Reason for the change" required>
               <Input

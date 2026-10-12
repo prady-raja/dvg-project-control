@@ -104,6 +104,8 @@ export async function loadProjectData(base44, user, options = {}) {
     contractors: contractorsRes.items,
     disciplines: disciplinesRes.items,
     updates,
+    tasks,
+    dependencies,
   });
 
   return {
