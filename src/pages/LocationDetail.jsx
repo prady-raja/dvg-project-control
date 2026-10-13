@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus, Activity } from 'lucide-react';
+import { Plus, Pencil, Zap, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
@@ -12,6 +12,10 @@ import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
 import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import LocationCrumbs from '@/components/locations/LocationCrumbs';
+import SnagsTab from '@/components/locations/SnagsTab';
+import VillaExecution from '@/pages/VillaExecution';
+import { useUrlState } from '@/lib/useUrlFilters';
 import VillaScopePanel from '@/components/villa/VillaScopePanel';
 import DrawingRegister from '@/components/drawings/DrawingRegister';
 import { useAccess } from '@/lib/AccessContext';
@@ -37,6 +41,7 @@ export default function LocationDetail() {
   const [taskTotal, setTaskTotal] = useState(null);
   const [loadingAll, setLoadingAll] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [tab, setTab] = useUrlState('tab', 'overview');
 
   const location = cat.locationById(locationId);
   const phase = location ? cat.phaseById(location.phase_id) : null;
@@ -93,14 +98,11 @@ export default function LocationDetail() {
 
   const canEdit = access.can(location.project_id, 'edit_tasks');
   const canManage = access.can(location.project_id, 'manage_project');
+  const tabList = [['overview', 'Overview'], ['tasks', 'Tasks'], ['daily', 'Daily'], ...(location.location_type === 'Villa' ? [['snags', 'Snags'], ['drawings', 'Drawings'], ['rooms', 'Floors & rooms']] : [])];
 
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
-        <Link to={`/locations?project=${location.project_id}${location.phase_id ? `&phase=${location.phase_id}` : ''}`}>
-          <ArrowLeft className="h-4 w-4" /> Villas &amp; locations
-        </Link>
-      </Button>
+      <LocationCrumbs project={project} phase={phase} location={location} />
 
       <PageHeader
         eyebrow={[project?.name, phase?.name, location.location_type].filter(Boolean).join(' · ')}
@@ -115,11 +117,6 @@ export default function LocationDetail() {
                 <Link to={`/villas/${location.id}/statement`}>Pending works statement</Link>
               </Button>
             )}
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to={`/locations/${location.id}/execution`}>
-                <Activity className="h-3.5 w-3.5" /> Execution dashboard
-              </Link>
-            </Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>
@@ -141,14 +138,18 @@ export default function LocationDetail() {
         />
       </div>
 
-      {location.location_type === 'Villa' && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <VillaScopePanel location={location} canManage={canManage} />
-          <DrawingRegister location={location} canManage={canManage} />
-        </div>
-      )}
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Location sections">
+        {tabList.map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+            className={`min-h-11 whitespace-nowrap border-b-2 px-4 text-sm font-medium transition-colors ${tab === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{label}</button>
+        ))}
+      </div>
 
-      <section className="mt-8">
+      <div className="mt-6" role="tabpanel">
+        {tab === 'overview' && (location.location_type === 'Villa' ? <VillaExecution locationId={location.id} embedded /> : <p className="text-sm text-muted-foreground">Use the tabs to see this location's tasks and daily updates.</p>)}
+        {tab === 'tasks' && (
+          <>
+      <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -210,8 +211,10 @@ export default function LocationDetail() {
           </>
         )}
       </section>
-
-      <section className="mt-8">
+          </>
+        )}
+        {tab === 'daily' && (
+      <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -235,9 +238,11 @@ export default function LocationDetail() {
           emptyDescription="Log an update from the field and it appears here with the engineer, the time and any photos."
         />
       </section>
-
-
-
+        )}
+        {tab === 'snags' && location.location_type === 'Villa' && <SnagsTab location={location} canEdit={canEdit} />}
+        {tab === 'drawings' && location.location_type === 'Villa' && <DrawingRegister location={location} canManage={canManage} />}
+        {tab === 'rooms' && location.location_type === 'Villa' && <VillaScopePanel location={location} canManage={canManage} />}
+      </div>
 
       <LocationDialog open={editOpen} onOpenChange={setEditOpen} location={location} cat={cat} />
     </>

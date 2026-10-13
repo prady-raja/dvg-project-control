@@ -147,7 +147,7 @@ export default function Handover() {
                   {(data.rows || []).map((row) => (
                     <tr key={row.location_id} className={cn('border-b border-border/60 last:border-0', row.needs_attention && 'bg-[hsl(var(--warning))]/5')}>
                       <td className="py-2.5">
-                        <Link to={`/locations/${row.location_id}/execution`} className="field-mono text-xs font-semibold hover:underline">
+                        <Link to={`/locations/${row.location_id}?tab=overview`} className="field-mono text-xs font-semibold hover:underline">
                           {row.villa}
                         </Link>
                         <div className="text-xs text-muted-foreground">{row.plot_numbers}</div>
@@ -164,7 +164,7 @@ export default function Handover() {
                       <td className="py-2.5 text-right">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" variant="ghost">
-                            <Link to={`/locations/${row.location_id}/execution`}>Open</Link>
+                            <Link to={`/locations/${row.location_id}?tab=overview`}>Open</Link>
                           </Button>
                           <Button asChild size="sm" variant="ghost">
                             <Link to={`/villas/${row.location_id}/statement`}>Statement</Link>

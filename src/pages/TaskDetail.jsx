@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Zap, Archive, RotateCcw, CalendarPlus } from 'lucide-react';
+import { Pencil, Zap, Archive, RotateCcw, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
@@ -20,6 +20,7 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import LocationCrumbs from '@/components/locations/LocationCrumbs';
 import TaskCommitments from '@/components/tasks/TaskCommitments';
 import ContactChip from '@/components/common/ContactChip';
 
@@ -88,11 +89,7 @@ export default function TaskDetail() {
 
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
-        <Link to={`/tasks?project=${task.project_id}`}>
-          <ArrowLeft className="h-4 w-4" /> Task register
-        </Link>
-      </Button>
+      <LocationCrumbs project={project} phase={phase} location={location} task={task} />
 
       <PageHeader
         eyebrow={`${task.task_ref}${task.is_demo ? ' · DEMO RECORD' : ''}`}

@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useParams } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -41,9 +41,13 @@ const ContractorBoard = lazy(() => import('@/pages/ContractorBoard'));
 const Meetings = lazy(() => import('@/pages/Meetings'));
 const Handover = lazy(() => import('@/pages/Handover'));
 const SiteWide = lazy(() => import('@/pages/SiteWide'));
-const VillaExecution = lazy(() => import('@/pages/VillaExecution'));
 const AskDvgAi = lazy(() => import('@/pages/AskDvgAi'));
 const NeedsAttention = lazy(() => import('@/pages/NeedsAttention'));
+
+const ExecutionRedirect = () => {
+  const { locationId } = useParams();
+  return <Navigate to={`/locations/${locationId}?tab=overview`} replace />;
+};
 
 const PageFallback = () => (
   <div className="space-y-3 p-6" aria-busy="true">
@@ -97,7 +101,7 @@ const AuthenticatedApp = () => {
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/locations" element={<Locations />} />
           <Route path="/locations/:locationId" element={<LocationDetail />} />
-          <Route path="/locations/:locationId/execution" element={<VillaExecution />} />
+          <Route path="/locations/:locationId/execution" element={<ExecutionRedirect />} />
           <Route path="/daily" element={<DailyActivity />} />
           <Route path="/planning" element={<Planning />} />
           <Route path="/blockers" element={<BlockerBoard />} />
