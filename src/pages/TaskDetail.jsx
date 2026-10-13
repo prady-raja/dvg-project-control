@@ -20,6 +20,7 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import CompleteTaskChip from '@/components/tasks/CompleteTaskChip';
 import LocationCrumbs from '@/components/locations/LocationCrumbs';
 import TaskCommitments from '@/components/tasks/TaskCommitments';
 import ContactChip from '@/components/common/ContactChip';
@@ -119,6 +120,8 @@ export default function TaskDetail() {
           </>
         }
       />
+
+      <div className="mb-4"><CompleteTaskChip task={task} onSaved={load} /></div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Pill value={task.status} />

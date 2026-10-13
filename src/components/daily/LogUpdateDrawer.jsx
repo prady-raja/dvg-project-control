@@ -23,6 +23,7 @@ import PhotoUploader from '@/components/daily/PhotoUploader';
 import FloorRoomPicker from '@/components/villa/FloorRoomPicker';
 import { useVillaScope } from '@/components/villa/VillaScopePicker';
 import { cn } from '@/lib/utils';
+import CompleteTaskChip from '@/components/tasks/CompleteTaskChip';
 
 const EMPTY = { locationId: '', taskId: '', status: '', progress: '', note: '', photos: [], floor_id: '', area_ids: [] };
 const SITE_WIDE = '__site__';
@@ -343,6 +344,8 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
               <Step n={7} title="One line on what was done (optional)">
                 <Input value={form.note} onChange={(e) => set({ note: e.target.value })} placeholder="e.g. Second coat done in living room" />
               </Step>
+
+              {!correcting && task && <CompleteTaskChip task={task} compact onSaved={() => { data.get('Task', task.id).then((t) => t && setTasks((list) => list.map((x) => (x.id === t.id ? t : x)))).catch(() => {}); }} />}
             </>
           )}
 

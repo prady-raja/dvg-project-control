@@ -13,6 +13,7 @@ import * as serverViews from '../base44/shared/villaViews.ts';
 import * as serverImport from '../base44/shared/workImport.ts';
 import * as serverAttention from '../base44/shared/attention.ts';
 import * as serverCommitments from '../base44/shared/commitments.ts';
+import * as serverHealth from '../base44/shared/dataHealth.ts';
 import * as serverOwnerAccess from '../base44/shared/ownerAccess.ts';
 import * as serverSignoff from '../base44/shared/ownerSignoff.ts';
 
@@ -21,7 +22,7 @@ const servers = {
   'enums.ts': serverEnums, 'calendar.ts': serverCalendar, 'constraints.ts': serverConstraints,
   'attentionActions.ts': serverAttentionActions, 'assignees.ts': serverAssignees,
   'villaAreas.ts': serverAreas, 'drawingIntake.ts': serverDrawings, 'importChunks.ts': serverChunks,
-  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'ownerAccess.ts': serverOwnerAccess, 'ownerSignoff.ts': serverSignoff,
+  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'dataHealth.ts': serverHealth, 'ownerAccess.ts': serverOwnerAccess, 'ownerSignoff.ts': serverSignoff,
 };
 const nameOf = (path) => path.split('/').pop();
 
@@ -102,6 +103,10 @@ describe('copied functions give the same answers', () => {
     same('constraints.ts', 'chaseMessage', c, task);
     same('constraints.ts', 'whatsappLink', '+91 98765 43210', 'hi');
     same('constraints.ts', 'isPastDue', c, '2026-02-01');
+  });
+
+  it('data health', () => {
+    [{}, { assignee_user_id: 'u' }, { responsible_engineer: 'A', priority: 'High' }, { current_forecast_finish: '2026-01-01' }].forEach((t) => same('dataHealth.ts', 'missingFieldsOf', t));
   });
 
   it('commitment state', () => {
