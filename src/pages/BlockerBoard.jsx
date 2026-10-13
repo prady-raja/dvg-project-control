@@ -8,7 +8,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import BlockerTable from '@/components/blockers/BlockerTable';
 import BlockerOwnerGroups from '@/components/blockers/BlockerOwnerGroups';
@@ -19,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
 import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 6 — Blockers and dependency chains. */
 export default function BlockerBoard() {
@@ -71,7 +71,7 @@ export default function BlockerBoard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={ShieldAlert} title="No project yet" description="Blockers appear once you are a member of a project." />
+        <NoProjectState icon={ShieldAlert} description="Blockers appear once you are a member of a project." />
       </div>
     );
   }

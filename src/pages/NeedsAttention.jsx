@@ -281,6 +281,7 @@ export default function NeedsAttention() {
                 icon={ClipboardCheck}
                 title="Nothing flagged here"
                 description="Either the register is complete for this scope, or no tasks are outstanding yet."
+                action={<Button asChild variant="outline"><Link to="/import">Import work</Link></Button>}
               />
             ) : (
               <ul className="divide-y divide-border">

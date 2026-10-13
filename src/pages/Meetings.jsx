@@ -18,6 +18,7 @@ import AiPanel from '@/components/ai/AiPanel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 7 and Stage B / 13 — contractor meeting reports and commitments. */
 export default function Meetings() {
@@ -105,7 +106,7 @@ export default function Meetings() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={CalendarClock} title="No project yet" description="Meeting reports appear once you are a member of a project." />
+        <NoProjectState icon={CalendarClock} description="Meeting reports appear once you are a member of a project." />
       </div>
     );
   }

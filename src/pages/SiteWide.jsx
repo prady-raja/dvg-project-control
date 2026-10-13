@@ -7,12 +7,12 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import ActivityRows from '@/components/common/ActivityRows';
 import ProgressNote from '@/components/common/ProgressNote';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 9 — common infrastructure and site-wide works. */
 export default function SiteWide() {
@@ -59,7 +59,7 @@ export default function SiteWide() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={HardHat} title="No project yet" description="Site-wide works appear once you are a member of a project." />
+        <NoProjectState icon={HardHat} description="Site-wide works appear once you are a member of a project." />
       </div>
     );
   }

@@ -9,7 +9,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import ActivityRows from '@/components/common/ActivityRows';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import ForecastRevisionDialog from '@/components/planning/ForecastRevisionDialog';
@@ -19,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
 import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 5 — Daily and weekly planning. */
 const BUCKETS = [
@@ -98,7 +98,7 @@ export default function Planning() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={CalendarRange} title="No project yet" description="Planning appears once you are a member of a project." />
+        <NoProjectState icon={CalendarRange} description="Planning appears once you are a member of a project." />
       </div>
     );
   }

@@ -6,11 +6,11 @@ import { todayIst } from '@/lib/format';
 import PageHeader from '@/components/common/PageHeader';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import ContractorBoardCard from '@/components/contractors/ContractorBoardCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 4 — Contractor dashboard. */
 export default function ContractorBoard() {
@@ -62,7 +62,7 @@ export default function ContractorBoard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={HardHat} title="No project yet" description="Contractor performance appears once you are a member of a project." />
+        <NoProjectState icon={HardHat} description="Contractor performance appears once you are a member of a project." />
       </div>
     );
   }

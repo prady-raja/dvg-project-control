@@ -10,7 +10,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import Pill from '@/components/common/Pill';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import SnagList from '@/components/handover/SnagList';
@@ -19,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage A / 8 — handover and snagging. */
 export default function Handover() {
@@ -71,7 +71,7 @@ export default function Handover() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={ClipboardCheck} title="No project yet" description="Handover tracking appears once you are a member of a project." />
+        <NoProjectState icon={ClipboardCheck} description="Handover tracking appears once you are a member of a project." />
       </div>
     );
   }

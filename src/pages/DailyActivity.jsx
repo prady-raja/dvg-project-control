@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** What the site did on one day, project-wide, grouped by phase and then villa. */
 const SCOPES = ['All', 'Villa', 'Site-wide'];
@@ -131,11 +132,7 @@ export default function DailyActivity() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState
-          icon={CalendarDays}
-          title="No project yet"
-          description="Daily activity appears once you are a member of a project."
-        />
+        <NoProjectState icon={CalendarDays} description="Daily activity appears once you are a member of a project." />
       </div>
     );
   }
@@ -219,6 +216,7 @@ export default function DailyActivity() {
                   ? 'Use “Report update” to file the first site report for this day.'
                   : 'Site reports filed on this day will appear here.'
               }
+              action={canReport ? <Button onClick={() => quick.openLogUpdate({ date })}>Log the first update</Button> : null}
             />
           </div>
         ) : (

@@ -177,6 +177,7 @@ export default function LocationDetail() {
               icon={ClipboardList}
               title="No tasks for this villa yet"
               description="Create the first work item — project, phase and villa are pre-filled for you."
+              action={canEdit ? <Button onClick={() => navigate(`/tasks/new?location=${location.id}`)}>Create the first task</Button> : null}
             />
           </div>
         ) : (

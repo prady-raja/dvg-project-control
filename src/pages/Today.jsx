@@ -18,6 +18,7 @@ import BoardSection from '@/components/common/BoardSection';
 import { Button } from '@/components/ui/button';
 import { useQuickActions } from '@/components/layout/QuickActions';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
 
 const REASON_TONE = {
   overdue: 'border-red-300 bg-red-50 text-red-800',
@@ -84,7 +85,7 @@ export default function Today() {
   const { data, isLoading, error, refetch } = useDashboardQuery('myWork', params, { key: queryKeys.myWork(params), enabled: !!projectId });
 
   if (cat.loading) return <DataState loading />;
-  if (!cat.projects.length) return <DataState empty emptyIcon={Sun} emptyTitle="No project yet" emptyDescription="Today appears once you are a member of a project." />;
+  if (!cat.projects.length) return <NoProjectState icon={Sun} description="Today appears once you are a member of a project." />;
 
   const view = data;
   const counts = view?.counts || {};

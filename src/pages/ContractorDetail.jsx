@@ -136,6 +136,7 @@ export default function ContractorDetail() {
               icon={ClipboardList}
               title="No tasks assigned yet"
               description="Assign this contractor from a task, or add the default rule under Administration."
+              action={<Button variant="outline" onClick={() => navigate('/tasks')}>Open the task register</Button>}
             />
           </div>
         ) : (

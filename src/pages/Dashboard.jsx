@@ -9,7 +9,6 @@ import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import ProgressNote from '@/components/common/ProgressNote';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import PriorityList from '@/components/dashboard/PriorityList';
 import HeadlineTiles from '@/components/dashboard/HeadlineTiles';
@@ -21,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
 import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
 
 const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
 
@@ -102,11 +102,7 @@ export default function Dashboard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState
-          icon={LayoutDashboard}
-          title="No project yet"
-          description="The portfolio dashboard appears once you are a member of a project."
-        />
+        <NoProjectState icon={LayoutDashboard} description="The portfolio dashboard appears once you are a member of a project." />
       </div>
     );
   }

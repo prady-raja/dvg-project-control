@@ -4,11 +4,11 @@ import { aiAsk, aiDailyBrief, aiStatus, SUGGESTED_QUESTIONS } from '@/lib/aiServ
 import { todayIst } from '@/lib/format';
 import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
-import EmptyState from '@/components/common/EmptyState';
 import AiPanel from '@/components/ai/AiPanel';
 import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bot } from 'lucide-react';
+import NoProjectState from '@/components/common/NoProjectState';
 
 /** Stage B / 10 and 12 — Ask DVG AI and the daily management brief. */
 export default function AskDvgAi() {
@@ -33,7 +33,7 @@ export default function AskDvgAi() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={Bot} title="No project yet" description="The assistant can only read projects you are a member of." />
+        <NoProjectState icon={Bot} description="The assistant can only read projects you are a member of." />
       </div>
     );
   }

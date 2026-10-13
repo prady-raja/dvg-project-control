@@ -126,6 +126,7 @@ export default function Locations() {
             icon={MapPin}
             title="No villas or locations match"
             description="Adjust the filters above, or add a new villa or common-work location."
+            action={<Button onClick={() => { setEditing(null); setDialogOpen(true); }}>New location</Button>}
           />
         </div>
       ) : (
