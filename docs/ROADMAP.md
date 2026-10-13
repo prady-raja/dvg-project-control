@@ -111,8 +111,8 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | --- | --- | --- | --- | --- | --- |
 | [N-01](#n-01) | Navigation by role in 5 sections, with a tab bar on phones | MVP | M | High | Done (7112616) |
 | [N-02](#n-02) | 'Today' home screen built around my work | MVP | L | High | Done (7112616) |
-| [N-03](#n-03) | Shared project/phase selection and a desktop top bar | Phase 2 | M | High | Open |
-| [N-04](#n-04) | Filters in the URL, preset views and Copy link | Phase 2 | M | High | Open |
+| [N-03](#n-03) | Shared project/phase selection and a desktop top bar | Phase 2 | M | High | Done (bcc947a) |
+| [N-04](#n-04) | Filters in the URL, preset views and Copy link | Phase 2 | M | High | Done (bcc947a) |
 | [N-05](#n-05) | Command palette (Ctrl/Cmd+K) and keyboard shortcuts | Phase 2 | M | Medium | Open |
 
 ### Field capture
@@ -121,9 +121,9 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | --- | --- | --- | --- | --- | --- |
 | [F-01](#f-01) | One 'Log update' drawer replaces Quick update and Daily update | MVP | L | High | Done (7112616) |
 | [F-02](#f-02) | Block and Unblock as one action, with an owner, a due date and Blocker-board actions | MVP | M | High | Done (7112616, 699ca9d) |
-| [F-03](#f-03) | Daily site diary: headcount per contractor, weather, deliveries and incidents | Phase 2 | M | High | Open |
-| [F-04](#f-04) | 'Save & next' and a Villa Day Sheet | Phase 2 | L | High | Open |
-| [F-05](#f-05) | Photo captions, lightbox and markup | Phase 2 | M | Medium | Open |
+| [F-03](#f-03) | Daily site diary: headcount per contractor, weather, deliveries and incidents | Phase 2 | M | High | Done (3b9fae9) |
+| [F-04](#f-04) | 'Save & next' and a Villa Day Sheet | Phase 2 | L | High | Done (4eb5d06) |
+| [F-05](#f-05) | Photo captions, lightbox and markup | Phase 2 | M | Medium | Done (a3c0906) |
 | [F-06](#f-06) | 'My day' summary and share | Phase 2 | S | Medium | Open |
 | [F-07](#f-07) | Installable app with an offline read cache and an outbox | Phase 2 | L | High | Open |
 | [F-08](#f-08) | QR codes on villa and room doors | Future | S | Medium | Open |
@@ -152,7 +152,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [P-06](#p-06) | Progress from steps, quantities and weights | Phase 2 | L | High | Open |
 | [P-07](#p-07) | Villa milestone strip | Phase 2 | S | Medium | Open |
 | [P-08](#p-08) | Villa timeline and critical path | Future | L | Medium | Open |
-| [P-09](#p-09) | Owner access visits for handed-over villas | Phase 2 | M | High | Open |
+| [P-09](#p-09) | Owner access visits for handed-over villas | Phase 2 | M | High | Done (9c5d084) |
 
 ### Quality & snagging
 
@@ -165,16 +165,16 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [Q-05](#q-05) | Inspection checklists and hold points | Phase 2 | L | High | Open |
 | [Q-06](#q-06) | Snag types: quality, safety, housekeeping and owner-reported | Phase 2 | S | High | Open |
 | [Q-07](#q-07) | Handover readiness, handover checklist and pack | Phase 2 | M | Medium | Open |
-| [Q-08](#q-08) | Owner sign-off for works closed after possession | Phase 2 | S | Medium | Open |
+| [Q-08](#q-08) | Owner sign-off for works closed after possession | Phase 2 | S | Medium | Done (f36c34c) |
 
 ### Drawings & locations
 
 | Id | Item | Phase | Effort | Impact | Status |
 | --- | --- | --- | --- | --- | --- |
 | [L-01](#l-01) | Floors, rooms and drawings usable from start to finish | MVP | M | High | Done (276bbbf) |
-| [L-02](#l-02) | One page per location, with tabs and breadcrumbs | Phase 2 | M | High | Open |
+| [L-02](#l-02) | One page per location, with tabs and breadcrumbs | Phase 2 | M | High | Done (2ac874e) |
 | [L-03](#l-03) | Drawing register: current revision, who received it, linked tasks | Phase 2 | M | High | Open |
-| [L-04](#l-04) | Villa list with health at a glance and plot-ref search | Phase 2 | M | High | Open |
+| [L-04](#l-04) | Villa list with health at a glance and plot-ref search | Phase 2 | M | High | Done (e3264f7) |
 | [L-05](#l-05) | Document register for permits, test certificates, warranties and manuals | Phase 2 | S | Medium | Open |
 | [L-06](#l-06) | Villa photo timeline with before/after comparison | Phase 2 | M | Medium | Open |
 | [L-07](#l-07) | Pins on plans | Future | L | Medium | Open |
@@ -184,7 +184,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 
 | Id | Item | Phase | Effort | Impact | Status |
 | --- | --- | --- | --- | --- | --- |
-| [C-01](#c-01) | Commitments followed up everywhere | Phase 2 | S | High | Open |
+| [C-01](#c-01) | Commitments followed up everywhere | Phase 2 | S | High | Done (be655c9) |
 | [C-02](#c-02) | Connected contractor pages | Phase 2 | S | Medium | Open |
 | [C-03](#c-03) | Meeting record with fast entry of many commitments | Phase 2 | M | High | Open |
 | [C-04](#c-04) | Contractor scorecard and headcount trend | Phase 2 | M | High | Open |
@@ -197,8 +197,8 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [D-01](#d-01) | Owner dashboard: four headline numbers, a phase health strip and daily snapshots | MVP | M | High | Done (58ad626, d22417f) |
 | [D-02](#d-02) | Villa x discipline matrix with possession status and forecast completion | MVP | M | High | Done (d22417f) |
 | [D-03](#d-03) | Needs Attention you can act on | MVP | M | High | Done (9245eec) |
-| [D-04](#d-04) | Share and export from every board | Phase 2 | M | High | Open |
-| [D-05](#d-05) | Report coverage grid and team view | Phase 2 | S | High | Open |
+| [D-04](#d-04) | Share and export from every board | Phase 2 | M | High | Done (602d31c) |
+| [D-05](#d-05) | Report coverage grid and team view | Phase 2 | S | High | Done (737c103) |
 | [D-06](#d-06) | Trend charts: S-curve, burn-up, overdue and headcount trends | Phase 2 | M | High | Open |
 | [D-07](#d-07) | Weekly owner report | Phase 2 | M | High | Open |
 | [D-08](#d-08) | Villa pending-works statement for owner and handover conversations | MVP | S | High | Done (d22417f) |
@@ -211,7 +211,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [K-02](#k-02) | Reminders and digests on phones | Phase 2 | M | High | Open |
 | [K-03](#k-03) | Comments with @mentions and 'Seen' | Phase 2 | M | High | Open |
 | [K-04](#k-04) | One activity timeline, a full change trail and a project feed | Phase 2 | M | Medium | Open |
-| [K-05](#k-05) | One-tap call or WhatsApp to any contractor, person or owner | Phase 2 | S | High | Open |
+| [K-05](#k-05) | One-tap call or WhatsApp to any contractor, person or owner | Phase 2 | S | High | Done (602d31c) |
 
 ### AI assistant
 
@@ -226,7 +226,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | --- | --- | --- | --- | --- | --- |
 | [I-01](#i-01) | Import review: map columns, fix values in place, apply a fix to all rows | MVP | M | High | Done (0ed07ca) |
 | [I-02](#i-02) | Import history and one-click undo | MVP | M | High | Done (0ed07ca) |
-| [I-03](#i-03) | Excel round trip for bulk edits | Phase 2 | S | High | Open |
+| [I-03](#i-03) | Excel round trip for bulk edits | Phase 2 | S | High | Done (e7098ac) |
 
 ### Setup & admin
 
@@ -244,9 +244,9 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | Id | Item | Phase | Effort | Impact | Status |
 | --- | --- | --- | --- | --- | --- |
 | [U-01](#u-01) | One status language, defined once | MVP | S | High | Done (aa934a3) |
-| [U-02](#u-02) | Forms built for phones, with a toast and Undo on every save | Phase 2 | M | High | Open |
-| [U-03](#u-03) | Searchable selects and one confirmation dialog | Phase 2 | S | Medium | Open |
-| [U-04](#u-04) | Empty states that suggest the next step | Phase 2 | S | Medium | Open |
+| [U-02](#u-02) | Forms built for phones, with a toast and Undo on every save | Phase 2 | M | High | Done (787d03e) |
+| [U-03](#u-03) | Searchable selects and one confirmation dialog | Phase 2 | S | Medium | Done (787d03e) |
+| [U-04](#u-04) | Empty states that suggest the next step | Phase 2 | S | Medium | Done (95178da) |
 | [U-05](#u-05) | High-contrast site mode and dark mode | Phase 2 | S | Low | Open |
 | [U-06](#u-06) | Show only the actions each person can take | Phase 2 | S | Low | Open |
 
@@ -254,8 +254,8 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 
 | Id | Item | Phase | Effort | Impact | Status |
 | --- | --- | --- | --- | --- | --- |
-| [R-01](#r-01) | TanStack Query for every read and write, with one invokeFn | Phase 2 | M | High | Open |
-| [R-02](#r-02) | Load pages on demand and remove unused packages | Phase 2 | S | Medium | Open |
+| [R-01](#r-01) | TanStack Query for every read and write, with one invokeFn | Phase 2 | M | High | Partly (93ec269) |
+| [R-02](#r-02) | Load pages on demand and remove unused packages | Phase 2 | S | Medium | Done (910e56f) |
 | [R-03](#r-03) | Conflict checks and retry keys on writes | Phase 2 | M | High | Open |
 | [R-04](#r-04) | One scheduler function with named steps | Phase 2 | M | High | Open |
 | [R-05](#r-05) | Live updates with subscribe() | Future | S | Medium | Open |
