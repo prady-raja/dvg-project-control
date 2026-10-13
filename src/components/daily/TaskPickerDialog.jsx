@@ -16,7 +16,7 @@ const PAGE = 50;
  * Picks the task a report belongs to. Site-wide work has no villa, so the list
  * can be narrowed to the tasks that are not tied to one.
  */
-export default function TaskPickerDialog({ open, onOpenChange, projectId, locationId, onPick }) {
+export default function TaskPickerDialog({ open, onOpenChange, projectId, locationId, contractorId, onPick }) {
   const cat = useCatalogs();
   const [term, setTerm] = useState('');
   const [siteWideOnly, setSiteWideOnly] = useState(false);
@@ -49,6 +49,7 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
       const query = villa
         ? pickerQuery({ projectId, locationId: villa.id })
         : pickerQuery({ projectId, locationId, siteWideOnly, term: text });
+      if (contractorId) query.contractor_id = contractorId;
       try {
         const res = await base44.entities.Task.filter(query, { sort: '-created_date', limit: limit + 1 });
         if (!alive) return;
@@ -66,7 +67,7 @@ export default function TaskPickerDialog({ open, onOpenChange, projectId, locati
       alive = false;
       clearTimeout(timer);
     };
-  }, [open, projectId, locationId, siteWideOnly, term, limit, cat.locations]);
+  }, [open, projectId, locationId, contractorId, siteWideOnly, term, limit, cat.locations]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

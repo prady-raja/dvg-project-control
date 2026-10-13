@@ -14,6 +14,7 @@ import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.
 import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
 import { withLog } from '../../shared/log.ts';
+import { commitmentSummary } from '../../shared/commitments.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -29,7 +30,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const needsFor = (view) => ({
   updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
-  commitments: ['meeting', 'myWork'].includes(view),
+  commitments: ['meeting', 'myWork', 'executive'].includes(view),
   snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
@@ -193,7 +194,7 @@ async function handler(req) {
         });
       }
       default: {
-        const view = executiveView(common);
+        const view = { ...executiveView(common), commitments: commitmentSummary(data.commitments.filter((c) => (!scope.projectId || c.project_id === scope.projectId) && (!phaseId || c.phase_id === phaseId)), asOf) };
         // History starts being kept now: the day's snapshot is written lazily by the
         // first read after 23:30 IST, and the change since last week is read back.
         const db = makeDb({ entities: base44.asServiceRole.entities });

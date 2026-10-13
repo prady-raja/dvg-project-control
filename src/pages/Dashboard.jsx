@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { todayIst } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
@@ -54,6 +54,7 @@ function PriorityGroups({ rows }) {
 export default function Dashboard() {
   const cat = useCatalogs();
   const access = useAccess();
+  const navigate = useNavigate();
   const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
   const [date, setDate] = useUrlState('date', todayIst());
   const [includeDemo, setIncludeDemo] = useState(false);
@@ -224,6 +225,14 @@ export default function Dashboard() {
               <StatTile label="Awaiting verification" value={metrics.awaiting_verification ?? 0} tone="warning" onClick={() => open('awaiting_verification', 'Tasks awaiting verification', 'Execution complete or under inspection — awaiting a decision, not overdue.')} />
               <StatTile label="Approved — awaiting closure" value={metrics.awaiting_closure ?? 0} onClick={() => open('awaiting_closure', 'Approved tasks awaiting closure', 'Verified work that has not been closed on the register.')} />
               <StatTile label="Due within 7 days" value={metrics.due_within_7 ?? 0} onClick={() => open('due_7', 'Due within 7 days', 'Still to be executed and finishing within the next seven days.')} />
+              <StatTile
+                label="Commitments missed"
+                value={data.commitments?.missed ?? 0}
+                tone={data.commitments?.missed ? 'danger' : 'default'}
+                hint="Promised by a contractor, date passed, not yet confirmed"
+                onClick={() => navigate('/meetings')}
+              />
+              <StatTile label="Commitments due this week" value={data.commitments?.due_this_week ?? 0} onClick={() => navigate('/meetings')} />
               <StatTile label="Due within 14 days" value={metrics.due_within_14 ?? 0} onClick={() => open('due_14', 'Due within 14 days', 'Still to be executed and finishing within the next fourteen days.')} />
               <StatTile label="Unscheduled tasks" value={metrics.unscheduled_tasks ?? 0} tone={metrics.unscheduled_tasks ? 'warning' : 'default'} onClick={() => open('unscheduled', 'Unscheduled tasks', 'Outstanding work with neither a baseline nor a forecast finish date.')} />
               <StatTile label="Site-wide open works" value={metrics.site_wide_open ?? 0} onClick={() => open('site_wide', 'Site-wide open works', 'Common infrastructure and common-area work.')} />

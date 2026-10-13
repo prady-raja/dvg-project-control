@@ -20,6 +20,7 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import TaskCommitments from '@/components/tasks/TaskCommitments';
 import ContactChip from '@/components/common/ContactChip';
 
 const Section = ({ title, children }) => (
@@ -302,6 +303,8 @@ export default function TaskDetail() {
           emptyDescription="Every daily update filed against this task appears here as its own record."
         />
       </section>
+
+      <div className="mt-6"><TaskCommitments taskId={task.id} /></div>
 
       <div className="mt-5">
         <TaskHistoryPanel taskId={task.id} />

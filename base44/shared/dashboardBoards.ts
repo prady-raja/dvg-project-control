@@ -9,6 +9,7 @@
  */
 
 import { isPastDue } from './constraints.ts';
+import { withState } from './commitments.ts';
 import {
   compareFinish, daysBetween, dueWithin, isAwaitingClosure, isAwaitingVerification,
   isBlocked, isDemoTask, isExecuting, isOutstanding, isOverdue, isParentRow,
@@ -235,12 +236,13 @@ export function meetingReportView({ tasks, commitments = [], dependencies = [], 
     );
 
   const commitmentsForScope = commitments
+    .map((c) => withState(c, asOf))
     .filter((c) => !options.projectId || c.project_id === options.projectId)
     .filter((c) => !options.phaseId || c.phase_id === options.phaseId)
     .filter((c) => !options.contractorId || c.contractor_id === options.contractorId)
     .sort((a, b) => String(b.meeting_date).localeCompare(String(a.meeting_date)));
 
-  const openCommitments = commitmentsForScope.filter((c) => c.status === 'Open');
+  const openCommitments = commitmentsForScope.filter((c) => c.state === 'Open' || c.state === 'Missed');
   const unresolved = openCommitments.filter((c) => c.promised_date && c.promised_date < meetingDate);
 
   return {

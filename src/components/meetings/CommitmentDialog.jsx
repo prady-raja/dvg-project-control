@@ -103,6 +103,7 @@ export default function CommitmentDialog({ open, onOpenChange, projectId, phaseI
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         projectId={projectId}
+        contractorId={contractorId}
         onPick={(task) => {
           setPickerOpen(false);
           setForm((f) => ({ ...f, task_id: task.id, task_ref: task.task_ref }));

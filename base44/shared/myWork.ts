@@ -13,6 +13,7 @@ import {
 } from './dashboardCore.ts';
 import { attentionFor } from './attention.ts';
 import { normName } from './assignees.ts';
+import { commitmentState } from './commitments.ts';
 
 const sameName = (a, b) => !!normName(a) && normName(a) === normName(b);
 
@@ -114,14 +115,14 @@ export function myWorkView({
   /* ------------------------------------------------------------ commitments */
   const horizon = shiftDay(asOf, 7);
   const myCommitments = commitments
-    .filter((c) => c.status === 'Open' && c.promised_date && toDay(c.promised_date) <= horizon
+    .filter((c) => (c.status || 'Open') === 'Open' && c.promised_date && toDay(c.promised_date) <= horizon
       && (!options.projectId || c.project_id === options.projectId)
       && (all || c.responsible_user_id === me.id || (!c.responsible_user_id && sameName(c.responsible_person, me.name))))
     .map((c) => ({
       id: c.id, commitment: c.commitment, promised_date: toDay(c.promised_date), task_ref: c.task_ref || '',
       contractor: ix.contractorName(c.contractor_id), person: c.responsible_person || '',
       // Worked out on read, never stored: open and past its date is missed.
-      missed: toDay(c.promised_date) < asOf,
+      missed: commitmentState(c, asOf) === 'Missed',
     }))
     .sort((a, b) => a.promised_date.localeCompare(b.promised_date));
 
