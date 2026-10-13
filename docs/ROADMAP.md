@@ -161,7 +161,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [Q-01](#q-01) | Snag register page | Phase 2 | M | High | Open |
 | [Q-02](#q-02) | Snag workflow with rejection and photo evidence | Phase 2 | M | High | Open |
 | [Q-03](#q-03) | Raise snags from anywhere, and a snag walk mode | Phase 2 | M | High | Open |
-| [Q-04](#q-04) | Inspect a task: start inspection, approve, or reject for rework | Phase 2 | S | High | Open |
+| [Q-04](#q-04) | Inspect a task: start inspection, approve, or reject for rework | Phase 2 | S | High | Done (no photo yet) |
 | [Q-05](#q-05) | Inspection checklists and hold points | Phase 2 | L | High | Open |
 | [Q-06](#q-06) | Snag types: quality, safety, housekeeping and owner-reported | Phase 2 | S | High | Open |
 | [Q-07](#q-07) | Handover readiness, handover checklist and pack | Phase 2 | M | Medium | Open |

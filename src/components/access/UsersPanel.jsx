@@ -113,7 +113,7 @@ export default function UsersPanel({ users, memberships, projects, onChanged }) 
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         projects={projects}
-        defaultProjectId={projects.find((p) => /imagine/i.test(p.name || ''))?.id || projects[0]?.id}
+        defaultProjectId={projects[0]?.id}
         onInvited={onChanged}
       />
     </section>

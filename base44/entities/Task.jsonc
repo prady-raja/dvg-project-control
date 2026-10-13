@@ -232,6 +232,9 @@
       ],
       "default": "No"
     },
+    "rejection_count": { "type": "number", "default": 0, "description": "Times inspection sent this work back for rework (Q-04)" },
+    "last_rejection_category": { "type": "string", "enum": ["Workmanship", "Incomplete", "Wrong material", "Not to drawing", "Other"] },
+    "last_rejection_reason": { "type": "string", "description": "What had to be redone, from the latest rejection" },
     "owner_ack_name": { "type": "string", "description": "The villa owner who accepted this item (Q-08)" },
     "owner_ack_date": { "type": "string", "format": "date" },
     "owner_ack_method": { "type": "string", "enum": ["Signed sheet (photo)", "WhatsApp confirmation (screenshot)", "Told to the engineer"] },

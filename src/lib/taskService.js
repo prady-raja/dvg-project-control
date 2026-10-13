@@ -15,9 +15,9 @@ export async function createTask(payload) {
 }
 
 export async function updateTask(id, changes, options = {}) {
-  // The owner's acknowledgement travels beside the change, not inside it (Q-08).
-  const { owner_ack: ownerAck, ...rest } = changes;
-  const data = await invoke('taskWrite', { action: 'update', id, changes: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
+  // The owner's acknowledgement (Q-08) and a rejection for rework (Q-04) travel beside the change, not inside it.
+  const { owner_ack: ownerAck, rejection, ...rest } = changes;
+  const data = await invoke('taskWrite', { action: 'update', id, changes: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}), ...(rejection ? { rejection } : {}) });
   return data.task || null;
 }
 
