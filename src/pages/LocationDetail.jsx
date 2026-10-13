@@ -13,6 +13,7 @@ import TaskCard from '@/components/tasks/TaskCard';
 import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
 import LocationCrumbs from '@/components/locations/LocationCrumbs';
+import OwnerAccessSheet from '@/components/villa/OwnerAccessSheet';
 import SnagsTab from '@/components/locations/SnagsTab';
 import VillaExecution from '@/pages/VillaExecution';
 import { useUrlState } from '@/lib/useUrlFilters';
@@ -98,7 +99,7 @@ export default function LocationDetail() {
 
   const canEdit = access.can(location.project_id, 'edit_tasks');
   const canManage = access.can(location.project_id, 'manage_project');
-  const tabList = [['overview', 'Overview'], ['tasks', 'Tasks'], ['daily', 'Daily'], ...(location.location_type === 'Villa' ? [['snags', 'Snags'], ['drawings', 'Drawings'], ['rooms', 'Floors & rooms']] : [])];
+  const tabList = [['overview', 'Overview'], ['tasks', 'Tasks'], ['daily', 'Daily'], ...(location.location_type === 'Villa' ? [['snags', 'Snags'], ['drawings', 'Drawings'], ['rooms', 'Floors & rooms'], ...(location.possession_status === 'Handed Over' ? [['access', 'Owner access']] : [])] : [])];
 
   return (
     <>
@@ -244,6 +245,7 @@ export default function LocationDetail() {
         )}
         {tab === 'snags' && location.location_type === 'Villa' && <SnagsTab location={location} canEdit={canEdit} />}
         {tab === 'drawings' && location.location_type === 'Villa' && <DrawingRegister location={location} canManage={canManage} />}
+        {tab === 'access' && location.location_type === 'Villa' && <OwnerAccessSheet location={location} canEdit={canEdit} />}
         {tab === 'rooms' && location.location_type === 'Villa' && <VillaScopePanel location={location} canManage={canManage} />}
       </div>
 

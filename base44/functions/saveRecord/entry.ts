@@ -37,7 +37,7 @@ const FIELDS = {
     'project_id', 'phase_id', 'villa_code', 'location_type', 'plot_numbers',
     'possession_status', 'possession_date', 'works_stage', 'active_status',
     'planned_completion_date', 'assigned_engineer', 'assigned_engineer_user_id', 'sort_order', 'notes',
-    'on_hold_reason', 'on_hold_since', 'villa_type',
+    'on_hold_reason', 'on_hold_since', 'villa_type', 'owner_name', 'owner_phone', 'occupancy', 'access_notes',
   ],
   WorkPackage: ['project_id', 'discipline', 'package_name', 'sort_order', 'active', 'notes'],
   ContractorDefault: ['project_id', 'phase_id', 'discipline', 'contractor_id', 'active', 'notes'],

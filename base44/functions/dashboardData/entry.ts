@@ -36,6 +36,7 @@ const needsFor = (view) => ({
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
   dismissals: ['attention', 'counts'].includes(view),
+  visits: ['myWork'].includes(view),
 });
 
 async function handler(req) {
@@ -152,7 +153,7 @@ async function handler(req) {
           ...header,
           ...myWorkView({
             ...common, locations: data.locations, commitments: data.commitments, snags: data.snags, updates: data.updates,
-            proposals: data.proposals, user, options: { ...options, allVillas: body?.allVillas === true },
+            proposals: data.proposals, visits: data.visits, user, options: { ...options, allVillas: body?.allVillas === true },
           }),
         });
       case 'counts':

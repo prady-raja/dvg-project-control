@@ -13,13 +13,14 @@ import * as serverViews from '../base44/shared/villaViews.ts';
 import * as serverImport from '../base44/shared/workImport.ts';
 import * as serverAttention from '../base44/shared/attention.ts';
 import * as serverCommitments from '../base44/shared/commitments.ts';
+import * as serverOwnerAccess from '../base44/shared/ownerAccess.ts';
 
 const copies = import.meta.glob('../src/lib/shared/*.ts', { eager: true });
 const servers = {
   'enums.ts': serverEnums, 'calendar.ts': serverCalendar, 'constraints.ts': serverConstraints,
   'attentionActions.ts': serverAttentionActions, 'assignees.ts': serverAssignees,
   'villaAreas.ts': serverAreas, 'drawingIntake.ts': serverDrawings, 'importChunks.ts': serverChunks,
-  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments,
+  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'ownerAccess.ts': serverOwnerAccess,
 };
 const nameOf = (path) => path.split('/').pop();
 
@@ -106,6 +107,13 @@ describe('copied functions give the same answers', () => {
     const c = { status: 'Open', promised_date: '2026-03-01' };
     ['2026-02-28', '2026-03-01', '2026-03-02'].forEach((d) => same('commitments.ts', 'commitmentState', c, d));
     same('commitments.ts', 'commitmentSummary', [c, { status: 'Fulfilled', promised_date: '2026-01-01' }], '2026-03-02');
+  });
+
+  it('owner access', () => {
+    const visit = { status: 'Confirmed', visit_date: '2026-03-12', window_start: '10:00', window_end: '17:00' };
+    same('ownerAccess.ts', 'accessLine', visit);
+    same('ownerAccess.ts', 'accessLine', { ...visit, status: 'Requested' });
+    same('ownerAccess.ts', 'tasksNeedingAccess', [{ id: '1', location_id: 'v', status: 'In Progress', access_status: 'Pending' }, { id: '2', location_id: 'v', status: 'Closed', access_status: 'Pending' }], 'v');
   });
 
   it('dismissals', () => {

@@ -200,6 +200,19 @@ export default function Today() {
               </BoardSection>
             )}
 
+            {(view.access_visits || []).length > 0 && (
+              <BoardSection title="Owner access booked" description="Visits to handed-over villas in the next two weeks." dense>
+                <ul className="divide-y divide-border">
+                  {view.access_visits.map((v) => (
+                    <li key={v.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                      <Link to={`/locations/${v.location_id}?tab=access`} className="hover:underline"><span className="field-mono font-semibold">{v.villa}</span> · {v.tasks} work{v.tasks === 1 ? '' : 's'}</Link>
+                      <span className="shrink-0 text-xs text-muted-foreground">{v.line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </BoardSection>
+            )}
+
             {view.snags.length > 0 && (
               <BoardSection title="Snags to re-inspect" description="Marked fixed — waiting for you to check." dense>
                 <ul className="divide-y divide-border">
