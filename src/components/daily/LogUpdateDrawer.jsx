@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, Loader2 } from 'lucide-react';
 import { data } from '@/api/data';
@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { todayIst } from '@/lib/format';
-import { submitDailyUpdate, voidDailyUpdate } from '@/lib/dailyService';
+import { newRequestId, submitDailyUpdate, voidDailyUpdate } from '@/lib/dailyService';
 import {
   PROGRESS_CHIPS, photoMetaOf, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
 } from '@/lib/logUpdate';
@@ -67,6 +67,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
   const [search, setSearch] = useState('');
   const [busyPhoto, setBusyPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
+  const requestId = useRef(newRequestId());
   const [error, setError] = useState('');
   const [restored, setRestored] = useState(false);
   const [recent, setRecent] = useState([]);
@@ -161,6 +162,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         villaScope.floors.find((f) => f.id === form.floor_id) || null,
       );
       const result = await submitDailyUpdate({
+        client_request_id: requestId.current,
         task_id: task.id,
         update_date: reportDate,
         ...(correcting ? {
@@ -175,6 +177,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         photo_uris: form.photos.map((p) => p.file_uri),
         ...photoMetaOf(form.photos),
       });
+      requestId.current = newRequestId();
       if (form.locationId && form.locationId !== SITE_WIDE) rememberVilla(form.locationId);
       clearDraft();
       const reportId = result?.update?.id;

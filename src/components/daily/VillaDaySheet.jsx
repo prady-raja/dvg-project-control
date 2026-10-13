@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Minus, Plus } from 'lucide-react';
 import { data } from '@/api/data';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { daySheetRows, orderTasks, statusChips } from '@/lib/logUpdate';
-import { submitDailyBatch } from '@/lib/dailyService';
+import { newRequestId, submitDailyBatch } from '@/lib/dailyService';
 import { REPORTABLE_STATUSES } from '@/lib/taskForm';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ export default function VillaDaySheet({ open, onOpenChange, locationId, date, on
   const [diary, setDiary] = useState(null);
   const [state, setState] = useState({ loading: true, error: '' });
   const [saving, setSaving] = useState(false);
+  const batchId = useRef(newRequestId());
   const [failed, setFailed] = useState({});
 
   const load = useCallback(async () => {
@@ -64,7 +65,7 @@ export default function VillaDaySheet({ open, onOpenChange, locationId, date, on
     setFailed({});
     try {
       if (rows.length) {
-        const out = await submitDailyBatch({ updateDate: date, rows });
+        const out = await submitDailyBatch({ updateDate: date, rows: rows.map((r) => ({ ...r, client_request_id: `${batchId.current}:${r.task_id}` })) });
         const bad = Object.fromEntries((out.results || []).filter((r) => !r.ok).map((r) => [r.client_ref, r.error]));
         setFailed(bad);
         if (out.failed) {
@@ -79,6 +80,7 @@ export default function VillaDaySheet({ open, onOpenChange, locationId, date, on
         const labour = [...(diary?.labour || []).filter((l) => !crewRows.some((c) => c.contractor_id === l.contractor_id)), ...crewRows.map((c) => ({ contractor_id: c.contractor_id, contractor_name: c.contractor_name, heads: Number(c.heads), villa_ids: [locationId] }))];
         await data.invoke('siteDiary', { action: 'save', project_id: location.project_id, diary_date: date, ...(diary || {}), labour });
       }
+      batchId.current = newRequestId();
       toast({ description: `${rows.length} task${rows.length === 1 ? '' : 's'} saved${crewRows.length ? ' and the crews added to the site diary' : ''}.` });
       onSaved?.();
       onOpenChange(false);

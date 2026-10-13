@@ -28,6 +28,7 @@ import { clearOpenConstraints } from '../../shared/constraints.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { ackInput, needsAck } from '../../shared/ownerSignoff.ts';
+import { approvalHold, staleProblem } from '../../shared/approvalHold.ts';
 import { REJECTABLE_FROM, reworkInput, reworkPatch } from '../../shared/rework.ts';
 
 /**
@@ -191,6 +192,9 @@ async function handler(req) {
         );
       }
 
+      const stale = staleProblem(task, body?.expected_version);
+      if (stale) throw fail(stale, 409);
+
       const members = await activeMembers(base44, task.project_id);
       const memberIds = memberIdsOf(members);
 
@@ -255,6 +259,17 @@ async function handler(req) {
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 
+      // Failed inspections are dealt with before work is approved or closed.
+      if (entries.some((e) => e.field_changed === 'status' && ['Approved', 'Closed'].includes(String(e.new_value)))) {
+        const [checklists, snags] = await Promise.all([
+          svc.InspectionChecklist.filter({ task_id: task.id }, { limit: 200 }),
+          svc.Snag.filter({ task_id: task.id }, { limit: 200 }),
+        ]);
+        const hold = approvalHold({ task, checklists: listAll(checklists), snags: listAll(snags) });
+        if (hold) throw fail(hold, 409);
+      }
+
+
       // Closing work in a handed-over villa carries the owner's acknowledgement (Q-08).
       let ack = null;
       if (entries.some((e) => e.field_changed === 'status' && e.new_value === 'Closed')) {
@@ -284,7 +299,8 @@ async function handler(req) {
         patch[entry.field_changed] = entry.new_value;
       });
       if (ack) Object.assign(patch, ack);
-      if (rework) Object.assign(patch, reworkPatch(task, rework));
+      if (rework) Object.assign(patch, reworkPatch(task, rework), { rework_pending: true });
+      if (patch.status === 'Under Inspection') patch.rework_pending = false;
 
       // Server-owned stamps, and the separation of duties, travel with the change.
       const effects = deriveTaskEffects({ task, entries, user });

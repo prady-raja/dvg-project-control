@@ -7,6 +7,9 @@ import { invokeFn } from '@/lib/invokeFn';
  */
 export const submitDailyUpdate = (payload) => invokeFn('dailyUpdate', payload, 'The update was refused.');
 
+/** A fresh retry key. Held by a form until its save succeeds, so a repeat tap or a resend after a lost reply files one report. */
+export const newRequestId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`);
+
 /** Take back your own report of today. The server puts the task back as it was, if nothing else has changed it since. */
 export async function voidDailyUpdate(reportId) {
   return submitDailyUpdate({ action: 'void', report_id: reportId });

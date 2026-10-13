@@ -42,7 +42,7 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
     setBusy(label);
     setError('');
     try {
-      await updateTask(task.id, { status, ...(ownerAck ? { owner_ack: ownerAck } : {}), ...(rejection ? { rejection } : {}) });
+      await updateTask(task.id, { expected_version: task.updated_date, status, ...(ownerAck ? { owner_ack: ownerAck } : {}), ...(rejection ? { rejection } : {}) });
       onChanged?.();
     } catch (e) {
       setError(e?.message || 'The change was refused.');

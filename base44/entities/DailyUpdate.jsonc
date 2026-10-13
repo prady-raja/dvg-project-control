@@ -148,6 +148,7 @@
     },
     "prev_latest_report_date": { "type": "string", "format": "date" },
     "history_only": { "type": "boolean", "default": false },
+    "client_request_id": { "type": "string", "description": "Retry key from the phone: the same key from the same person never files a second report" },
     "voided": { "type": "boolean", "default": false, "description": "Taken back by its author; kept on record but ignored by every figure" },
     "voided_at": { "type": "string", "format": "date-time" },
     "voided_by_name": { "type": "string" },
