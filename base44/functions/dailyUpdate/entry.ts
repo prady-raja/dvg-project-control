@@ -47,7 +47,47 @@ const text = (value, max = MAX_TEXT) => {
   return cleaned ? cleaned.slice(0, max) : null;
 };
 
+/**
+ * Takes back one of your own reports of today: the task is put back as it was (if
+ * nothing has changed it since), open blocker records close, and the report stays
+ * on record marked voided. Returns what is needed to restore it.
+ */
+async function voidReport(base44, svc, user, reportId) {
+  const original = await getOne(svc.DailyUpdate, reportId);
+  const original_task = original ? await getOne(svc.Task, original.task_id) : null;
+  const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
+  if (plan.error) throw fail(plan.error, 400);
+  const when = new Date().toISOString();
+  if (plan.patch && original_task) {
+    const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
+    await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
+    await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
+    await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
+      task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
+      field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
+      new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
+      changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
+      note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
+    })));
+  }
+  await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
+  return { original, original_task, plan };
+}
+
+/** Undoes voidReport after a failed replacement: the report counts again and the task fields return. */
+async function restoreVoided(svc, taken) {
+  const { original, original_task, plan } = taken;
+  if (plan.patch && original_task) {
+    const back = {};
+    Object.keys(plan.patch).forEach((field) => { back[field] = original_task[field] === undefined ? null : original_task[field]; });
+    await svc.Task.update(original_task.id, back);
+  }
+  await svc.DailyUpdate.update(original.id, { voided: false, voided_at: null, voided_by_name: null });
+}
+
 async function handler(req) {
+  let taken = null;
+  let restoreWith = null;
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -58,28 +98,15 @@ async function handler(req) {
 
     /* ------------------------------------------- taking back your own report today */
     if (body?.action === 'void') {
-      const original = await getOne(svc.DailyUpdate, String(body?.report_id || ''));
-      const original_task = original ? await getOne(svc.Task, original.task_id) : null;
-      const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
-      if (plan.error) throw fail(plan.error, 400);
-      const when = new Date().toISOString();
-      if (plan.patch && original_task) {
-        const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
-        await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
-        await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
-        await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
-          task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
-          field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
-          new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
-          changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
-          note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
-        })));
-      }
-      await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
+      const { original } = await voidReport(base44, svc, user, String(body?.report_id || ''));
       return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
     }
 
-    const task = await getOne(svc.Task, String(body?.task_id || ''));
+    // A correction: the original is taken back only once the replacement has passed
+    // its checks, and put back exactly as it was if the replacement then fails.
+    const replacesId = String(body?.replaces_report_id || '');
+
+    let task = await getOne(svc.Task, String(body?.task_id || ''));
     if (!task) throw fail('That task no longer exists.', 404);
     const targetProblem = reportTargetProblem(task);
     if (targetProblem) throw fail(targetProblem);
@@ -151,6 +178,15 @@ async function handler(req) {
       .map((uri) => uri.trim().slice(0, 500));
     if (photoUris.length > MAX_REPORT_PHOTOS) {
       throw fail(`A report holds at most ${MAX_REPORT_PHOTOS} photos. Remove ${photoUris.length - MAX_REPORT_PHOTOS} and save again.`);
+    }
+
+    if (replacesId) {
+      const original = await getOne(svc.DailyUpdate, replacesId);
+      if (!original || original.task_id !== task.id) throw fail('That report is not for this task.', 400);
+      taken = await voidReport(base44, svc, user, replacesId);
+      restoreWith = svc;
+      // The task is read again: the original report no longer counts.
+      task = await getOne(svc.Task, task.id);
     }
 
     // The newest report already applied decides whether this one moves the task.
@@ -338,6 +374,10 @@ async function handler(req) {
         : '',
     });
   } catch (error) {
+    if (taken && restoreWith) {
+      // The replacement failed after the original was taken back: put the original back.
+      await restoreVoided(restoreWith, taken).catch(() => {});
+    }
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }

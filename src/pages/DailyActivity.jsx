@@ -148,7 +148,7 @@ export default function DailyActivity() {
         description="Everything reported on site for one day, villa by villa, with site-wide works alongside."
         actions={
           canReport && (
-            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({})}>
+            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ date })}>
               <Plus className="h-4 w-4" /> Report update
             </Button>
           )

@@ -6,9 +6,7 @@ import PhotoStrip from '@/components/daily/PhotoStrip';
 import { formatDate, formatDateTime, todayIst } from '@/lib/format';
 import { useAuth } from '@/lib/AuthContext';
 import { useQuickActions } from '@/components/layout/QuickActions';
-import { voidDailyUpdate } from '@/lib/dailyService';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
 
 const show = (value) => (value === null || value === undefined || value === '' ? null : String(value));
 
@@ -18,20 +16,28 @@ export default function DailyUpdateCard({ update, hideVilla = false }) {
   const forecastMoved = update.forecast_previous && update.forecast_new;
   const { user } = useAuth();
   const quick = useQuickActions();
-  const { toast } = useToast();
-  // Your own report of today can be corrected: it is taken back and the form reopens with its values.
-  const canCorrect = !update.voided && user?.id && update.reported_by_id === user.id && update.update_date === todayIst() && update.task_id;
+  // Your own report of today can be corrected: the form reopens with its values, and the
+  // original is replaced only when the corrected one is saved. Cancelling changes nothing.
+  // A report that raised a blocker is undone instead, so its blocker record is not lost.
+  const canCorrect = !update.voided && !update.blocker_reported && user?.id && update.reported_by_id === user.id && update.update_date === todayIst() && update.task_id;
 
-  const correct = async () => {
-    try {
-      await voidDailyUpdate(update.id);
-      quick.openLogUpdate({
-        taskId: update.task_id,
-        prefill: { status: update.status, progress: update.progress_percent ?? '', note: update.work_done || '' },
-      });
-    } catch (e) {
-      toast({ description: e?.message || 'That report could not be corrected.', variant: 'destructive' });
-    }
+  const correct = () => {
+    quick.openLogUpdate({
+      taskId: update.task_id,
+      date: update.update_date,
+      prefill: {
+        status: update.status,
+        progress: update.progress_percent ?? '',
+        note: update.work_done || '',
+        photos: (update.photo_uris || []).map((file_uri) => ({ file_uri })),
+      },
+      correcting: {
+        reportId: update.id,
+        manpower_items: update.manpower_items || [],
+        plan_tomorrow: update.plan_tomorrow || '',
+        site_area: update.site_area || '',
+      },
+    });
   };
 
   return (

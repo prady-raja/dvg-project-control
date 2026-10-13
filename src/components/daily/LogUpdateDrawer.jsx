@@ -70,6 +70,11 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
   const [restored, setRestored] = useState(false);
   const [recent, setRecent] = useState([]);
 
+  // The day being reported, and — when correcting — the report this one replaces.
+  const reportDate = scope?.date || todayIst();
+  const correcting = scope?.correcting || null;
+  const backdated = reportDate !== todayIst();
+
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const task = tasks.find((t) => t.id === form.taskId) || null;
   const location = form.locationId && form.locationId !== SITE_WIDE ? cat.locationById(form.locationId) : null;
@@ -82,7 +87,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     setError('');
     setSearch('');
     setRecent(loadRecentVillas());
-    const draft = loadDraft();
+    const draft = scope?.correcting ? null : loadDraft();
     if (scope?.taskId) {
       setRestored(false);
       data.get('Task', scope.taskId).then((t) => {
@@ -124,8 +129,8 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
 
   /* ----------------------------------------------- an unsent draft is kept */
   useEffect(() => {
-    if (open && (form.taskId || form.note || form.photos.length)) saveDraft(form);
-  }, [open, form]);
+    if (open && !correcting && (form.taskId || form.note || form.photos.length)) saveDraft(form);
+  }, [open, form, correcting]);
 
   const pickTask = (t) => set({ taskId: t.id, status: t.status, progress: t.progress_percent ?? '', floor_id: '', area_ids: [] });
 
@@ -156,11 +161,16 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
       );
       const result = await submitDailyUpdate({
         task_id: task.id,
-        update_date: todayIst(),
+        update_date: reportDate,
+        ...(correcting ? {
+          replaces_report_id: correcting.reportId,
+          manpower_items: correcting.manpower_items,
+          plan_tomorrow: correcting.plan_tomorrow || undefined,
+        } : {}),
         status: form.status || task.status,
         progress_percent: form.progress === '' ? undefined : Number(form.progress),
         work_done: form.note,
-        site_area: siteArea || undefined,
+        site_area: siteArea || correcting?.site_area || undefined,
         photo_uris: form.photos.map((p) => p.file_uri),
       });
       if (form.locationId && form.locationId !== SITE_WIDE) rememberVilla(form.locationId);
@@ -192,7 +202,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     } finally {
       setSaving(false);
     }
-  }, [task, form, villaScope, toast, onSaved, onOpenChange]);
+  }, [task, form, villaScope, toast, onSaved, onOpenChange, reportDate, correcting]);
 
   const discard = () => { clearDraft(); setForm(EMPTY); setRestored(false); };
 
@@ -200,7 +210,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[92vh]">
         <DrawerHeader className="text-left">
-          <DrawerTitle>Log update</DrawerTitle>
+          <DrawerTitle>{correcting ? 'Correct report' : 'Log update'}</DrawerTitle>
           <DrawerDescription>
             {task ? `${task.task_ref} · ${task.name}` : 'Villa, task, status, progress, photo.'}
           </DrawerDescription>
@@ -211,6 +221,17 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
             <p className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
               Your unsent update was kept.
               <button type="button" className="font-medium underline" onClick={discard}>Start again</button>
+            </p>
+          )}
+
+          {correcting && (
+            <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
+              You are correcting a report. The original stays in place until you save; closing this changes nothing.
+            </p>
+          )}
+          {backdated && !correcting && (
+            <p className="rounded-lg border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 px-3 py-2 text-xs">
+              This report will be dated <span className="font-medium">{reportDate}</span>, the day you are viewing — not today.
             </p>
           )}
 
