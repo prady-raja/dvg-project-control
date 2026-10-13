@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useSignedUrls } from '@/lib/useSignedUrls';
 import ContactChip from '@/components/common/ContactChip';
+import PhotoLightbox from '@/components/common/PhotoLightbox';
 
 /**
  * The snag register. A snag never changes a task by itself: closing it is its
@@ -14,19 +15,23 @@ import ContactChip from '@/components/common/ContactChip';
 const THUMBS = 3;
 
 /** A few small photos on the card, signed lazily; the rest stay one tap away on the snag. */
-function SnagThumbs({ uris }) {
-  const shown = (uris || []).slice(0, THUMBS);
+function SnagThumbs({ uris, captions = {} }) {
+  const [viewing, setViewing] = React.useState(null);
+  const all = uris || [];
+  const shown = all.slice(0, THUMBS);
   const { urls } = useSignedUrls(shown);
   if (!shown.length) return null;
   return (
     <div className="mt-2 flex gap-2">
-      {shown.map((uri) => (urls[uri] ? (
-        <a key={uri} href={urls[uri]} target="_blank" rel="noreferrer">
-          <img src={urls[uri]} alt="Snag" loading="lazy" className="h-14 w-14 rounded-md border border-border object-cover" />
-        </a>
+      {shown.map((uri, i) => (urls[uri] ? (
+        <button key={uri} type="button" onClick={() => setViewing(i)} aria-label={`Open photo ${i + 1}${captions[uri] ? `: ${captions[uri]}` : ''}`}>
+          <img src={urls[uri]} alt={captions[uri] || 'Snag'} loading="lazy" className="h-14 w-14 rounded-md border border-border object-cover" />
+        </button>
       ) : (
         <span key={uri} className="h-14 w-14 rounded-md border border-dashed border-border" />
       )))}
+      {all.length > THUMBS && <span className="self-center text-xs text-muted-foreground">+{all.length - THUMBS} more</span>}
+      <PhotoLightbox open={viewing !== null} onOpenChange={(v) => !v && setViewing(null)} uris={all} captions={captions} startIndex={viewing || 0} />
     </div>
   );
 }
@@ -65,7 +70,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
             {row.reinspection_date ? ` · reinspection ${formatDate(row.reinspection_date)}` : ''}
             {(row.photo_uris || []).length ? ` · ${row.photo_uris.length} photo(s) on file` : ' · no photographs'}
           </p>
-          <SnagThumbs uris={row.photo_uris} />
+          <SnagThumbs uris={row.photo_uris} captions={row.photo_captions || {}} />
           {canEdit && row.status !== 'Closed' && (
             <div className="mt-3 flex flex-wrap gap-2">
               {row.status === 'Open' && (

@@ -16,6 +16,7 @@ import { projectSettings } from '../../shared/calendar.ts';
 import { delayCategoryFor } from '../../shared/delay.ts';
 import { appliedChanges, planVoid } from '../../shared/reportVoid.ts';
 import { clearOpenConstraints } from '../../shared/constraints.ts';
+import { cleanPhotoMeta } from '../../shared/photoMeta.ts';
 
 /**
  * The only path that records site work.
@@ -297,6 +298,7 @@ async function submitReport(base44, svc, user, body) {
       forecast_new: forecastEntry ? forecastEntry.new_value : null,
       date_revision_reason: forecastEntry ? revisionReason : null,
       photo_uris: photoUris,
+      ...cleanPhotoMeta(photoUris, body?.photo_captions, body?.photo_originals),
       applied: appliedChanges({ entries, effectsPatch: effects.patch, task }),
       prev_latest_report_date: task.latest_report_date || null,
       history_only: historyOnly,

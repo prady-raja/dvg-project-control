@@ -8,7 +8,7 @@ import { errorMessageOf } from '@/lib/clientErrors';
 import { todayIst } from '@/lib/format';
 import { submitDailyUpdate, voidDailyUpdate } from '@/lib/dailyService';
 import {
-  PROGRESS_CHIPS, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
+  PROGRESS_CHIPS, photoMetaOf, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
 } from '@/lib/logUpdate';
 import { REPORTABLE_STATUSES } from '@/lib/taskForm';
 import { areaLabelFor } from '@/lib/shared/villaAreas.ts';
@@ -172,6 +172,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         work_done: form.note,
         site_area: siteArea || correcting?.site_area || undefined,
         photo_uris: form.photos.map((p) => p.file_uri),
+        ...photoMetaOf(form.photos),
       });
       if (form.locationId && form.locationId !== SITE_WIDE) rememberVilla(form.locationId);
       clearDraft();

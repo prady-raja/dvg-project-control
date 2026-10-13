@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import PhotoUploader from '@/components/daily/PhotoUploader';
 import { createSnag } from '@/lib/snagService';
 import VillaScopePicker from '@/components/villa/VillaScopePicker';
+import { photoMetaOf } from '@/lib/logUpdate';
 
 const SEVERITIES = ['Minor', 'Major', 'Critical'];
 
@@ -62,6 +63,7 @@ export default function SnagDialog({ open, onOpenChange, projectId, phaseId, loc
         target_date: form.target_date || null,
         handover_blocker: !!form.handover_blocker,
         photo_uris: photos.map((photo) => photo.file_uri),
+        ...photoMetaOf(photos),
       });
       onSaved();
     } catch (e) {

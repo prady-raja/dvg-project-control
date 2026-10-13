@@ -74,7 +74,7 @@ export const draftFrom = (form, now = Date.now()) => ({
   siteArea: form.siteArea || '',
   floor_id: form.floor_id || '',
   area_ids: form.area_ids || [],
-  photos: (form.photos || []).map((p) => ({ file_uri: p.file_uri })),
+  photos: (form.photos || []).map((p) => ({ file_uri: p.file_uri, caption: p.caption || '', original_uri: p.original_uri || '' })),
 });
 
 /** A draft is worth restoring only when it has a task or something typed, and is recent. */
@@ -120,4 +120,15 @@ export function daySheetRows(edits, tasks) {
       ...(edit.progress === undefined || edit.progress === '' ? {} : { progress_percent: Number(edit.progress) }),
       work_done: String(edit.note || '').trim(),
     }));
+}
+
+/** The two maps a report or snag stores beside its photo list: captions, and the original of each marked-up photo. */
+export function photoMetaOf(photos = []) {
+  const photo_captions = {};
+  const photo_originals = {};
+  photos.forEach((p) => {
+    if (p.caption && p.caption.trim()) photo_captions[p.file_uri] = p.caption.trim();
+    if (p.original_uri && p.original_uri !== p.file_uri) photo_originals[p.file_uri] = p.original_uri;
+  });
+  return { photo_captions, photo_originals };
 }

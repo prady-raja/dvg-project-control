@@ -5,6 +5,7 @@ import { allocateTaskRefs, attachTaskRefs, resolveKindPrefix } from '../../share
 import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
+import { cleanPhotoMeta } from '../../shared/photoMeta.ts';
 
 /**
  * The guarded path for snags.
@@ -113,6 +114,7 @@ async function handler(req) {
         raised_by_id: user.id,
         raised_by_name: actorName(user),
         photo_uris: photos,
+        ...cleanPhotoMeta(photos, body?.snag?.photo_captions, body?.snag?.photo_originals),
         member_ids: memberIds,
         closed_date: null,
         closed_by_name: null,
@@ -156,6 +158,7 @@ async function handler(req) {
         .filter((uri) => typeof uri === 'string' && uri.trim())
         .map((uri) => uri.trim().slice(0, 500))
         .slice(0, MAX_PHOTOS);
+      Object.assign(patch, cleanPhotoMeta(patch.photo_uris, body?.snag?.photo_captions, body?.snag?.photo_originals));
     }
     patch.member_ids = memberIds;
 

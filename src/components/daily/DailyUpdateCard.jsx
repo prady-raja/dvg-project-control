@@ -133,7 +133,7 @@ export default function DailyUpdateCard({ update, hideVilla = false }) {
 
       {update.photo_uris?.length > 0 && (
         <div className="mt-2">
-          <PhotoStrip uris={update.photo_uris} />
+          <PhotoStrip uris={update.photo_uris} captions={update.photo_captions || {}} />
         </div>
       )}
       {canCorrect && (
