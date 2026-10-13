@@ -106,11 +106,11 @@ export default function WorkPackageTab({ cat }) {
           <div key={w.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{w.package_name}</p>
-              <p className="field-mono text-[11px] text-muted-foreground">Order {w.sort_order ?? '—'}</p>
+              <p className="field-mono text-xs text-muted-foreground">Order {w.sort_order ?? '—'}</p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <Switch checked={w.active !== false} onCheckedChange={(v) => setActive(w, v)} />
-              <Button variant="ghost" size="icon" onClick={() => openDialog(w)}>
+              <Button variant="ghost" size="icon" aria-label="Edit work package" onClick={() => openDialog(w)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>

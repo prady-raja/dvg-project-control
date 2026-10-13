@@ -9,7 +9,7 @@ export default function DetailList({ items = [], columns = 2, className }) {
     <dl className={cn('grid gap-x-6 gap-y-4', columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2', className)}>
       {visible.map((item) => (
         <div key={item.label} className="min-w-0">
-          <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{item.label}</dt>
+          <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{item.label}</dt>
           <dd
             className={cn(
               'mt-1 text-sm text-foreground',

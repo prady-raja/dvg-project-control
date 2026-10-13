@@ -101,6 +101,19 @@
       "default": false,
       "description": "True when the snag must be closed before the villa is handed over"
     },
+    "photo_captions": {
+      "type": "object",
+      "description": "What each photo shows, keyed by its storage reference (F-05)."
+    },
+    "photo_originals": {
+      "type": "object",
+      "description": "For a marked-up photo: the reference of the untouched original, keyed by the marked-up reference."
+    },
+    "owner_ack_name": { "type": "string", "description": "The villa owner who accepted this item (Q-08)" },
+    "owner_ack_date": { "type": "string", "format": "date" },
+    "owner_ack_method": { "type": "string", "enum": ["Signed sheet (photo)", "WhatsApp confirmation (screenshot)", "Told to the engineer"] },
+    "owner_ack_evidence_uri": { "type": "string", "description": "Private storage reference of the signed sheet or screenshot" },
+    "owner_ack_by_name": { "type": "string", "description": "Who at DVG recorded it" },
     "photo_uris": {
       "type": "array",
       "items": {

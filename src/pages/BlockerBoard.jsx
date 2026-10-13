@@ -8,7 +8,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import BlockerTable from '@/components/blockers/BlockerTable';
 import BlockerOwnerGroups from '@/components/blockers/BlockerOwnerGroups';
@@ -17,13 +16,17 @@ import DependencyChain from '@/components/blockers/DependencyChain';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
+import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
+import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 6 — Blockers and dependency chains. */
 export default function BlockerBoard() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,7 +72,7 @@ export default function BlockerBoard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={ShieldAlert} title="No project yet" description="Blockers appear once you are a member of a project." />
+        <NoProjectState icon={ShieldAlert} description="Blockers appear once you are a member of a project." />
       </div>
     );
   }
@@ -81,9 +84,21 @@ export default function BlockerBoard() {
         title="Blockers & dependencies"
         description="What is stopping work, how long it has been stopped, and which recorded dependencies sit downstream of it."
         actions={
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </Button>
+          <>
+            <ShareMenu
+              title="Blockers"
+              filename="blockers"
+              rows={data?.rows || []}
+              columns={ACTIVITY_COLUMNS}
+              text={() => {
+                const list = data?.rows || [];
+                return [`DVG blockers (${list.length})`, ...list.slice(0, 25).map((r) => `• ${r.ref} ${r.villa || ''} ${r.name || ''} — ${r.blocker || 'no reason recorded'}`.trim()), list.length > 25 ? `…and ${list.length - 25} more` : ''].filter(Boolean).join('\n');
+              }}
+            />
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </Button>
+          </>
         }
       />
 

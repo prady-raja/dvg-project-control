@@ -18,8 +18,8 @@ export default function StatTile({ label, value, hint, onClick, tone = 'default'
   const content = (
     <>
       <p className={cn('field-mono text-2xl font-semibold tnum', tones[tone] || tones.default)}>{value}</p>
-      <p className="mt-1 flex items-center gap-1 text-[11px] uppercase leading-tight tracking-wide text-muted-foreground">{label}{term && !clickable && <GlossaryTip term={term} />}</p>
-      {hint && <p className="mt-1 text-[11px] leading-tight text-muted-foreground">{hint}</p>}
+      <p className="mt-1 flex items-center gap-1 text-xs uppercase leading-tight tracking-wide text-muted-foreground">{label}{term && !clickable && <GlossaryTip term={term} />}</p>
+      {hint && <p className="mt-1 text-xs leading-tight text-muted-foreground">{hint}</p>}
     </>
   );
 
@@ -37,7 +37,7 @@ export default function StatTile({ label, value, hint, onClick, tone = 'default'
       )}
     >
       {content}
-      <span className="mt-2 block text-[10px] uppercase tracking-wide text-primary">Open list</span>
+      <span className="mt-2 block text-xs uppercase tracking-wide text-primary">Open list</span>
     </button>
   );
 }

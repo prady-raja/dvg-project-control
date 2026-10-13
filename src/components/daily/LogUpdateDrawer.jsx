@@ -8,7 +8,7 @@ import { errorMessageOf } from '@/lib/clientErrors';
 import { todayIst } from '@/lib/format';
 import { submitDailyUpdate, voidDailyUpdate } from '@/lib/dailyService';
 import {
-  PROGRESS_CHIPS, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
+  PROGRESS_CHIPS, photoMetaOf, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
 } from '@/lib/logUpdate';
 import { REPORTABLE_STATUSES } from '@/lib/taskForm';
 import { areaLabelFor } from '@/lib/shared/villaAreas.ts';
@@ -44,7 +44,7 @@ const Chip = ({ active, children, onClick, tone = '' }) => (
 const Step = ({ n, title, children }) => (
   <section className="space-y-2">
     <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px]">{n}</span>{title}
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs">{n}</span>{title}
     </h3>
     {children}
   </section>
@@ -70,6 +70,11 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
   const [restored, setRestored] = useState(false);
   const [recent, setRecent] = useState([]);
 
+  // The day being reported, and — when correcting — the report this one replaces.
+  const reportDate = scope?.date || todayIst();
+  const correcting = scope?.correcting || null;
+  const backdated = reportDate !== todayIst();
+
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const task = tasks.find((t) => t.id === form.taskId) || null;
   const location = form.locationId && form.locationId !== SITE_WIDE ? cat.locationById(form.locationId) : null;
@@ -82,7 +87,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     setError('');
     setSearch('');
     setRecent(loadRecentVillas());
-    const draft = loadDraft();
+    const draft = scope?.correcting ? null : loadDraft();
     if (scope?.taskId) {
       setRestored(false);
       data.get('Task', scope.taskId).then((t) => {
@@ -124,8 +129,8 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
 
   /* ----------------------------------------------- an unsent draft is kept */
   useEffect(() => {
-    if (open && (form.taskId || form.note || form.photos.length)) saveDraft(form);
-  }, [open, form]);
+    if (open && !correcting && (form.taskId || form.note || form.photos.length)) saveDraft(form);
+  }, [open, form, correcting]);
 
   const pickTask = (t) => set({ taskId: t.id, status: t.status, progress: t.progress_percent ?? '', floor_id: '', area_ids: [] });
 
@@ -145,7 +150,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     || form.note.trim() || form.photos.length);
 
   /* ------------------------------------------------------------------ save */
-  const save = useCallback(async () => {
+  const save = useCallback(async (andNext = false) => {
     if (!task) return;
     setSaving(true);
     setError('');
@@ -156,12 +161,18 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
       );
       const result = await submitDailyUpdate({
         task_id: task.id,
-        update_date: todayIst(),
+        update_date: reportDate,
+        ...(correcting ? {
+          replaces_report_id: correcting.reportId,
+          manpower_items: correcting.manpower_items,
+          plan_tomorrow: correcting.plan_tomorrow || undefined,
+        } : {}),
         status: form.status || task.status,
         progress_percent: form.progress === '' ? undefined : Number(form.progress),
         work_done: form.note,
-        site_area: siteArea || undefined,
+        site_area: siteArea || correcting?.site_area || undefined,
         photo_uris: form.photos.map((p) => p.file_uri),
+        ...photoMetaOf(form.photos),
       });
       if (form.locationId && form.locationId !== SITE_WIDE) rememberVilla(form.locationId);
       clearDraft();
@@ -185,14 +196,22 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         ) : undefined,
       });
       onSaved?.(result);
-      setForm(EMPTY);
-      onOpenChange(false);
+      // Save & next keeps the villa, the day and the photos and moves to the next open task of the villa.
+      const index = tasks.findIndex((t) => t.id === task.id);
+      const next = andNext && !correcting ? tasks.slice(index + 1).find((t) => t.id !== task.id) : null;
+      if (andNext && !next) toast({ description: 'That was the last open task here.' });
+      if (next) {
+        setForm({ ...EMPTY, locationId: form.locationId, taskId: next.id, status: next.status, progress: next.progress_percent ?? '', photos: form.photos, floor_id: form.floor_id, area_ids: form.area_ids });
+      } else {
+        setForm(EMPTY);
+        onOpenChange(false);
+      }
     } catch (e) {
       setError(errorMessageOf(e, 'The update could not be saved.'));
     } finally {
       setSaving(false);
     }
-  }, [task, form, villaScope, toast, onSaved, onOpenChange]);
+  }, [task, tasks, form, villaScope, toast, onSaved, onOpenChange, reportDate, correcting]);
 
   const discard = () => { clearDraft(); setForm(EMPTY); setRestored(false); };
 
@@ -200,7 +219,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[92vh]">
         <DrawerHeader className="text-left">
-          <DrawerTitle>Log update</DrawerTitle>
+          <DrawerTitle>{correcting ? 'Correct report' : 'Log update'}</DrawerTitle>
           <DrawerDescription>
             {task ? `${task.task_ref} · ${task.name}` : 'Villa, task, status, progress, photo.'}
           </DrawerDescription>
@@ -211,6 +230,17 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
             <p className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
               Your unsent update was kept.
               <button type="button" className="font-medium underline" onClick={discard}>Start again</button>
+            </p>
+          )}
+
+          {correcting && (
+            <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
+              You are correcting a report. The original stays in place until you save; closing this changes nothing.
+            </p>
+          )}
+          {backdated && !correcting && (
+            <p className="rounded-lg border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 px-3 py-2 text-xs">
+              This report will be dated <span className="font-medium">{reportDate}</span>, the day you are viewing — not today.
             </p>
           )}
 
@@ -247,9 +277,9 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
                           className={cn('flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left', t.id === form.taskId ? 'border-primary bg-secondary/60' : 'border-border bg-card')}
                         >
                           <span className="min-w-0">
-                            <span className="field-mono block text-[11px] text-muted-foreground">{t.task_ref}</span>
+                            <span className="field-mono block text-xs text-muted-foreground">{t.task_ref}</span>
                             <span className="block truncate text-sm font-medium">{t.name}</span>
-                            {t.area_label && <span className="block truncate text-[11px] text-muted-foreground">{t.area_label}</span>}
+                            {t.area_label && <span className="block truncate text-xs text-muted-foreground">{t.area_label}</span>}
                           </span>
                           <StatusPill status={t.status} />
                         </button>
@@ -320,10 +350,15 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         </div>
 
         <DrawerFooter className="border-t border-border bg-background">
-          <Button size="lg" className="h-12 gap-2 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={save}>
+          <Button size="lg" className="h-12 gap-2 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={() => save(false)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             {saving ? 'Saving…' : busyPhoto ? 'Uploading photo…' : 'Save update'}
           </Button>
+          {!correcting && (
+            <Button size="lg" variant="outline" className="h-12 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={() => save(true)}>
+              Save &amp; next task
+            </Button>
+          )}
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

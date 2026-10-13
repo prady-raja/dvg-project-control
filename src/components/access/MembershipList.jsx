@@ -18,7 +18,7 @@ export default function MembershipList({ groups, canEdit = false, onToggleActive
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
             <div className="min-w-0">
               <h2 className="truncate font-display text-sm font-semibold">{project.name}</h2>
-              <p className="field-mono text-[11px] text-muted-foreground">{project.code}</p>
+              <p className="field-mono text-xs text-muted-foreground">{project.code}</p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <span className="field-mono text-xs text-muted-foreground">

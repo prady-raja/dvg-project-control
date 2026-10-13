@@ -151,6 +151,14 @@
     "voided": { "type": "boolean", "default": false, "description": "Taken back by its author; kept on record but ignored by every figure" },
     "voided_at": { "type": "string", "format": "date-time" },
     "voided_by_name": { "type": "string" },
+    "photo_captions": {
+      "type": "object",
+      "description": "What each photo shows, keyed by its storage reference (F-05)."
+    },
+    "photo_originals": {
+      "type": "object",
+      "description": "For a marked-up photo: the reference of the untouched original, keyed by the marked-up reference."
+    },
     "photo_uris": {
       "type": "array",
       "items": {

@@ -14,7 +14,7 @@ export default function HealthBadge({ health, slipDays, className }) {
   return (
     <span
       title={token.help}
-      className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-5', token.tone, className)}
+      className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium leading-5', token.tone, className)}
     >
       <Icon className="h-3 w-3 shrink-0" aria-hidden />
       {health}{slip}

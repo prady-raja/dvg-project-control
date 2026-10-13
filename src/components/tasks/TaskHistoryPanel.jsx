@@ -79,14 +79,14 @@ export default function TaskHistoryPanel({ taskId }) {
                   <span className="font-medium">{row.change_type || 'Change'}</span>
                   <span className="text-muted-foreground"> · {fieldLabel(row.field_changed)}</span>
                 </p>
-                <p className="field-mono text-[11px] text-muted-foreground">{formatDateTime(row.changed_at)}</p>
+                <p className="field-mono text-xs text-muted-foreground">{formatDateTime(row.changed_at)}</p>
               </div>
               <p className="mt-1 break-words text-xs text-muted-foreground">
                 <span className="line-through opacity-70">{show(row.old_value)}</span>
                 <span className="mx-1.5">→</span>
                 <span className="font-medium text-foreground">{show(row.new_value)}</span>
               </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {row.changed_by_name || 'Unknown user'}
                 {row.note ? ` · ${row.note}` : ''}
               </p>

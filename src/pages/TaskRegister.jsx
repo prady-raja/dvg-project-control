@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, ClipboardList, Layers } from 'lucide-react';
+import { Plus, ClipboardList, Download, Layers } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
@@ -17,6 +17,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DataState from '@/components/common/DataState';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { escapeRegex } from '@/lib/taskForm';
+import { useAuth } from '@/lib/AuthContext';
+import ViewPresets from '@/components/tasks/ViewPresets';
+import { useToast } from '@/components/ui/use-toast';
+import { todayIst } from '@/lib/format';
+import { downloadBlob } from '@/lib/workImportService';
+import { WORKS_SHEET, buildWorkbookFromSheets } from '@/lib/xlsxImport';
+import { registerRows, EDITABLE_NOTE } from '@/lib/registerExport';
+import { data } from '@/api/data';
 
 const PAGE_SIZE = 50;
 
@@ -25,7 +33,9 @@ export default function TaskRegister() {
   const access = useAccess();
   const quick = useQuickActions();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const initial = {
     ...EMPTY_TASK_FILTERS,
@@ -35,6 +45,8 @@ export default function TaskRegister() {
     discipline: searchParams.get('discipline') || '',
     contractor_id: searchParams.get('contractor') || '',
     status: searchParams.get('status') || '',
+    assignee: searchParams.get('assignee') || '',
+    search: searchParams.get('q') || '',
   };
 
   const [draft, setDraft] = useState(initial);
@@ -66,6 +78,7 @@ export default function TaskRegister() {
     if (filters.discipline) q.discipline = filters.discipline;
     if (filters.contractor_id) q.contractor_id = filters.contractor_id;
     if (filters.status) q.status = filters.status;
+    if (filters.assignee === 'me' && user?.id) q.assignee_user_id = user.id;
     const search = escapeRegex(filters.search.trim());
     if (search) {
       q.$or = [
@@ -78,6 +91,16 @@ export default function TaskRegister() {
   }, [filters]);
 
   const filterKey = JSON.stringify(filters);
+
+  // What is on screen is in the address, so a link opens the same view.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const out = new URLSearchParams(prev);
+      const map = { project: filters.project_id, phase: filters.phase_id, location: filters.location_id, discipline: filters.discipline, contractor: filters.contractor_id, status: filters.status, assignee: filters.assignee, q: filters.search.trim() };
+      Object.entries(map).forEach(([k, v]) => { if (v) out.set(k, v); else out.delete(k); });
+      return out;
+    }, { replace: true });
+  }, [filters, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +131,22 @@ export default function TaskRegister() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, reloadKey, quick.version]);
 
+  // The filtered register as an Excel sheet in the import template (I-03).
+  const [exporting, setExporting] = useState(false);
+  const exportForEditing = async () => {
+    setExporting(true);
+    try {
+      const all = await data.readAll('Task', buildQuery(), { sort: '-created_date', max: 5000 });
+      const { headers, rows } = registerRows(all.items, cat);
+      downloadBlob(`task-register-${todayIst()}.xlsx`, await buildWorkbookFromSheets({ [WORKS_SHEET]: [headers, ...rows] }));
+      toast({ description: `${rows.length} task${rows.length === 1 ? '' : 's'} exported. ${all.truncated ? 'The register is longer than 5,000 rows; narrow the filters to export the rest. ' : ''}${EDITABLE_NOTE}` });
+    } catch (e) {
+      toast({ description: errorMessageOf(e, 'The export did not work.'), variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const loadMore = async () => {
     setLoadingMore(true);
     try {
@@ -135,6 +174,9 @@ export default function TaskRegister() {
         actions={
           canEdit ? (
             <>
+              <Button variant="outline" className="gap-2" disabled={exporting} onClick={exportForEditing}>
+                <Download className="h-4 w-4" /> {exporting ? 'Exporting…' : 'Export for editing'}
+              </Button>
               <Button variant="outline" className="gap-2" onClick={() => setVillaOpen(true)}>
                 <Layers className="h-4 w-4" /> Villa work
               </Button>
@@ -146,6 +188,7 @@ export default function TaskRegister() {
         }
       />
 
+      <ViewPresets filters={draft} apply={(patch) => setDraft((f) => ({ ...f, ...patch }))} />
       <TaskFilters filters={draft} setFilters={setDraft} cat={cat} />
 
       <div className="mt-4 mb-3 flex items-center justify-between">

@@ -37,9 +37,10 @@ export const IMPORT_COLUMNS = [
   // is turns the row into an agreed update of that task instead of a new one. A
   // reference that is not on the project is reported, never guessed at.
   { key: 'task_ref', label: 'Task reference', aliases: ['task reference', 'task ref', 'existing task reference', 'existing task ref'] },
+  { key: 'exported_at', label: 'Last updated (do not edit)', aliases: ['last updated (do not edit)', 'last updated', 'exported at', 'row last updated'], hidden: true },
 ];
 
-export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.map((column) => column.label);
+export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.filter((column) => !column.hidden).map((column) => column.label);
 
 export const cleanText = (value) => (value === null || value === undefined ? '' : String(value).trim());
 

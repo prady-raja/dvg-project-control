@@ -35,7 +35,7 @@ export default function DependencyChain({ chain }) {
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-muted-foreground">
+      <p className="mt-3 text-xs text-muted-foreground">
         Drawn from {chain.nodes.length} recorded dependency link(s). Where no further link exists the chain ends here.
       </p>
     </div>

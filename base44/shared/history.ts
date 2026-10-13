@@ -28,6 +28,8 @@ export const SERVER_OWNED_FIELDS = [
   'approved_by_id', 'approved_by_name', 'approved_at', 'created_by_name', 'updated_by_name', 'is_demo',
   // Import provenance: written once by the import operation, never by a screen.
   'import_batch_id', 'import_source_file', 'import_row_number',
+  // Owner sign-off is recorded by the sign-off operations, with its evidence.
+  'owner_ack_name', 'owner_ack_date', 'owner_ack_method', 'owner_ack_evidence_uri', 'owner_ack_by_name',
 ];
 
 export const BASELINE_FIELDS = ['baseline_start', 'baseline_finish'];

@@ -1,7 +1,8 @@
+import { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useParams } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -9,38 +10,51 @@ import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 // Add page imports here
-import Login from '@/pages/Login';
-import ForgotPassword from '@/pages/ForgotPassword';
-import ResetPassword from '@/pages/ResetPassword';
-import Projects from '@/pages/Projects';
-import ProjectDetail from '@/pages/ProjectDetail';
-import Locations from '@/pages/Locations';
-import LocationDetail from '@/pages/LocationDetail';
-import TaskRegister from '@/pages/TaskRegister';
-import TaskEditor from '@/pages/TaskEditor';
-import TaskDetail from '@/pages/TaskDetail';
-import Contractors from '@/pages/Contractors';
-import ContractorDetail from '@/pages/ContractorDetail';
-import Admin from '@/pages/Admin';
-import Access from '@/pages/Access';
-import DailyActivity from '@/pages/DailyActivity';
-import WorkImport from '@/pages/WorkImport';
-import ImportHistory from '@/pages/ImportHistory';
-import Today from '@/pages/Today';
-import Help from '@/pages/Help';
-import VillaMatrix from '@/pages/VillaMatrix';
-import VillaStatement from '@/pages/VillaStatement';
 import HomeRedirect from '@/components/layout/HomeRedirect';
-import Dashboard from '@/pages/Dashboard';
-import Planning from '@/pages/Planning';
-import BlockerBoard from '@/pages/BlockerBoard';
-import ContractorBoard from '@/pages/ContractorBoard';
-import Meetings from '@/pages/Meetings';
-import Handover from '@/pages/Handover';
-import SiteWide from '@/pages/SiteWide';
-import VillaExecution from '@/pages/VillaExecution';
-import AskDvgAi from '@/pages/AskDvgAi';
-import NeedsAttention from '@/pages/NeedsAttention';
+
+// Each screen loads when it is first opened, so the phone downloads Today and little else (R-02).
+const Login = lazy(() => import('@/pages/Login'));
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
+const Projects = lazy(() => import('@/pages/Projects'));
+const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'));
+const Locations = lazy(() => import('@/pages/Locations'));
+const LocationDetail = lazy(() => import('@/pages/LocationDetail'));
+const TaskRegister = lazy(() => import('@/pages/TaskRegister'));
+const TaskEditor = lazy(() => import('@/pages/TaskEditor'));
+const TaskDetail = lazy(() => import('@/pages/TaskDetail'));
+const Contractors = lazy(() => import('@/pages/Contractors'));
+const ContractorDetail = lazy(() => import('@/pages/ContractorDetail'));
+const Admin = lazy(() => import('@/pages/Admin'));
+const Access = lazy(() => import('@/pages/Access'));
+const DailyActivity = lazy(() => import('@/pages/DailyActivity'));
+const WorkImport = lazy(() => import('@/pages/WorkImport'));
+const ImportHistory = lazy(() => import('@/pages/ImportHistory'));
+const Today = lazy(() => import('@/pages/Today'));
+const Help = lazy(() => import('@/pages/Help'));
+const VillaMatrix = lazy(() => import('@/pages/VillaMatrix'));
+const VillaStatement = lazy(() => import('@/pages/VillaStatement'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Planning = lazy(() => import('@/pages/Planning'));
+const BlockerBoard = lazy(() => import('@/pages/BlockerBoard'));
+const ContractorBoard = lazy(() => import('@/pages/ContractorBoard'));
+const Meetings = lazy(() => import('@/pages/Meetings'));
+const Handover = lazy(() => import('@/pages/Handover'));
+const SiteWide = lazy(() => import('@/pages/SiteWide'));
+const AskDvgAi = lazy(() => import('@/pages/AskDvgAi'));
+const NeedsAttention = lazy(() => import('@/pages/NeedsAttention'));
+
+const ExecutionRedirect = () => {
+  const { locationId } = useParams();
+  return <Navigate to={`/locations/${locationId}?tab=overview`} replace />;
+};
+
+const PageFallback = () => (
+  <div className="space-y-3 p-6" aria-busy="true">
+    <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+    <div className="h-40 animate-pulse rounded-xl bg-muted" />
+  </div>
+);
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -67,6 +81,7 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       <Route path="/login" element={<Login />} />
       {/* Sign-up is closed: people are invited by the administrator (Users & access). */}
@@ -86,7 +101,7 @@ const AuthenticatedApp = () => {
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/locations" element={<Locations />} />
           <Route path="/locations/:locationId" element={<LocationDetail />} />
-          <Route path="/locations/:locationId/execution" element={<VillaExecution />} />
+          <Route path="/locations/:locationId/execution" element={<ExecutionRedirect />} />
           <Route path="/daily" element={<DailyActivity />} />
           <Route path="/planning" element={<Planning />} />
           <Route path="/blockers" element={<BlockerBoard />} />
@@ -110,6 +125,7 @@ const AuthenticatedApp = () => {
         </Route>
       </Route>
     </Routes>
+    </Suspense>
   );
 };
 

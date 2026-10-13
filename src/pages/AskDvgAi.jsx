@@ -4,17 +4,18 @@ import { aiAsk, aiDailyBrief, aiStatus, SUGGESTED_QUESTIONS } from '@/lib/aiServ
 import { todayIst } from '@/lib/format';
 import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
-import EmptyState from '@/components/common/EmptyState';
 import AiPanel from '@/components/ai/AiPanel';
 import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bot } from 'lucide-react';
+import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
 
 /** Stage B / 10 and 12 — Ask DVG AI and the daily management brief. */
 export default function AskDvgAi() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
   const [date, setDate] = useState(todayIst());
   const [status, setStatus] = useState(null);
 
@@ -33,7 +34,7 @@ export default function AskDvgAi() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={Bot} title="No project yet" description="The assistant can only read projects you are a member of." />
+        <NoProjectState icon={Bot} description="The assistant can only read projects you are a member of." />
       </div>
     );
   }
@@ -52,8 +53,8 @@ export default function AskDvgAi() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Project</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Project</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={projectId}
               onChange={(e) => {
@@ -64,11 +65,11 @@ export default function AskDvgAi() {
               {cat.projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Phase</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Phase</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={phaseId}
               onChange={(e) => setPhaseId(e.target.value)}
@@ -77,10 +78,10 @@ export default function AskDvgAi() {
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Data date</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Data date</p>
             <input
               type="date"
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"

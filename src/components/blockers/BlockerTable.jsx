@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Pill from '@/components/common/Pill';
 import { formatDate } from '@/lib/format';
 
-const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+const th = 'whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
 /** Works that are holding other works up, with everything recorded about them. */
 export default function BlockerTable({ rows = [] }) {
@@ -53,7 +53,7 @@ export default function BlockerTable({ rows = [] }) {
                 </td>
                 <td className="field-mono whitespace-nowrap py-2.5 text-xs">
                   {row.expected_resolution_date ? formatDate(row.expected_resolution_date) : 'Not stated'}
-                  {row.resolution_overdue && <div className="text-[10px] uppercase text-destructive">past expected date</div>}
+                  {row.resolution_overdue && <div className="text-xs uppercase text-destructive">past expected date</div>}
                 </td>
                 <td className="max-w-[260px] py-2.5 text-xs text-muted-foreground">
                   {row.downstream_count === 0

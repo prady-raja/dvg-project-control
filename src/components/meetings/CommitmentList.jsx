@@ -22,7 +22,7 @@ export default function CommitmentList({ rows = [], canEdit = false, onUpdate, e
                 <span className="field-mono text-xs font-semibold">{row.task_ref || 'No task link'}</span>
                 <Pill value={row.status} />
                 {overdue && (
-                  <span className="rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+                  <span className="rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold uppercase text-destructive">
                     past the promised date
                   </span>
                 )}

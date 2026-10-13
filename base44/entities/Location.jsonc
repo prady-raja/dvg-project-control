@@ -79,6 +79,10 @@
     "assigned_engineer": {
       "type": "string"
     },
+    "owner_name": { "type": "string", "description": "The villa owner, for access visits and handover (P-09)" },
+    "owner_phone": { "type": "string" },
+    "occupancy": { "type": "string", "enum": ["Occupied", "Vacant", "Unknown"], "default": "Unknown" },
+    "access_notes": { "type": "string", "description": "Keys, security, allowed working hours" },
     "sort_order": {
       "type": "number"
     },

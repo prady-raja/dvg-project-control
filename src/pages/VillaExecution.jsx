@@ -25,8 +25,9 @@ import { updateSnag } from '@/lib/snagService';
 import { useToast } from '@/components/ui/use-toast';
 
 /** Stage A / 3 — the execution dashboard for one physical villa. */
-export default function VillaExecution() {
-  const { locationId } = useParams();
+export default function VillaExecution({ locationId: forcedId, embedded = false }) {
+  const params = useParams();
+  const locationId = forcedId || params.locationId;
   const cat = useCatalogs();
   const access = useAccess();
   const navigate = useNavigate();
@@ -80,13 +81,15 @@ export default function VillaExecution() {
 
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
-        <Link to={`/locations/${villa.id}`}>
-          <ArrowLeft className="h-4 w-4" /> Villa record
-        </Link>
-      </Button>
+      {!embedded && (
+        <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
+          <Link to={`/locations/${villa.id}`}>
+            <ArrowLeft className="h-4 w-4" /> Villa record
+          </Link>
+        </Button>
+      )}
 
-      <PageHeader
+      {!embedded && <PageHeader
         eyebrow={`${villa.project} · ${villa.phase} · Execution dashboard`}
         title={villa.code}
         description={`Figures as at ${data.as_of}. Completion is shown only where measured progress exists for every outstanding task.`}
@@ -103,7 +106,7 @@ export default function VillaExecution() {
             )}
           </>
         }
-      />
+      />}
 
       <div className="rounded-xl border border-border bg-card p-5">
         <DetailList
@@ -156,7 +159,7 @@ export default function VillaExecution() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {row.open} open · {row.overdue} overdue · {row.blocked} blocked · {row.awaitingVerification} awaiting verification
                   </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {row.progress?.reliable ? `Measured ${row.progress.percent}%` : row.progress?.reason || 'Not yet measured'}
                   </p>
                 </div>

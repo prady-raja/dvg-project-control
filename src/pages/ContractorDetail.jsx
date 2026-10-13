@@ -18,6 +18,7 @@ import ContractorDialog from '@/components/contractors/ContractorDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList } from 'lucide-react';
+import ContactChip from '@/components/common/ContactChip';
 
 export default function ContractorDetail() {
   const { contractorId } = useParams();
@@ -113,7 +114,7 @@ export default function ContractorDetail() {
           items={[
             { label: 'Trade / responsibility', value: contractor.trade },
             { label: 'Contact person', value: contractor.contact_person },
-            { label: 'Phone', value: contractor.phone, mono: true },
+            { label: 'Phone', value: contractor.phone ? <ContactChip name={contractor.contact_person || contractor.name} phone={contractor.phone} /> : '' },
             { label: 'Email', value: contractor.email },
             { label: 'Active tasks', value: total, mono: true },
           ]}
@@ -135,6 +136,7 @@ export default function ContractorDetail() {
               icon={ClipboardList}
               title="No tasks assigned yet"
               description="Assign this contractor from a task, or add the default rule under Administration."
+              action={<Button variant="outline" onClick={() => navigate('/tasks')}>Open the task register</Button>}
             />
           </div>
         ) : (

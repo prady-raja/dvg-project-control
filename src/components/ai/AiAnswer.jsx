@@ -81,10 +81,10 @@ export default function AiAnswer({ result, title = 'AI analysis', showFacts = tr
 
       {showFacts && counts && (
         <div className="border-t border-border px-5 py-4">
-          <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
             <Info className="h-3.5 w-3.5" /> Figures the answer was given (calculated from records)
           </p>
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
             <span className="rounded border border-border px-1.5 py-0.5">{counts.open_tasks} open</span>
             <span className="rounded border border-border px-1.5 py-0.5">{counts.overdue_tasks} overdue</span>
             <span className="rounded border border-border px-1.5 py-0.5">{counts.blocked_tasks} blocked</span>
@@ -93,7 +93,7 @@ export default function AiAnswer({ result, title = 'AI analysis', showFacts = tr
             <span className="rounded border border-border px-1.5 py-0.5">{counts.unscheduled_tasks} without dates</span>
             <span className="rounded border border-border px-1.5 py-0.5">{counts.demo_tasks_excluded} demo records excluded</span>
           </div>
-          <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <span>
               The assistant can read and explain these records only. It cannot approve work, move a baseline, change permissions or

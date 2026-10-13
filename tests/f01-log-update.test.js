@@ -46,8 +46,9 @@ describe('F-01 recent villas and the draft', () => {
   });
 
   it('a draft survives as ids only and expires after a day', () => {
-    const draft = draftFrom({ taskId: 't1', note: 'half done', photos: [{ file_uri: 'u1', preview: 'blob:x' }] }, 1000);
-    expect(draft.photos).toEqual([{ file_uri: 'u1' }]);
+    const draft = draftFrom({ taskId: 't1', note: 'half done', photos: [{ file_uri: 'u1', preview: 'blob:x', caption: 'crack' }] }, 1000);
+    // The preview address is not kept; the caption and the original of a marked-up photo are.
+    expect(draft.photos).toEqual([{ file_uri: 'u1', caption: 'crack', original_uri: '' }]);
     expect(isRestorable(draft, 1000 + 3600000)).toBe(true);
     expect(isRestorable(draft, 1000 + 25 * 3600000)).toBe(false);
     expect(isRestorable(draftFrom({}, 1000), 1000)).toBe(false);

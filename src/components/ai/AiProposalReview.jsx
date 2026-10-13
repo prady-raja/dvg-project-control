@@ -147,10 +147,10 @@ export default function AiProposalReview({
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/[0.02] p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary">
+        <span className="rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary">
           Review before saving
         </span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {proposal?.source === 'ai'
             ? 'The reading was tidied by the model; every record was resolved by the server.'
             : 'Read by rule on the server — no model was used.'}
@@ -159,7 +159,7 @@ export default function AiProposalReview({
       </div>
 
       {!!proposal?.ai_note && (
-        <p className="mt-2 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+        <p className="mt-2 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{proposal.ai_note}</span>
         </p>
@@ -178,7 +178,7 @@ export default function AiProposalReview({
       )}
 
       {!!notes.length && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
+        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
           {notes.map((note) => <li key={note}>{note}</li>)}
         </ul>
       )}
@@ -215,7 +215,7 @@ export default function AiProposalReview({
 
       {!!proposal?.candidates?.length && (
         <div className="mt-3 rounded-lg border border-border p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tasks the words matched</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tasks the words matched</p>
           <ul className="mt-1 space-y-1 text-xs">
             {proposal.candidates.map((candidate) => (
               <li key={candidate.task_ref} className={cn('flex flex-wrap gap-2', candidate.chosen && 'font-medium')}>
@@ -238,7 +238,7 @@ export default function AiProposalReview({
         <Button variant="ghost" disabled={busy || settled} onClick={onCancel}>
           Cancel
         </Button>
-        {missing && <span className="text-[11px] text-muted-foreground">Complete the required fields, or deselect that action.</span>}
+        {missing && <span className="text-xs text-muted-foreground">Complete the required fields, or deselect that action.</span>}
       </div>
 
       {!!outcome?.message && (

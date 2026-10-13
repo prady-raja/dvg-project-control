@@ -19,13 +19,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
+import CoverageGrid from '@/components/daily/CoverageGrid';
+import SiteDiaryForm from '@/components/daily/SiteDiaryForm';
 
 /** What the site did on one day, project-wide, grouped by phase and then villa. */
 const SCOPES = ['All', 'Villa', 'Site-wide'];
 
 const Stat = ({ label, value }) => (
   <div className="rounded-xl border border-border bg-card px-4 py-3">
-    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+    <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
     <p className="field-mono mt-1 text-xl font-semibold">{value}</p>
   </div>
 );
@@ -34,8 +39,8 @@ export default function DailyActivity() {
   const cat = useCatalogs();
   const access = useAccess();
   const quick = useQuickActions();
-  const [projectId, setProjectId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [scope, setScope] = useState('All');
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ updates: 0, blockers: 0, manpower: 0 });
@@ -131,11 +136,7 @@ export default function DailyActivity() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState
-          icon={CalendarDays}
-          title="No project yet"
-          description="Daily activity appears once you are a member of a project."
-        />
+        <NoProjectState icon={CalendarDays} description="Daily activity appears once you are a member of a project." />
       </div>
     );
   }
@@ -148,7 +149,7 @@ export default function DailyActivity() {
         description="Everything reported on site for one day, villa by villa, with site-wide works alongside."
         actions={
           canReport && (
-            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({})}>
+            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ date })}>
               <Plus className="h-4 w-4" /> Report update
             </Button>
           )
@@ -205,6 +206,14 @@ export default function DailyActivity() {
       </div>
 
       <div className="mt-6">
+        <SiteDiaryForm projectId={projectId} date={date} />
+      </div>
+
+      <div className="mt-6">
+        <CoverageGrid projectId={projectId} phaseId="" date={date} canReport={canReport} />
+      </div>
+
+      <div className="mt-6">
         {loadError ? (
           <DataState error={loadError} onRetry={load} />
         ) : loading ? (
@@ -219,6 +228,7 @@ export default function DailyActivity() {
                   ? 'Use “Report update” to file the first site report for this day.'
                   : 'Site reports filed on this day will appear here.'
               }
+              action={canReport ? <Button onClick={() => quick.openLogUpdate({ date })}>Log the first update</Button> : null}
             />
           </div>
         ) : (

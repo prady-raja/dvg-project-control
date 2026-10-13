@@ -18,6 +18,8 @@ import BoardSection from '@/components/common/BoardSection';
 import { Button } from '@/components/ui/button';
 import { useQuickActions } from '@/components/layout/QuickActions';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
 
 const REASON_TONE = {
   overdue: 'border-red-300 bg-red-50 text-red-800',
@@ -34,7 +36,7 @@ function TaskCardRow({ row, quick }) {
     <li className="rounded-xl border border-border bg-card p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <Link to={`/tasks/${row.id}`} className="field-mono text-[11px] font-semibold text-muted-foreground hover:underline">{row.ref} · {row.villa}</Link>
+          <Link to={`/tasks/${row.id}`} className="field-mono text-xs font-semibold text-muted-foreground hover:underline">{row.ref} · {row.villa}</Link>
           <p className="mt-0.5 text-sm font-medium leading-snug">{row.name}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -44,7 +46,7 @@ function TaskCardRow({ row, quick }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {row.reasons.map((r) => (
-          <span key={r.code} className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', REASON_TONE[r.code])}>{r.label}</span>
+          <span key={r.code} className={cn('rounded-full border px-2 py-0.5 text-xs font-medium', REASON_TONE[r.code])}>{r.label}</span>
         ))}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{row.action}</p>
@@ -69,7 +71,7 @@ export default function Today() {
   const access = useAccess();
   const { user } = useAuth();
   const quick = useQuickActions();
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useScopeState();
   const [all, setAll] = useState(false);
   const asOf = todayIst();
 
@@ -84,7 +86,7 @@ export default function Today() {
   const { data, isLoading, error, refetch } = useDashboardQuery('myWork', params, { key: queryKeys.myWork(params), enabled: !!projectId });
 
   if (cat.loading) return <DataState loading />;
-  if (!cat.projects.length) return <DataState empty emptyIcon={Sun} emptyTitle="No project yet" emptyDescription="Today appears once you are a member of a project." />;
+  if (!cat.projects.length) return <NoProjectState icon={Sun} description="Today appears once you are a member of a project." />;
 
   const view = data;
   const counts = view?.counts || {};
@@ -144,10 +146,13 @@ export default function Today() {
                   {view.villas.map((v) => (
                     <div key={v.id} className={cn('min-w-[150px] rounded-xl border p-3', v.reported_today ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50')}>
                       <Link to={`/locations/${v.id}`} className="text-sm font-semibold hover:underline">{v.code}</Link>
-                      <p className="mt-0.5 text-[11px]">{v.reported_today ? (v.reported_by_me ? 'You reported today' : 'Reported today') : 'Not reported today'}</p>
-                      <p className="text-[11px] text-muted-foreground">{v.open} open{v.overdue ? ` · ${v.overdue} overdue` : ''}{v.blocked ? ` · ${v.blocked} blocked` : ''}</p>
+                      <p className="mt-0.5 text-xs">{v.reported_today ? (v.reported_by_me ? 'You reported today' : 'Reported today') : 'Not reported today'}</p>
+                      <p className="text-xs text-muted-foreground">{v.open} open{v.overdue ? ` · ${v.overdue} overdue` : ''}{v.blocked ? ` · ${v.blocked} blocked` : ''}</p>
                       {!v.reported_today && quick.canReport && (
-                        <Button size="sm" className="mt-2 h-7 w-full" onClick={() => quick.openLogUpdate({ locationId: v.id })}>Log update</Button>
+                        <div className="mt-2 flex gap-1.5">
+                          <Button size="sm" className="h-9 flex-1" onClick={() => quick.openLogUpdate({ locationId: v.id })}>Log update</Button>
+                          <Button size="sm" variant="outline" className="h-9 flex-1" onClick={() => quick.openDaySheet({ locationId: v.id })}>Day sheet</Button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -189,6 +194,19 @@ export default function Today() {
                     <li key={c.id} className="flex items-start justify-between gap-3 py-2 text-sm">
                       <span><HandHelping className="mr-1.5 inline h-3.5 w-3.5" aria-hidden />{c.commitment}<span className="block text-xs text-muted-foreground">{c.contractor || c.person}{c.task_ref ? ` · ${c.task_ref}` : ''}</span></span>
                       <span className={cn('field-mono shrink-0 text-xs', c.missed ? 'font-semibold text-destructive' : 'text-muted-foreground')}>{c.missed ? 'missed ' : 'due '}{formatDate(c.promised_date)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </BoardSection>
+            )}
+
+            {(view.access_visits || []).length > 0 && (
+              <BoardSection title="Owner access booked" description="Visits to handed-over villas in the next two weeks." dense>
+                <ul className="divide-y divide-border">
+                  {view.access_visits.map((v) => (
+                    <li key={v.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                      <Link to={`/locations/${v.location_id}?tab=access`} className="hover:underline"><span className="field-mono font-semibold">{v.villa}</span> · {v.tasks} work{v.tasks === 1 ? '' : 's'}</Link>
+                      <span className="shrink-0 text-xs text-muted-foreground">{v.line}</span>
                     </li>
                   ))}
                 </ul>

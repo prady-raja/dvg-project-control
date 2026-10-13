@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Pill from '@/components/common/Pill';
 import { formatDate } from '@/lib/format';
 
-const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+const th = 'whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
 /**
  * The management priority list: the highest-scoring outstanding issues, each
@@ -51,7 +51,7 @@ export default function PriorityList({ rows = [] }) {
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     <Pill value={row.status} />
                     {row.blocked_days !== null && row.blocked_days !== undefined && (
-                      <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-[10px] uppercase text-destructive">
+                      <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-xs uppercase text-destructive">
                         blocked {row.blocked_days}d
                       </span>
                     )}
@@ -61,7 +61,7 @@ export default function PriorityList({ rows = [] }) {
                 <td className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">{row.engineer || '—'}</td>
                 <td className="field-mono whitespace-nowrap py-2.5 text-xs">
                   {formatDate(row.forecast_finish)}
-                  <div className="text-[10px] uppercase text-muted-foreground">{row.finish_source || 'no date'}</div>
+                  <div className="text-xs uppercase text-muted-foreground">{row.finish_source || 'no date'}</div>
                 </td>
                 <td className="whitespace-nowrap py-2.5 text-xs">
                   {row.overdue_days > 0 ? (

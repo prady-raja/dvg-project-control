@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import SearchSelect from '@/components/common/SearchableSelect';
 
 /**
  * Stage B / 15 — administrative control of the assistant: on or off, who may
@@ -98,7 +99,7 @@ export default function AiSettingsTab() {
         description="API keys live in the application's server-side secrets and are never sent to the browser."
       >
         <Field label="Provider" hint="Base44's built-in AI needs no key; a stored key is the portable choice for the planned move.">
-          <select
+          <SearchSelect
             className="mb-3 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm sm:w-96"
             value={form.provider}
             onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
@@ -106,7 +107,7 @@ export default function AiSettingsTab() {
             {AI_PROVIDERS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
-          </select>
+          </SearchSelect>
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <span
@@ -160,7 +161,7 @@ export default function AiSettingsTab() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Model" hint="Higher-quality models cost more per request.">
-              <select
+              <SearchSelect
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                 value={form.model}
                 onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
@@ -168,7 +169,7 @@ export default function AiSettingsTab() {
                 {AI_MODELS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
-              </select>
+              </SearchSelect>
             </Field>
             <Field label="Daily requests per user" hint="0 means no limit.">
               <Input

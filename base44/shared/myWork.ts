@@ -13,6 +13,8 @@ import {
 } from './dashboardCore.ts';
 import { attentionFor } from './attention.ts';
 import { normName } from './assignees.ts';
+import { commitmentState } from './commitments.ts';
+import { accessLine } from './ownerAccess.ts';
 
 const sameName = (a, b) => !!normName(a) && normName(a) === normName(b);
 
@@ -49,7 +51,7 @@ const reasonsFor = (task, row, asOf, settings, ix) => {
 };
 
 export function myWorkView({
-  tasks = [], locations = [], commitments = [], snags = [], updates = [], proposals = [], ix, asOf, user, options = {},
+  tasks = [], locations = [], commitments = [], snags = [], updates = [], proposals = [], visits = [], ix, asOf, user, options = {},
 }) {
   const me = { id: user.id, name: user.full_name || '' };
   const all = options.allVillas === true;
@@ -114,14 +116,14 @@ export function myWorkView({
   /* ------------------------------------------------------------ commitments */
   const horizon = shiftDay(asOf, 7);
   const myCommitments = commitments
-    .filter((c) => c.status === 'Open' && c.promised_date && toDay(c.promised_date) <= horizon
+    .filter((c) => (c.status || 'Open') === 'Open' && c.promised_date && toDay(c.promised_date) <= horizon
       && (!options.projectId || c.project_id === options.projectId)
       && (all || c.responsible_user_id === me.id || (!c.responsible_user_id && sameName(c.responsible_person, me.name))))
     .map((c) => ({
       id: c.id, commitment: c.commitment, promised_date: toDay(c.promised_date), task_ref: c.task_ref || '',
       contractor: ix.contractorName(c.contractor_id), person: c.responsible_person || '',
       // Worked out on read, never stored: open and past its date is missed.
-      missed: toDay(c.promised_date) < asOf,
+      missed: commitmentState(c, asOf) === 'Missed',
     }))
     .sort((a, b) => a.promised_date.localeCompare(b.promised_date));
 
@@ -135,6 +137,14 @@ export function myWorkView({
     .filter((p) => p.status === 'Proposed' && p.user_id === me.id)
     .map((p) => ({ id: p.id, message: String(p.message || '').slice(0, 140), proposed_at: p.proposed_at, actions: (p.actions || []).length }));
 
+  /* --------------------------------------------------------- owner access */
+  const horizonDay = shiftDay(asOf, 14);
+  const accessVisits = visits
+    .filter((v) => v.status === 'Confirmed' && toDay(v.visit_date) >= asOf && toDay(v.visit_date) <= horizonDay
+      && (all ? (!options.projectId || v.project_id === options.projectId) : villaIds.has(v.location_id)))
+    .sort((a, b) => toDay(a.visit_date).localeCompare(toDay(b.visit_date)))
+    .map((v) => ({ id: v.id, location_id: v.location_id, villa: ix.villaCode(v.location_id) || '', line: accessLine(v), visit_date: toDay(v.visit_date), tasks: (v.task_ids || []).length }));
+
   const view = {
     as_of: asOf,
     mode: all ? 'all' : 'mine',
@@ -145,6 +155,7 @@ export function myWorkView({
     plan,
     commitments: myCommitments,
     snags: reinspect,
+    access_visits: accessVisits,
     proposals: waitingProposals,
     counts: {
       tasks: rows.length,

@@ -21,10 +21,12 @@ describe('U-01 enums match the entity schemas', () => {
 
 describe('U-01 one definition everywhere', () => {
   it('the screens and the server share the same lists', () => {
-    expect(ui.TASK_STATUSES).toBe(TASK_STATUSES);
-    expect(ui.BLOCKER_CATEGORIES).toBe(BLOCKER_CATEGORIES);
-    expect(rules.TASK_STATUSES).toBe(TASK_STATUSES);
-    expect(ui.MEMBERSHIP_ROLES).toBe(MEMBERSHIP_ROLES);
+    // The browser keeps its own copy of the lists (it may not import from base44/),
+    // so they are compared by value. tests/shared-parity.test.js covers the rest.
+    expect(ui.TASK_STATUSES).toEqual(TASK_STATUSES);
+    expect(ui.BLOCKER_CATEGORIES).toEqual(BLOCKER_CATEGORIES);
+    expect(rules.TASK_STATUSES).toEqual(TASK_STATUSES);
+    expect(ui.MEMBERSHIP_ROLES).toEqual(MEMBERSHIP_ROLES);
   });
 
   it('every status has a category, an icon, a colour and a tooltip', () => {

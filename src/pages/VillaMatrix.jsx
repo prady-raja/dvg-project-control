@@ -15,6 +15,9 @@ import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import ShareMenu from '@/components/common/ShareMenu';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 const CELL_TONE = {
   Stuck: 'border-red-300 bg-red-50 text-red-900',
@@ -37,11 +40,10 @@ const forecastText = (f) => {
  */
 export default function VillaMatrix() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
-  const [possession, setPossession] = useState('');
-  const [contractorId, setContractorId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
+  const [possession, setPossession] = useUrlState('possession', '');
+  const [contractorId, setContractorId] = useUrlState('contractor', '');
   const [drill, setDrill] = useState(null);
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export default function VillaMatrix() {
         eyebrow="Home"
         title="Villa matrix"
         description="Every villa and every trade on one screen. Each cell opens the tasks behind it; dates shown are the latest recorded finish, never an estimate."
-        actions={view && <Button variant="outline" size="sm" className="gap-2" onClick={exportExcel}><Download className="h-4 w-4" /> Export to Excel</Button>}
+        actions={view && (<><ShareMenu title="Villa matrix" /><Button variant="outline" size="sm" className="gap-2" onClick={exportExcel}><Download className="h-4 w-4" /> Export to Excel</Button></>)}
       />
 
       <DashboardFilters
@@ -88,12 +90,12 @@ export default function VillaMatrix() {
         onDate={setDate}
       >
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Possession</Label>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Possession</Label>
           <EnumSelect className="mt-1.5" value={possession} onChange={setPossession}
             options={[{ value: '', label: 'All villas' }, { value: 'Handed Over', label: 'Handed over' }, { value: 'Not Handed Over', label: 'With DVG' }]} />
         </div>
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Contractor</Label>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Contractor</Label>
           <EnumSelect className="mt-1.5" value={contractorId} onChange={setContractorId}
             options={[{ value: '', label: 'All contractors' }, ...cat.contractors.filter((c) => c.active !== false).map((c) => ({ value: c.id, label: c.name }))]} />
         </div>
@@ -111,7 +113,7 @@ export default function VillaMatrix() {
               <div className="scroll-slim overflow-x-auto rounded-xl border border-border bg-card">
                 <table className="w-full min-w-[900px] text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="sticky left-0 z-10 bg-card px-3 py-2.5">Villa</th>
                       <th className="px-3 py-2.5">Possession</th>
                       {columns.map((d) => <th key={d.code} className="px-2 py-2.5 text-center">{d.name}</th>)}
@@ -123,8 +125,8 @@ export default function VillaMatrix() {
                       <tr key={r.location_id} className="border-b border-border/60 align-top last:border-0">
                         <td className="sticky left-0 z-10 bg-card px-3 py-2">
                           <Link to={`/locations/${r.location_id}`} className="font-semibold hover:underline">{r.villa}</Link>
-                          <div className="text-[11px] text-muted-foreground">{r.phase}{r.on_hold ? ' · on hold' : ''}</div>
-                          <Link to={`/villas/${r.location_id}/statement`} className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"><FileText className="h-3 w-3" /> Statement</Link>
+                          <div className="text-xs text-muted-foreground">{r.phase}{r.on_hold ? ' · on hold' : ''}</div>
+                          <Link to={`/villas/${r.location_id}/statement`} className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"><FileText className="h-3 w-3" /> Statement</Link>
                         </td>
                         <td className="px-3 py-2 text-xs">
                           {r.possession_status === 'Handed Over' ? 'Handed over' : 'With DVG'}
@@ -139,7 +141,7 @@ export default function VillaMatrix() {
                               <button
                                 type="button"
                                 onClick={() => setDrill({ filters: { projectId, phaseId, date, metric: 'all_tasks', locationId: r.location_id, discipline: d.code }, title: `${r.villa} · ${d.name}` })}
-                                className={cn('w-full min-w-[84px] rounded-lg border px-2 py-1.5 text-left text-[11px] leading-tight', CELL_TONE[c.category])}
+                                className={cn('w-full min-w-[84px] rounded-lg border px-2 py-1.5 text-left text-xs leading-tight', CELL_TONE[c.category])}
                                 aria-label={`${r.villa} ${d.name}: ${c.category}, ${c.open} open, ${c.closed} closed`}
                               >
                                 <span className="block font-semibold">{c.category}</span>
@@ -155,7 +157,7 @@ export default function VillaMatrix() {
                           );
                         })}
                         <td className="px-3 py-2 text-xs">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{r.forecast.label}</div>
+                          <div className="text-xs uppercase tracking-wide text-muted-foreground">{r.forecast.label}</div>
                           <div className="font-medium">{forecastText(r.forecast)}</div>
                           {r.forecast.slip_days !== null && r.forecast.slip_days !== 0 && (
                             <div className={r.forecast.slip_days > 0 ? 'text-destructive' : 'text-muted-foreground'}>

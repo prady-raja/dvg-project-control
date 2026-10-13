@@ -10,7 +10,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import Pill from '@/components/common/Pill';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import SnagList from '@/components/handover/SnagList';
@@ -19,15 +18,17 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 8 — handover and snagging. */
 export default function Handover() {
   const cat = useCatalogs();
   const access = useAccess();
   const { toast } = useToast();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,7 +72,7 @@ export default function Handover() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={ClipboardCheck} title="No project yet" description="Handover tracking appears once you are a member of a project." />
+        <NoProjectState icon={ClipboardCheck} description="Handover tracking appears once you are a member of a project." />
       </div>
     );
   }
@@ -129,7 +130,7 @@ export default function Handover() {
             <div className="scroll-slim overflow-x-auto">
               <table className="w-full min-w-[1000px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 text-left">Villa</th>
                     <th className="py-2 text-left">Phase</th>
                     <th className="py-2 text-left">Possession</th>
@@ -146,11 +147,11 @@ export default function Handover() {
                   {(data.rows || []).map((row) => (
                     <tr key={row.location_id} className={cn('border-b border-border/60 last:border-0', row.needs_attention && 'bg-[hsl(var(--warning))]/5')}>
                       <td className="py-2.5">
-                        <Link to={`/locations/${row.location_id}/execution`} className="field-mono text-xs font-semibold hover:underline">
+                        <Link to={`/locations/${row.location_id}?tab=overview`} className="field-mono text-xs font-semibold hover:underline">
                           {row.villa}
                         </Link>
                         <div className="text-xs text-muted-foreground">{row.plot_numbers}</div>
-                        {row.on_hold && <span className="text-[10px] uppercase text-muted-foreground">on hold</span>}
+                        {row.on_hold && <span className="text-xs uppercase text-muted-foreground">on hold</span>}
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground">{row.phase}</td>
                       <td className="py-2.5"><Pill value={row.possession_status} /></td>
@@ -163,7 +164,7 @@ export default function Handover() {
                       <td className="py-2.5 text-right">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" variant="ghost">
-                            <Link to={`/locations/${row.location_id}/execution`}>Open</Link>
+                            <Link to={`/locations/${row.location_id}?tab=overview`}>Open</Link>
                           </Button>
                           <Button asChild size="sm" variant="ghost">
                             <Link to={`/villas/${row.location_id}/statement`}>Statement</Link>

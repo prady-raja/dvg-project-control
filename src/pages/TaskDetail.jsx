@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Zap, Archive, RotateCcw, CalendarPlus } from 'lucide-react';
+import { Pencil, Zap, Archive, RotateCcw, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
@@ -20,6 +20,10 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import LocationCrumbs from '@/components/locations/LocationCrumbs';
+import TaskCommitments from '@/components/tasks/TaskCommitments';
+import ContactChip from '@/components/common/ContactChip';
+import { useQuery } from '@tanstack/react-query';
 
 const Section = ({ title, children }) => (
   <section className="rounded-xl border border-border bg-card p-5">
@@ -35,27 +39,24 @@ export default function TaskDetail() {
   const quick = useQuickActions();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [task, setTask] = useState(null);
   const [scopeOpen, setScopeOpen] = useState(false);
-  const [parentTask, setParentTask] = useState(null);
-  const [notFound, setNotFound] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
+  // Read through the query cache (R-01): a save elsewhere refreshes this page too.
+  const query = useQuery({
+    queryKey: ['task', taskId],
+    queryFn: async () => {
       const record = await base44.entities.Task.get(taskId);
-      setTask(record);
-      setParentTask(
-        record.parent_task_id ? await base44.entities.Task.get(record.parent_task_id).catch(() => null) : null,
-      );
-    } catch {
-      setNotFound(true);
-    }
-  }, [taskId]);
-
-  useEffect(() => {
-    load();
-  }, [load, quick.version]);
+      const parent = record.parent_task_id ? await base44.entities.Task.get(record.parent_task_id).catch(() => null) : null;
+      return { record, parent };
+    },
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
+  });
+  const task = query.data?.record || null;
+  const parentTask = query.data?.parent || null;
+  const notFound = query.isError;
+  const load = useCallback(() => query.refetch(), [query.refetch]);
 
   if (cat.loading || (!task && !notFound)) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -86,11 +87,7 @@ export default function TaskDetail() {
 
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 gap-1.5 text-muted-foreground">
-        <Link to={`/tasks?project=${task.project_id}`}>
-          <ArrowLeft className="h-4 w-4" /> Task register
-        </Link>
-      </Button>
+      <LocationCrumbs project={project} phase={phase} location={location} task={task} />
 
       <PageHeader
         eyebrow={`${task.task_ref}${task.is_demo ? ' · DEMO RECORD' : ''}`}
@@ -181,7 +178,7 @@ export default function TaskDetail() {
         <Section title="Responsibility">
           <DetailList
             items={[
-              { label: 'Assigned contractor', value: contractor?.name },
+              { label: 'Assigned contractor', value: contractor ? <ContactChip name={contractor.name} phone={contractor.phone} label={`${task.task_ref} ${task.name}`} /> : '' },
               { label: 'Contractor type', value: contractor?.classification },
               { label: 'Responsible site engineer', value: task.responsible_engineer },
               { label: 'Created by', value: task.created_by_name },
@@ -301,6 +298,8 @@ export default function TaskDetail() {
           emptyDescription="Every daily update filed against this task appears here as its own record."
         />
       </section>
+
+      <div className="mt-6"><TaskCommitments taskId={task.id} /></div>
 
       <div className="mt-5">
         <TaskHistoryPanel taskId={task.id} />

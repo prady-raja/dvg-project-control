@@ -15,7 +15,7 @@ export default function TaskCard({ task, cat, onOpen }) {
       <button type="button" onClick={() => onOpen(task)} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="field-mono truncate text-[11px] font-medium text-muted-foreground">{task.task_ref}</p>
+            <p className="field-mono truncate text-xs font-medium text-muted-foreground">{task.task_ref}</p>
             <p className="mt-1 line-clamp-2 font-display text-sm font-semibold text-foreground">{task.name}</p>
           </div>
           <Pill value={task.status} />

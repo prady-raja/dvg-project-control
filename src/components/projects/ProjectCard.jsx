@@ -16,7 +16,7 @@ export default function ProjectCard({ project, phases, counts, onEdit, canEdit }
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="field-mono rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-foreground">
+            <span className="field-mono rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground">
               {project.code}
             </span>
             <Pill value={project.status} />
@@ -25,7 +25,7 @@ export default function ProjectCard({ project, phases, counts, onEdit, canEdit }
           {project.location && <p className="mt-0.5 truncate text-sm text-muted-foreground">{project.location}</p>}
         </div>
         {canEdit && (
-          <Button variant="ghost" size="icon" onClick={() => onEdit(project)} className="shrink-0">
+          <Button variant="ghost" size="icon" aria-label="Edit project" onClick={() => onEdit(project)} className="shrink-0">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         )}

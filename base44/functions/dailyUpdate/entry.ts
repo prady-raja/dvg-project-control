@@ -16,6 +16,7 @@ import { projectSettings } from '../../shared/calendar.ts';
 import { delayCategoryFor } from '../../shared/delay.ts';
 import { appliedChanges, planVoid } from '../../shared/reportVoid.ts';
 import { clearOpenConstraints } from '../../shared/constraints.ts';
+import { cleanPhotoMeta } from '../../shared/photoMeta.ts';
 
 /**
  * The only path that records site work.
@@ -47,39 +48,58 @@ const text = (value, max = MAX_TEXT) => {
   return cleaned ? cleaned.slice(0, max) : null;
 };
 
-async function handler(req) {
+/**
+ * Takes back one of your own reports of today: the task is put back as it was (if
+ * nothing has changed it since), open blocker records close, and the report stays
+ * on record marked voided. Returns what is needed to restore it.
+ */
+async function voidReport(base44, svc, user, reportId) {
+  const original = await getOne(svc.DailyUpdate, reportId);
+  const original_task = original ? await getOne(svc.Task, original.task_id) : null;
+  const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
+  if (plan.error) throw fail(plan.error, 400);
+  const when = new Date().toISOString();
+  if (plan.patch && original_task) {
+    const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
+    await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
+    await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
+    await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
+      task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
+      field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
+      new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
+      changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
+      note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
+    })));
+  }
+  await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
+  return { original, original_task, plan };
+}
+
+/** Undoes voidReport after a failed replacement: the report counts again and the task fields return. */
+async function restoreVoided(svc, taken) {
+  const { original, original_task, plan } = taken;
+  if (plan.patch && original_task) {
+    const back = {};
+    Object.keys(plan.patch).forEach((field) => { back[field] = original_task[field] === undefined ? null : original_task[field]; });
+    await svc.Task.update(original_task.id, back);
+  }
+  await svc.DailyUpdate.update(original.id, { voided: false, voided_at: null, voided_by_name: null });
+}
+
+/**
+ * One daily report, start to finish: checks, the task write, the report, the trail.
+ * Returns the payload; throws a status error. A correction that fails after the
+ * original was taken back puts the original back exactly as it was.
+ */
+async function submitReport(base44, svc, user, body) {
+  let taken = null;
+  let restoreWith = null;
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // A correction: the original is taken back only once the replacement has passed
+    // its checks, and put back exactly as it was if the replacement then fails.
+    const replacesId = String(body?.replaces_report_id || '');
 
-    const body = await req.json().catch(() => ({}));
-    const svc = base44.asServiceRole.entities;
-
-    /* ------------------------------------------- taking back your own report today */
-    if (body?.action === 'void') {
-      const original = await getOne(svc.DailyUpdate, String(body?.report_id || ''));
-      const original_task = original ? await getOne(svc.Task, original.task_id) : null;
-      const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
-      if (plan.error) throw fail(plan.error, 400);
-      const when = new Date().toISOString();
-      if (plan.patch && original_task) {
-        const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
-        await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
-        await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
-        await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
-          task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
-          field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
-          new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
-          changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
-          note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
-        })));
-      }
-      await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
-      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
-    }
-
-    const task = await getOne(svc.Task, String(body?.task_id || ''));
+    let task = await getOne(svc.Task, String(body?.task_id || ''));
     if (!task) throw fail('That task no longer exists.', 404);
     const targetProblem = reportTargetProblem(task);
     if (targetProblem) throw fail(targetProblem);
@@ -151,6 +171,15 @@ async function handler(req) {
       .map((uri) => uri.trim().slice(0, 500));
     if (photoUris.length > MAX_REPORT_PHOTOS) {
       throw fail(`A report holds at most ${MAX_REPORT_PHOTOS} photos. Remove ${photoUris.length - MAX_REPORT_PHOTOS} and save again.`);
+    }
+
+    if (replacesId) {
+      const original = await getOne(svc.DailyUpdate, replacesId);
+      if (!original || original.task_id !== task.id) throw fail('That report is not for this task.', 400);
+      taken = await voidReport(base44, svc, user, replacesId);
+      restoreWith = svc;
+      // The task is read again: the original report no longer counts.
+      task = await getOne(svc.Task, task.id);
     }
 
     // The newest report already applied decides whether this one moves the task.
@@ -269,6 +298,7 @@ async function handler(req) {
       forecast_new: forecastEntry ? forecastEntry.new_value : null,
       date_revision_reason: forecastEntry ? revisionReason : null,
       photo_uris: photoUris,
+      ...cleanPhotoMeta(photoUris, body?.photo_captions, body?.photo_originals),
       applied: appliedChanges({ entries, effectsPatch: effects.patch, task }),
       prev_latest_report_date: task.latest_report_date || null,
       history_only: historyOnly,
@@ -328,7 +358,7 @@ async function handler(req) {
       });
     }
 
-    return Response.json({
+    return {
       update: report,
       task: updatedTask || task,
       changed: entries.length,
@@ -336,7 +366,48 @@ async function handler(req) {
       message: historyOnly
         ? `Saved as history. A newer report (${latestReportDate}) already set this task, so its status, progress and forecast were not changed.`
         : '',
-    });
+    };
+  } catch (error) {
+    if (taken && restoreWith) {
+      await restoreVoided(restoreWith, taken).catch(() => {});
+    }
+    throw error;
+  }
+}
+
+/** Up to 25 tasks of one villa and day in one call: a result per row, so one refusal never blocks the rest. */
+async function submitBatch(base44, svc, user, body) {
+  const rows = (Array.isArray(body?.rows) ? body.rows : []).slice(0, 25);
+  if (!rows.length) throw fail('There is nothing to save.');
+  const results = [];
+  for (const row of rows) {
+    const clientRef = String(row?.client_ref || row?.task_id || '');
+    try {
+      const out = await submitReport(base44, svc, user, { ...row, update_date: body.update_date, site_area: body.site_area });
+      results.push({ client_ref: clientRef, ok: true, update: out.update, history_only: out.history_only, message: out.message || '' });
+    } catch (e) {
+      results.push({ client_ref: clientRef, ok: false, error: e?.message || 'Could not save this row.', status: e?.status || 500 });
+    }
+  }
+  return { results, saved: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length };
+}
+
+async function handler(req) {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json().catch(() => ({}));
+    const svc = base44.asServiceRole.entities;
+
+    /* ------------------------------------------- taking back your own report today */
+    if (body?.action === 'void') {
+      const { original } = await voidReport(base44, svc, user, String(body?.report_id || ''));
+      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
+    }
+    if (body?.action === 'batch') return Response.json(await submitBatch(base44, svc, user, body));
+    return Response.json(await submitReport(base44, svc, user, body));
   } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }

@@ -9,7 +9,7 @@ const Tab = ({ to, icon: Icon, label, badge }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
-      cn('relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium', isActive ? 'text-primary' : 'text-muted-foreground')
+      cn('relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium', isActive ? 'text-primary' : 'text-muted-foreground')
     }
   >
     <Icon className="h-5 w-5" aria-hidden />
@@ -43,7 +43,7 @@ export default function MobileTabBar({ onMore }) {
         </button>
       </div>
       <Tab to="/handover" icon={ListChecks} label="Snags" badge={counts.snags} />
-      <button type="button" onClick={onMore} className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground">
+      <button type="button" onClick={onMore} className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium text-muted-foreground">
         <Menu className="h-5 w-5" aria-hidden />
         More
       </button>

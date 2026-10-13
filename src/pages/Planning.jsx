@@ -9,7 +9,6 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import ActivityRows from '@/components/common/ActivityRows';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import ForecastRevisionDialog from '@/components/planning/ForecastRevisionDialog';
@@ -17,6 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
+import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 5 — Daily and weekly planning. */
 const BUCKETS = [
@@ -35,12 +40,11 @@ export default function Planning() {
   const cat = useCatalogs();
   const access = useAccess();
   const { user } = useAuth();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [contractorId, setContractorId] = useState('');
-  const [discipline, setDiscipline] = useState('');
-  const [date, setDate] = useState(todayIst());
-  const [tab, setTab] = useState('overdue');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [contractorId, setContractorId] = useUrlState('contractor', '');
+  const [discipline, setDiscipline] = useUrlState('discipline', '');
+  const [date, setDate] = useUrlState('date', todayIst());
+  const [tab, setTab] = useUrlState('tab', 'overdue');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +100,7 @@ export default function Planning() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={CalendarRange} title="No project yet" description="Planning appears once you are a member of a project." />
+        <NoProjectState icon={CalendarRange} description="Planning appears once you are a member of a project." />
       </div>
     );
   }
@@ -108,9 +112,21 @@ export default function Planning() {
         title="Planning"
         description="What is due today, tomorrow, this week and this fortnight, what is late, and what has no reliable date. Dates are shown in Asia/Kolkata."
         actions={
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </Button>
+          <>
+            <ShareMenu
+              title={`Planning — ${tab}`}
+              filename={`planning-${tab}`}
+              rows={(tab === 'at_risk' ? data?.at_risk : data?.buckets?.[tab]) || []}
+              columns={ACTIVITY_COLUMNS}
+              text={() => {
+                const list = (tab === 'at_risk' ? data?.at_risk : data?.buckets?.[tab]) || [];
+                return [`DVG planning — ${tab} (${list.length})`, ...list.slice(0, 25).map((r) => `• ${r.ref} ${r.villa || ''} ${r.name || ''}`.trim()), list.length > 25 ? `…and ${list.length - 25} more` : ''].filter(Boolean).join('\n');
+              }}
+            />
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </Button>
+          </>
         }
       />
 
@@ -130,8 +146,8 @@ export default function Planning() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contractor</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Contractor</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
@@ -140,11 +156,11 @@ export default function Planning() {
               {cat.contractors.filter((c) => c.active !== false).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Discipline</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Discipline</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={discipline}
               onChange={(e) => setDiscipline(e.target.value)}
@@ -152,7 +168,7 @@ export default function Planning() {
               {disciplineOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
       </DashboardFilters>

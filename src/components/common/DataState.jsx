@@ -10,7 +10,7 @@ import EmptyState from '@/components/common/EmptyState';
  * A load can no longer leave a page spinning forever (X-05).
  */
 export default function DataState({
-  loading, error, empty, onRetry, children, rows = 3, emptyTitle = 'Nothing here yet', emptyDescription = '', emptyIcon,
+  loading, error, empty, onRetry, children, rows = 3, emptyTitle = 'Nothing here yet', emptyDescription = '', emptyIcon, emptyAction,
 }) {
   if (error) {
     return (
@@ -35,6 +35,6 @@ export default function DataState({
       </div>
     );
   }
-  if (empty) return <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />;
+  if (empty) return <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} action={emptyAction} />;
   return <>{children}</>;
 }

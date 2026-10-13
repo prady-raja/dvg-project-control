@@ -187,7 +187,7 @@ async function handler(req) {
 
     const projectId = String(body?.projectId || '');
     const scope = await scopeFor(base44, user, projectId);
-    const role = await resolveRole(base44, user, scope.projectId || '');
+    const role = await resolveRole(base44, scope.projectId || '', user);
     const appAdmin = isAppAdmin(user);
     const permission = canUseAi(settings, { appAdmin, rank: scope.rank, role });
 

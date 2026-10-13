@@ -91,7 +91,7 @@ export default function ContractorDefaultTab({ cat }) {
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <Switch checked={r.active !== false} onCheckedChange={(v) => setActive(r, v)} />
-              <Button variant="ghost" size="icon" onClick={() => openDialog(r)}>
+              <Button variant="ghost" size="icon" aria-label="Edit rule" onClick={() => openDialog(r)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>

@@ -22,6 +22,10 @@ const empty = {
   villa_type: '',
   assigned_engineer: '',
   assigned_engineer_user_id: '',
+  owner_name: '',
+  owner_phone: '',
+  occupancy: 'Unknown',
+  access_notes: '',
   sort_order: '',
   notes: '',
 };
@@ -51,6 +55,10 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
             villa_type: location.villa_type || '',
             assigned_engineer: location.assigned_engineer || '',
             assigned_engineer_user_id: location.assigned_engineer_user_id || '',
+            owner_name: location.owner_name || '',
+            owner_phone: location.owner_phone || '',
+            occupancy: location.occupancy || 'Unknown',
+            access_notes: location.access_notes || '',
             sort_order: location.sort_order ?? '',
             notes: location.notes || '',
           }
@@ -136,6 +144,18 @@ export default function LocationDialog({ open, onOpenChange, location, defaultPr
             onChange={(userId) => setForm((f) => ({ ...f, assigned_engineer_user_id: userId }))}
             placeholder="Unassigned"
           />
+        </Field>
+        <Field label="Villa owner" hint="Who must let DVG in after handover.">
+          <Input value={form.owner_name} onChange={(e) => setForm((f) => ({ ...f, owner_name: e.target.value }))} />
+        </Field>
+        <Field label="Owner phone">
+          <Input type="tel" value={form.owner_phone} onChange={(e) => setForm((f) => ({ ...f, owner_phone: e.target.value }))} placeholder="+91 98xxxxxxxx" />
+        </Field>
+        <Field label="Occupancy">
+          <EnumSelect value={form.occupancy} onChange={(v) => setForm((f) => ({ ...f, occupancy: v }))} options={['Occupied', 'Vacant', 'Unknown']} />
+        </Field>
+        <Field label="Access notes" hint="Keys, security, allowed working hours.">
+          <Input value={form.access_notes} onChange={(e) => setForm((f) => ({ ...f, access_notes: e.target.value }))} />
         </Field>
         <Field label="Possession status">
           <EnumSelect value={form.possession_status} onChange={(v) => setForm((f) => ({ ...f, possession_status: v }))} options={POSSESSION_STATUSES} />

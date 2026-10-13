@@ -8,6 +8,7 @@ import { formatDateTime, todayIst } from '@/lib/format';
 import { loadDashboard } from '@/lib/dashboardService';
 import { useCatalogs } from '@/lib/CatalogContext';
 import EnumSelect from '@/components/common/EnumSelect';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 /**
  * Data health for the administrator: the one-off backfills (dry run first, then
@@ -43,7 +44,7 @@ function AdoptionPanel() {
           <>
             <p className="text-sm"><strong>{v.villas_reported_today}</strong> of {v.villas_total} villas reported today · {v.reports_today} report{v.reports_today === 1 ? '' : 's'} today.</p>
             <table className="mt-3 w-full text-sm">
-              <thead><tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground"><th className="py-1">Person</th><th>Reports</th><th>Per working day</th><th>Days reported</th></tr></thead>
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="py-1">Person</th><th>Reports</th><th>Per working day</th><th>Days reported</th></tr></thead>
               <tbody>
                 {v.rows.map((r) => (
                   <tr key={r.user_id} className="border-t border-border/60"><td className="py-1.5">{r.name}</td><td className="tnum">{r.total}</td><td className="tnum">{r.per_working_day}</td><td className="tnum">{r.days_reported} of {v.working_days}</td></tr>
@@ -79,8 +80,10 @@ export default function DataTab() {
     load();
   }, [load]);
 
+  const [pendingRun, setPendingRun] = useState('');
   const run = async (id, dryRun) => {
-    if (!dryRun && !window.confirm('Apply this backfill to the live records? Run the dry run first if you have not.')) return;
+    if (!dryRun && pendingRun !== id) { setPendingRun(id); return; }
+    setPendingRun('');
     setBusy(`${id}:${dryRun}`);
     try {
       const result = await data.invoke('migrate', { action: 'run', id, dryRun });
@@ -95,6 +98,14 @@ export default function DataTab() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        open={!!pendingRun}
+        onOpenChange={(v) => !v && setPendingRun('')}
+        title="Apply this backfill to the live records?"
+        description="Run the dry run first if you have not. The result of the dry run lists what would change."
+        confirmLabel="Apply to live records"
+        onConfirm={() => run(pendingRun, false)}
+      />
       <AdoptionPanel />
       <DataState loading={state.loading} error={state.error} onRetry={load}>
         <BoardSection
@@ -144,7 +155,7 @@ export default function DataTab() {
           </ul>
           {!!state.runs.length && (
             <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recent runs</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent runs</p>
               <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
                 {state.runs.map((run) => (
                   <li key={run.id}>{formatDateTime(run.run_at)} · {run.migration} · {run.written}/{run.planned} written{run.failed ? `, ${run.failed} failed` : ''} · {run.run_by}</li>

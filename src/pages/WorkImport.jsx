@@ -22,6 +22,7 @@ import {
 } from '@/lib/workImportService';
 import ColumnMappingPanel from '@/components/import/ColumnMappingPanel';
 import { clearReview, loadReview, prepareHeadings, saveMappingFor, saveReview } from '@/lib/importMapping';
+import { useScopeState } from '@/lib/ScopeContext';
 
 /**
  * Import Works — a reviewed Excel or CSV work list in, new tasks, agreed changes
@@ -34,7 +35,7 @@ export default function WorkImport() {
   const cat = useCatalogs();
   const access = useAccess();
 
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useScopeState();
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [overrides, setOverrides] = useState({});

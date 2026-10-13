@@ -35,7 +35,7 @@ export default function DesktopSidebar() {
             <span className="block truncate text-xs font-medium text-sidebar-foreground">
               {user?.full_name || 'Signed in'}
             </span>
-            <span className="block truncate text-[10px] text-sidebar-foreground/50">{user?.email}</span>
+            <span className="block truncate text-xs text-sidebar-foreground/50">{user?.email}</span>
           </span>
         </div>
         <Button

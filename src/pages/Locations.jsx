@@ -10,6 +10,7 @@ import { items } from '@/lib/dataHelpers';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import EnumSelect from '@/components/common/EnumSelect';
+import VillaHealthList from '@/components/locations/VillaHealthList';
 import LocationTable from '@/components/locations/LocationTable';
 import LocationDialog from '@/components/locations/LocationDialog';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export default function Locations() {
   const [reloadKey, setReloadKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [mode, setMode] = useState('health');
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +118,16 @@ export default function Locations() {
         />
       </div>
 
-      {loadError ? (
+      <div className="mb-3 flex gap-2" role="tablist" aria-label="View">
+        {[['health', 'Health'], ['register', 'Register']].map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={mode === key} onClick={() => setMode(key)}
+            className={`min-h-9 rounded-full border px-4 text-sm font-medium ${mode === key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'}`}>{label}</button>
+        ))}
+      </div>
+
+      {mode === 'health' ? (
+        <VillaHealthList projectId={filters.project_id} phaseId={filters.phase_id} filters={filters} />
+      ) : loadError ? (
         <DataState error={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : loading ? (
         <Skeleton className="h-72 rounded-xl" />
@@ -126,6 +137,7 @@ export default function Locations() {
             icon={MapPin}
             title="No villas or locations match"
             description="Adjust the filters above, or add a new villa or common-work location."
+            action={<Button onClick={() => { setEditing(null); setDialogOpen(true); }}>New location</Button>}
           />
         </div>
       ) : (

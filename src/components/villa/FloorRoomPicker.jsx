@@ -35,7 +35,7 @@ export default function FloorRoomPicker({ floors = [], areas = [], floorId = '',
                   />
                   <span className="min-w-0 truncate">{area.area_name}</span>
                   {!!area.floor_id && (
-                    <span className="text-[11px] text-muted-foreground">{floors.find((f) => f.id === area.floor_id)?.floor_name || ''}</span>
+                    <span className="text-xs text-muted-foreground">{floors.find((f) => f.id === area.floor_id)?.floor_name || ''}</span>
                   )}
                 </label>
               ))}

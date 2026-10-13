@@ -13,6 +13,7 @@ import EnumSelect from '@/components/common/EnumSelect';
 import Pill from '@/components/common/Pill';
 import FormDialog from '@/components/common/FormDialog';
 import { Button } from '@/components/ui/button';
+import { useScopeState } from '@/lib/ScopeContext';
 
 const resultFromBatch = (batch) => {
   const rows = batch.report || [];
@@ -29,7 +30,7 @@ const resultFromBatch = (batch) => {
 export default function ImportHistory() {
   const cat = useCatalogs();
   const access = useAccess();
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useScopeState();
   const [state, setState] = useState({ loading: false, error: '', batches: [] });
   const [undoing, setUndoing] = useState(null);
 

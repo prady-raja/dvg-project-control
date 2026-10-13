@@ -7,19 +7,20 @@ import PageHeader from '@/components/common/PageHeader';
 import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import ActivityRows from '@/components/common/ActivityRows';
 import ProgressNote from '@/components/common/ProgressNote';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 9 — common infrastructure and site-wide works. */
 export default function SiteWide() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,7 +60,7 @@ export default function SiteWide() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={HardHat} title="No project yet" description="Site-wide works appear once you are a member of a project." />
+        <NoProjectState icon={HardHat} description="Site-wide works appear once you are a member of a project." />
       </div>
     );
   }
@@ -134,7 +135,7 @@ export default function SiteWide() {
                 <div className="mb-4 grid gap-3 lg:grid-cols-3">
                   <ProgressNote progress={group.progress} counts={group.counts} />
                   <div className="rounded-xl border border-border px-4 py-3 lg:col-span-2">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Areas</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Areas</p>
                     <p className="mt-1 text-sm">{(group.areas || []).join(', ') || 'No area recorded'}</p>
                   </div>
                 </div>

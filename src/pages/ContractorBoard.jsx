@@ -6,20 +6,22 @@ import { todayIst } from '@/lib/format';
 import PageHeader from '@/components/common/PageHeader';
 import StatTile from '@/components/common/StatTile';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import ContractorBoardCard from '@/components/contractors/ContractorBoardCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 4 — Contractor dashboard. */
 export default function ContractorBoard() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
   const [locationId, setLocationId] = useState('');
-  const [discipline, setDiscipline] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [discipline, setDiscipline] = useUrlState('discipline', '');
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,7 +64,7 @@ export default function ContractorBoard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={HardHat} title="No project yet" description="Contractor performance appears once you are a member of a project." />
+        <NoProjectState icon={HardHat} description="Contractor performance appears once you are a member of a project." />
       </div>
     );
   }
@@ -100,8 +102,8 @@ export default function ContractorBoard() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Villa</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Villa</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
@@ -110,11 +112,11 @@ export default function ContractorBoard() {
               {villas.map((v) => (
                 <option key={v.id} value={v.id}>{v.villa_code}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Discipline</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Discipline</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={discipline}
               onChange={(e) => setDiscipline(e.target.value)}
@@ -123,7 +125,7 @@ export default function ContractorBoard() {
               {disciplines.map((d) => (
                 <option key={d.id} value={d.code}>{d.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
       </DashboardFilters>

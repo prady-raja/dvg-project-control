@@ -18,15 +18,18 @@ import AiPanel from '@/components/ai/AiPanel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 7 and Stage B / 13 — contractor meeting reports and commitments. */
 export default function Meetings() {
   const cat = useCatalogs();
   const access = useAccess();
   const { toast } = useToast();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [contractorId, setContractorId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [contractorId, setContractorId] = useUrlState('contractor', '');
   const [meetingDate, setMeetingDate] = useState(todayIst());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +108,7 @@ export default function Meetings() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState icon={CalendarClock} title="No project yet" description="Meeting reports appear once you are a member of a project." />
+        <NoProjectState icon={CalendarClock} description="Meeting reports appear once you are a member of a project." />
       </div>
     );
   }
@@ -133,8 +136,8 @@ export default function Meetings() {
       <div className="rounded-xl border border-border bg-card p-4 print:hidden">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Project</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Project</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={projectId}
               onChange={(e) => {
@@ -145,11 +148,11 @@ export default function Meetings() {
               {cat.projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Phase</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Phase</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={phaseId}
               onChange={(e) => setPhaseId(e.target.value)}
@@ -158,11 +161,11 @@ export default function Meetings() {
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contractor</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Contractor</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
@@ -171,10 +174,10 @@ export default function Meetings() {
               {contractors.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}{c.trade ? ` — ${c.trade}` : ''}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Meeting date</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Meeting date</p>
             <input
               type="date"
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"

@@ -11,7 +11,7 @@ const Stat = ({ label, value, tone }) => (
     >
       {value}
     </p>
-    <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{label}</p>
+    <p className="mt-0.5 text-xs leading-tight text-muted-foreground">{label}</p>
   </div>
 );
 

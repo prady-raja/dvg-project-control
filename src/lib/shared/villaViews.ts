@@ -34,6 +34,14 @@ export function statementText(view, { includeRefs = false } = {}) {
     view.needed_from_owner.forEach((o) => lines.push(`• ${o.need}: ${o.what}`));
     lines.push('');
   }
+  if ((view.awaiting_signoff || []).length) {
+    lines.push('DONE — WAITING FOR YOUR SIGN-OFF');
+    view.awaiting_signoff.forEach((o) => lines.push(`• ${o.room ? `${o.room}: ` : ''}${o.what}`));
+    lines.push('');
+  }
+  if ((view.signed_off || []).length) {
+    lines.push(`SIGNED OFF BY YOU: ${view.signed_off.length}`);
+  }
   if (view.completed_recently.length) {
     lines.push(`COMPLETED IN THE LAST 30 DAYS: ${view.completed_recently.length}`);
   }

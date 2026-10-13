@@ -88,7 +88,7 @@ export default function DisciplineTab({ cat }) {
                   <Switch checked={d.active !== false} onCheckedChange={(v) => setActive(d, v)} />
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openDialog(d)}>
+                  <Button variant="ghost" size="icon" aria-label="Edit discipline" onClick={() => openDialog(d)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                 </TableCell>

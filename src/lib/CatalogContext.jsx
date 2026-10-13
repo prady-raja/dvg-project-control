@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useAccess } from '@/lib/AccessContext';
 import { byId, items } from '@/lib/dataHelpers';
@@ -21,53 +22,50 @@ const EMPTY = {
  * disciplines, work packages, contractor defaults). Loaded once for the
  * signed-in session and refreshed after any administrative change.
  */
+async function fetchCatalogs() {
+  const [projects, phases, locations, contractors, disciplines, workPackages, contractorDefaults] = await Promise.all([
+    base44.entities.Project.filter({}, { sort: 'name', limit: 200 }),
+    base44.entities.Phase.filter({}, { sort: 'sort_order', limit: 300 }),
+    base44.entities.Location.filter({}, { sort: 'sort_order', limit: 1000 }),
+    base44.entities.Contractor.filter({}, { sort: 'name', limit: 300 }),
+    base44.entities.Discipline.filter({}, { sort: 'sort_order', limit: 200 }),
+    base44.entities.WorkPackage.filter({}, { sort: 'sort_order', limit: 1000 }),
+    base44.entities.ContractorDefault.filter({}, { limit: 1000 }),
+  ]);
+  // A project under execution leads the list (and is the default scope of every
+  // dashboard); a project still in planning has no work to report yet.
+  const ordered = [...items(projects)].sort(
+    (a, b) => (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1)
+      || String(a.name || '').localeCompare(String(b.name || '')),
+  );
+  return {
+    projects: ordered,
+    phases: items(phases),
+    locations: items(locations),
+    contractors: items(contractors),
+    disciplines: items(disciplines),
+    workPackages: items(workPackages),
+    contractorDefaults: items(contractorDefaults),
+  };
+}
+
 export function CatalogProvider({ children }) {
   const access = useAccess();
-  const [data, setData] = useState(EMPTY);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const refresh = useCallback(async () => {
-    setError('');
-    try {
-    const [projects, phases, locations, contractors, disciplines, workPackages, contractorDefaults] =
-      await Promise.all([
-        base44.entities.Project.filter({}, { sort: 'name', limit: 200 }),
-        base44.entities.Phase.filter({}, { sort: 'sort_order', limit: 300 }),
-        base44.entities.Location.filter({}, { sort: 'sort_order', limit: 1000 }),
-        base44.entities.Contractor.filter({}, { sort: 'name', limit: 300 }),
-        base44.entities.Discipline.filter({}, { sort: 'sort_order', limit: 200 }),
-        base44.entities.WorkPackage.filter({}, { sort: 'sort_order', limit: 1000 }),
-        base44.entities.ContractorDefault.filter({}, { limit: 1000 }),
-      ]);
-    // A project under execution leads the list (and is the default scope of every
-    // dashboard); a project still in planning has no work to report yet.
-    const ordered = [...items(projects)].sort(
-      (a, b) => (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1)
-        || String(a.name || '').localeCompare(String(b.name || '')),
-    );
-    setData({
-      projects: ordered,
-      phases: items(phases),
-      locations: items(locations),
-      contractors: items(contractors),
-      disciplines: items(disciplines),
-      workPackages: items(workPackages),
-      contractorDefaults: items(contractorDefaults),
-    });
-    } catch (e) {
-      setError(errorMessageOf(e, 'The project lists could not be loaded.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Access resolves first: a membership recorded against this person's email is
-  // claimed and mirrored onto the project's records before anything is read.
-  useEffect(() => {
-    if (access.loading) return;
-    refresh();
-  }, [access.loading, refresh]);
+  // Cached for five minutes and refreshed when the window is focused again (R-01), so
+  // a villa added on another phone appears without a reload. Access resolves first: a
+  // membership recorded against this person's email is claimed and mirrored onto the
+  // project's records before anything is read.
+  const query = useQuery({
+    queryKey: ['catalogs'],
+    queryFn: fetchCatalogs,
+    enabled: !access.loading,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+  const data = query.data || EMPTY;
+  const loading = access.loading || query.isPending;
+  const error = query.isError && !query.data ? errorMessageOf(query.error, 'The project lists could not be loaded.') : '';
+  const refresh = useCallback(() => query.refetch(), [query.refetch]);
 
   const value = useMemo(() => {
     const maps = {

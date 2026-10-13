@@ -7,13 +7,15 @@ import { contractorBoardView, executiveView, planningView, villaExecutionView } 
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
 import { attentionFor } from '../../shared/attention.ts';
 import { countsView, myWorkView } from '../../shared/myWork.ts';
-import { villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
+import { villaListView, villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
 import { adoptionView } from '../../shared/adoption.ts';
 import { activeMembers } from '../../shared/access.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
 import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
 import { withLog } from '../../shared/log.ts';
+import { commitmentSummary } from '../../shared/commitments.ts';
+import { coverageView } from '../../shared/coverage.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -27,13 +29,14 @@ import { withLog } from '../../shared/log.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption', 'coverage'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
-  commitments: ['meeting', 'myWork'].includes(view),
-  snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
+  commitments: ['meeting', 'myWork', 'executive'].includes(view),
+  snags: ['handover', 'villa', 'myWork', 'counts', 'statement', 'villaList'].includes(view),
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
   dismissals: ['attention', 'counts'].includes(view),
+  visits: ['myWork'].includes(view),
 });
 
 async function handler(req) {
@@ -115,6 +118,22 @@ async function handler(req) {
           }),
         });
       }
+      case 'coverage': {
+        const db = makeDb({ entities: base44.asServiceRole.entities });
+        const projectId = scope.projectId || data.projects[0]?.id || '';
+        const members = projectId ? await activeMembers(base44, projectId) : [];
+        return Response.json({
+          ...header,
+          ...coverageView({
+            locations: data.locations.filter((l) => !projectId || l.project_id === projectId),
+            updates: data.updates, tasks: data.tasks.filter((t) => !projectId || t.project_id === projectId),
+            members, settings: ix.settings(projectId), asOf,
+            diaries: projectId ? (await db.readAll('SiteDiary', { project_id: projectId, diary_date: { $gte: shiftDay(asOf, -30) } }, { max: 100 })).items : [],
+          }),
+        });
+      }
+      case 'villaList':
+        return Response.json({ ...header, ...villaListView({ tasks: data.tasks, locations: data.locations, snags: data.snags, ix, asOf, options }) });
       case 'matrix':
         return Response.json({
           ...header,
@@ -134,7 +153,7 @@ async function handler(req) {
           ...header,
           ...myWorkView({
             ...common, locations: data.locations, commitments: data.commitments, snags: data.snags, updates: data.updates,
-            proposals: data.proposals, user, options: { ...options, allVillas: body?.allVillas === true },
+            proposals: data.proposals, visits: data.visits, user, options: { ...options, allVillas: body?.allVillas === true },
           }),
         });
       case 'counts':
@@ -193,7 +212,7 @@ async function handler(req) {
         });
       }
       default: {
-        const view = executiveView(common);
+        const view = { ...executiveView(common), commitments: commitmentSummary(data.commitments.filter((c) => (!scope.projectId || c.project_id === scope.projectId) && (!phaseId || c.phase_id === phaseId)), asOf) };
         // History starts being kept now: the day's snapshot is written lazily by the
         // first read after 23:30 IST, and the change since last week is read back.
         const db = makeDb({ entities: base44.asServiceRole.entities });

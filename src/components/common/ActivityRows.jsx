@@ -6,7 +6,7 @@ import Pill from '@/components/common/Pill';
 import HealthBadge from '@/components/common/HealthBadge';
 import { formatDate } from '@/lib/format';
 
-const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+const th = 'whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
 /**
  * The activity list every board and report uses: a table that scrolls

@@ -7,6 +7,7 @@ import Pill from '@/components/common/Pill';
 import ContractorDialog from '@/components/contractors/ContractorDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import ContactChip from '@/components/common/ContactChip';
 
 export default function Contractors() {
   const cat = useCatalogs();
@@ -41,7 +42,8 @@ export default function Contractors() {
               )}
               {c.phone && (
                 <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5" /> {c.phone}
+                  <Phone className="h-3.5 w-3.5" /> <span className="font-mono">{c.phone}</span>
+                  <ContactChip name="" phone={c.phone} label="a DVG work query" />
                 </div>
               )}
               {c.email && (

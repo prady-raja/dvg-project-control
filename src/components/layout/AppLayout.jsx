@@ -4,6 +4,8 @@ import { Menu, LogOut } from 'lucide-react';
 import { CatalogProvider } from '@/lib/CatalogContext';
 import { AccessProvider, useAccess } from '@/lib/AccessContext';
 import { useCatalogs } from '@/lib/CatalogContext';
+import { ScopeProvider } from '@/lib/ScopeContext';
+import TopBar from '@/components/layout/TopBar';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import MobileTabBar from '@/components/layout/MobileTabBar';
 import { QuickActionsProvider } from '@/components/layout/QuickActions';
@@ -57,6 +59,7 @@ export default function AppLayout() {
   return (
     <AccessProvider>
       <CatalogProvider>
+        <ScopeProvider>
         <QuickActionsProvider>
         <div className="min-h-screen bg-background">
         <DesktopSidebar />
@@ -64,7 +67,7 @@ export default function AppLayout() {
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-sidebar-border bg-sidebar px-4 lg:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent">
+              <Button variant="ghost" size="icon" aria-label="Open menu" className="text-sidebar-foreground hover:bg-sidebar-accent">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Open menu</span>
               </Button>
@@ -97,6 +100,7 @@ export default function AppLayout() {
           <div className="lg:pl-[264px]">
             <div className="mx-auto w-full max-w-[1500px] px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
               <LoadBanners />
+              <TopBar />
               <ErrorBoundary resetKey={routerLocation.pathname}>
                 <Outlet />
               </ErrorBoundary>
@@ -105,6 +109,7 @@ export default function AppLayout() {
           <MobileTabBar onMore={() => setMenuOpen(true)} />
         </div>
         </QuickActionsProvider>
+        </ScopeProvider>
       </CatalogProvider>
     </AccessProvider>
   );

@@ -41,7 +41,7 @@ export default function NavList({ onNavigate }) {
     <nav className="flex flex-col gap-1" aria-label="Main">
       {sections.map((section) => (
         <React.Fragment key={section.label}>
-          <p className="px-3 pb-1 pt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-sidebar-foreground/40">{section.label}</p>
+          <p className="px-3 pb-1 pt-4 font-mono text-xs uppercase tracking-[0.16em] text-sidebar-foreground/40">{section.label}</p>
           {section.items.map((item) => {
             const Icon = iconFor(item.icon);
             const badge = item.badge ? counts[item.badge] : 0;
@@ -65,7 +65,7 @@ export default function NavList({ onNavigate }) {
                     <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-sidebar-primary' : '')} />
                     <span className="truncate">{item.label}</span>
                     {badge > 0 && (
-                      <span className="field-mono ml-auto rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-semibold text-sidebar-accent-foreground" aria-label={`${badge} need attention`}>
+                      <span className="field-mono ml-auto rounded-full bg-sidebar-accent px-1.5 py-0.5 text-xs font-semibold text-sidebar-accent-foreground" aria-label={`${badge} need attention`}>
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}

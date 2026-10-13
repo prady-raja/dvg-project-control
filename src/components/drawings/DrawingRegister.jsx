@@ -126,9 +126,9 @@ export default function DrawingRegister({ location, canManage }) {
                 <p className="truncate text-sm font-medium">
                   {drawing.drawing_number && <span className="field-mono mr-2 text-xs text-muted-foreground">{drawing.drawing_number}</span>}
                   {drawing.title}
-                  {drawing.villa_type && !drawing.location_id && <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">all {drawing.villa_type}</span>}
+                  {drawing.villa_type && !drawing.location_id && <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-xs uppercase text-muted-foreground">all {drawing.villa_type}</span>}
                 </p>
-                <p className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                <p className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>{drawing.drawing_type}</span>
                   {!!drawing.revision && <span className="field-mono">{drawing.revision}</span>}
                   {!!drawing.revision_date && <span>{formatDate(drawing.revision_date)}</span>}

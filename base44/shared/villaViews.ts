@@ -6,7 +6,7 @@
  */
 import {
   daysBetween, finishDate, heldLocationIds, isAwaitingClosure, isAwaitingVerification, isBlocked, isCountable,
-  isOutstanding, isOverdue, isUnscheduled, measuredProgress, shiftDay, statusCounts, taskRow, toDay, weightedProgress,
+  isOutstanding, isOverdue, isStale, isUnscheduled, measuredProgress, shiftDay, statusCounts, taskRow, toDay, weightedProgress,
 } from './dashboardCore.ts';
 
 /* ------------------------------------------------------------------ forecast */
@@ -137,6 +137,63 @@ export function villaMatrixView({ tasks = [], locations = [], ix, asOf, options 
   };
 }
 
+/* ---------------------------------------------------------------------- list */
+
+/**
+ * One row per location for the Villas list (L-04): progress (only when measured),
+ * open, blocked, overdue and snag counts, possession, engineer, forecast with its
+ * slip, and the last report — red once it is older than the project's stale days.
+ * Sorted by risk, with handed-over villas that still have open works first.
+ */
+export function villaListView({ tasks = [], locations = [], snags = [], ix, asOf, options = {} }) {
+  const heldIds = heldLocationIds(locations);
+  const scoped = tasks.filter((t) => isCountable(t, { includeDemo: options.includeDemo === true }) && t.location_id
+    && (!options.projectId || t.project_id === options.projectId)
+    && (!options.phaseId || t.phase_id === options.phaseId));
+  const byLocation = new Map();
+  scoped.forEach((t) => byLocation.set(t.location_id, [...(byLocation.get(t.location_id) || []), t]));
+  const snagsBy = new Map();
+  snags.filter((s) => s.status !== 'Closed' && s.status !== 'Cancelled').forEach((s) => snagsBy.set(s.location_id, (snagsBy.get(s.location_id) || 0) + 1));
+
+  const rows = locations
+    .filter((l) => (!options.projectId || l.project_id === options.projectId) && (!options.phaseId || l.phase_id === options.phaseId))
+    .map((l) => {
+      const mine = byLocation.get(l.id) || [];
+      const open = mine.filter(isOutstanding);
+      const counts = statusCounts(mine, asOf);
+      const progress = weightedProgress(mine);
+      const settings = ix.settings(l.project_id);
+      const last = mine.map((t) => toDay(t.latest_report_date)).filter(Boolean).sort().pop() || '';
+      const stale = open.length > 0 && isStale(last, asOf, settings);
+      const handedOpen = l.possession_status === 'Handed Over' && open.length > 0;
+      return {
+        location_id: l.id,
+        villa: l.villa_code,
+        plot_numbers: l.plot_numbers || '',
+        location_type: l.location_type,
+        phase: ix.phaseName(l.phase_id),
+        possession_status: l.possession_status || 'Not Handed Over',
+        active_status: l.active_status || 'Active',
+        on_hold: heldIds.has(l.id),
+        engineer: l.assigned_engineer || '',
+        total: mine.length,
+        open: counts.open,
+        blocked: counts.blocked,
+        overdue: counts.overdue,
+        snags_open: snagsBy.get(l.id) || 0,
+        percent: progress.reliable ? progress.percent : null,
+        forecast: villaForecast(l, open),
+        last_report_date: last,
+        stale,
+        handed_over_open: handedOpen,
+        risk: counts.overdue * 3 + counts.blocked * 2 + (stale ? 2 : 0) + (handedOpen ? 5 : 0),
+      };
+    })
+    .sort((a, b) => b.risk - a.risk || a.villa.localeCompare(b.villa, undefined, { numeric: true }));
+
+  return { as_of: asOf, rows, totals: { locations: rows.length, handed_over_with_open_works: rows.filter((r) => r.handed_over_open).length } };
+}
+
 /* ----------------------------------------------------------------- statement */
 
 export const STATUS_WORDS = {
@@ -211,12 +268,29 @@ export function villaStatementView({ location, tasks = [], snags = [], floors = 
       : 'A selection by the owner',
   }));
 
+  // Owner sign-off (Q-08): finished work in a handed-over villa that the owner has not yet accepted, and what they have.
+  const handedOver = location.possession_status === 'Handed Over';
+  const doneTasks = mine.filter((t) => ['Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(t.status));
+  const closedSnags = snags.filter((s) => s.location_id === location.id && s.status === 'Closed');
+  const item = (kind, row, what) => ({ kind, id: row.id, ref: row.task_ref || row.snag_ref || '', what, room: row.area_label || '' });
+  const awaitingSignoff = !handedOver ? [] : [
+    ...doneTasks.filter((t) => !t.owner_ack_date).map((t) => item('task', t, t.name)),
+    ...closedSnags.filter((s) => !s.owner_ack_date).map((s) => item('snag', s, s.title)),
+  ].slice(0, 200);
+  const signedOff = [
+    ...mine.filter((t) => t.owner_ack_date).map((t) => ({ ...item('task', t, t.name), name: t.owner_ack_name || '', date: toDay(t.owner_ack_date), method: t.owner_ack_method || '' })),
+    ...snags.filter((s) => s.location_id === location.id && s.owner_ack_date).map((s) => ({ ...item('snag', s, s.title), name: s.owner_ack_name || '', date: toDay(s.owner_ack_date), method: s.owner_ack_method || '' })),
+  ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 200);
+
   const progress = weightedProgress(mine);
   const forecast = villaForecast(location, open);
   return {
     as_of: asOf,
+    awaiting_signoff: awaitingSignoff,
+    signed_off: signedOff,
     villa: {
       id: location.id,
+      project_id: location.project_id,
       code: location.villa_code,
       plots: location.plot_numbers || '',
       phase: ix.phaseName(location.phase_id),
@@ -275,6 +349,14 @@ export function statementText(view, { includeRefs = false } = {}) {
     lines.push('NEEDED FROM YOU');
     view.needed_from_owner.forEach((o) => lines.push(`• ${o.need}: ${o.what}`));
     lines.push('');
+  }
+  if ((view.awaiting_signoff || []).length) {
+    lines.push('DONE — WAITING FOR YOUR SIGN-OFF');
+    view.awaiting_signoff.forEach((o) => lines.push(`• ${o.room ? `${o.room}: ` : ''}${o.what}`));
+    lines.push('');
+  }
+  if ((view.signed_off || []).length) {
+    lines.push(`SIGNED OFF BY YOU: ${view.signed_off.length}`);
   }
   if (view.completed_recently.length) {
     lines.push(`COMPLETED IN THE LAST 30 DAYS: ${view.completed_recently.length}`);

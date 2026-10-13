@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { todayIst } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
@@ -9,7 +9,6 @@ import BoardSection from '@/components/common/BoardSection';
 import StatTile from '@/components/common/StatTile';
 import ProgressNote from '@/components/common/ProgressNote';
 import DataCaveats from '@/components/common/DataCaveats';
-import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import PriorityList from '@/components/dashboard/PriorityList';
 import HeadlineTiles from '@/components/dashboard/HeadlineTiles';
@@ -20,6 +19,10 @@ import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
+import ShareMenu from '@/components/common/ShareMenu';
+import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
 
@@ -51,9 +54,9 @@ function PriorityGroups({ rows }) {
 export default function Dashboard() {
   const cat = useCatalogs();
   const access = useAccess();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const navigate = useNavigate();
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [includeDemo, setIncludeDemo] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,11 +104,7 @@ export default function Dashboard() {
   if (!cat.projects.length) {
     return (
       <div className="rounded-xl border border-border bg-card">
-        <EmptyState
-          icon={LayoutDashboard}
-          title="No project yet"
-          description="The portfolio dashboard appears once you are a member of a project."
-        />
+        <NoProjectState icon={LayoutDashboard} description="The portfolio dashboard appears once you are a member of a project." />
       </div>
     );
   }
@@ -121,6 +120,15 @@ export default function Dashboard() {
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </Button>
+            <ShareMenu
+              title="Overview"
+              text={() => [
+                `DVG overview — ${date}`,
+                `Open tasks: ${metrics.open_tasks ?? 0}`, `Overdue: ${metrics.overdue_tasks ?? 0}`, `Blocked: ${metrics.blocked_tasks ?? 0}`,
+                `Due in 7 days: ${metrics.due_within_7 ?? 0}`, `Awaiting verification: ${metrics.awaiting_verification ?? 0}`,
+                `Handed-over villas with open works: ${metrics.handed_over_open_works ?? 0} (${metrics.handed_over_open_tasks ?? 0} tasks)`,
+              ].join('\n')}
+            />
             <Button asChild size="sm" variant="outline">
               <Link to="/planning">Planning</Link>
             </Button>
@@ -217,6 +225,14 @@ export default function Dashboard() {
               <StatTile label="Awaiting verification" value={metrics.awaiting_verification ?? 0} tone="warning" onClick={() => open('awaiting_verification', 'Tasks awaiting verification', 'Execution complete or under inspection — awaiting a decision, not overdue.')} />
               <StatTile label="Approved — awaiting closure" value={metrics.awaiting_closure ?? 0} onClick={() => open('awaiting_closure', 'Approved tasks awaiting closure', 'Verified work that has not been closed on the register.')} />
               <StatTile label="Due within 7 days" value={metrics.due_within_7 ?? 0} onClick={() => open('due_7', 'Due within 7 days', 'Still to be executed and finishing within the next seven days.')} />
+              <StatTile
+                label="Commitments missed"
+                value={data.commitments?.missed ?? 0}
+                tone={data.commitments?.missed ? 'danger' : 'default'}
+                hint="Promised by a contractor, date passed, not yet confirmed"
+                onClick={() => navigate('/meetings')}
+              />
+              <StatTile label="Commitments due this week" value={data.commitments?.due_this_week ?? 0} onClick={() => navigate('/meetings')} />
               <StatTile label="Due within 14 days" value={metrics.due_within_14 ?? 0} onClick={() => open('due_14', 'Due within 14 days', 'Still to be executed and finishing within the next fourteen days.')} />
               <StatTile label="Unscheduled tasks" value={metrics.unscheduled_tasks ?? 0} tone={metrics.unscheduled_tasks ? 'warning' : 'default'} onClick={() => open('unscheduled', 'Unscheduled tasks', 'Outstanding work with neither a baseline nor a forecast finish date.')} />
               <StatTile label="Site-wide open works" value={metrics.site_wide_open ?? 0} onClick={() => open('site_wide', 'Site-wide open works', 'Common infrastructure and common-area work.')} />
@@ -247,7 +263,7 @@ export default function Dashboard() {
                 <div className="scroll-slim overflow-x-auto">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
-                      <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 text-left">Discipline</th>
                         <th className="py-2 text-left">Open</th>
                         <th className="py-2 text-left">Overdue</th>

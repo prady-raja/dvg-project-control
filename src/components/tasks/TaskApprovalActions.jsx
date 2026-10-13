@@ -3,6 +3,9 @@ import { CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { updateTask } from '@/lib/taskService';
 import { useAccess } from '@/lib/AccessContext';
+import OwnerAckDialog from '@/components/common/OwnerAckDialog';
+import { needsAck } from '@/lib/shared/ownerSignoff.ts';
+import { useCatalogs } from '@/lib/CatalogContext';
 
 const OPEN_FOR_EXECUTION = ['Not Started', 'In Progress', 'Blocked'];
 const AWAITING_APPROVAL = ['Execution Complete', 'Under Inspection'];
@@ -13,6 +16,8 @@ const AWAITING_APPROVAL = ['Execution Complete', 'Under Inspection'];
  */
 export default function TaskApprovalActions({ task, canEdit, canApprove, onChanged }) {
   const access = useAccess();
+  const cat = useCatalogs();
+  const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
@@ -26,11 +31,13 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
 
   if (!markComplete && !approveNow && !selfCompleted && !completedById) return null;
 
-  const apply = async (label, status) => {
+  const ackNeeded = needsAck({ location: cat.locationById(task.location_id), project: cat.projectById(task.project_id) });
+
+  const apply = async (label, status, ownerAck) => {
     setBusy(label);
     setError('');
     try {
-      await updateTask(task.id, { status });
+      await updateTask(task.id, { status, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
       onChanged?.();
     } catch (e) {
       setError(e?.message || 'The change was refused.');
@@ -58,7 +65,7 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
               size="sm"
               variant="outline"
               disabled={!!busy}
-              onClick={() => apply('close', 'Closed')}
+              onClick={() => (ackNeeded ? setAsking(true) : apply('close', 'Closed'))}
             >
               {busy === 'close' ? 'Saving…' : 'Close work'}
             </Button>
@@ -75,6 +82,7 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
         </p>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      <OwnerAckDialog open={asking} onOpenChange={setAsking} submitting={!!busy} onSubmit={async (ack) => { await apply('close', 'Closed', ack); setAsking(false); }} />
     </div>
   );
 }

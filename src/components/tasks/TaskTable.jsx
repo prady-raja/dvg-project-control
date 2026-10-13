@@ -5,7 +5,7 @@ import ProgressMeter from '@/components/tasks/ProgressMeter';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+const th = 'whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
 export default function TaskTable({ tasks, cat, onOpen }) {
   return (
@@ -41,7 +41,7 @@ export default function TaskTable({ tasks, cat, onOpen }) {
                 <TableCell className="whitespace-nowrap text-sm">
                   {location?.villa_code || <span className="text-muted-foreground">—</span>}
                   {location?.location_type === 'Villa' && (
-                    <div className="max-w-[200px] truncate text-[11px] text-muted-foreground">
+                    <div className="max-w-[200px] truncate text-xs text-muted-foreground">
                       {task.area_label || (task.scope_type === 'Entire Villa' ? 'Entire villa' : 'Scope not stated')}
                     </div>
                   )}
