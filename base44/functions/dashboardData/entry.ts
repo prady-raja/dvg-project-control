@@ -15,6 +15,7 @@ import { isAppAdmin } from '../../shared/access.ts';
 import { makeDb } from '../../shared/dbCore.ts';
 import { withLog } from '../../shared/log.ts';
 import { commitmentSummary } from '../../shared/commitments.ts';
+import { coverageView } from '../../shared/coverage.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -28,7 +29,7 @@ import { commitmentSummary } from '../../shared/commitments.ts';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const needsFor = (view) => ({
-  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption'].includes(view),
+  updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption', 'coverage'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
   commitments: ['meeting', 'myWork', 'executive'].includes(view),
   snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
@@ -113,6 +114,18 @@ async function handler(req) {
           ...adoptionView({
             updates: data.updates, members, locations: data.locations.filter((l) => !scope.projectId || l.project_id === scope.projectId),
             settings: ix.settings(scope.projectId || data.projects[0]?.id), asOf,
+          }),
+        });
+      }
+      case 'coverage': {
+        const projectId = scope.projectId || data.projects[0]?.id || '';
+        const members = projectId ? await activeMembers(base44, projectId) : [];
+        return Response.json({
+          ...header,
+          ...coverageView({
+            locations: data.locations.filter((l) => !projectId || l.project_id === projectId),
+            updates: data.updates, tasks: data.tasks.filter((t) => !projectId || t.project_id === projectId),
+            members, settings: ix.settings(projectId), asOf,
           }),
         });
       }
