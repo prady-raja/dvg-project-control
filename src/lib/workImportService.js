@@ -66,9 +66,9 @@ export const IMPORT_RULES = [
 
 /** Worked examples, written into the Instructions sheet only — never onto Works. */
 export const IMPORT_EXAMPLE_ROWS = [
-  ['Imagine', 'B', 'B-01', 'Villa Work', 'FIN', 'Painting', 'Ground Floor', 'Living Room', 'Specific Room/Area', 'Repaint living room walls and ceiling', '', '', 'Medium', 'In Progress', '2026-10-10', '2026-10-20', '', '40', '120', 'Sqm', 'Even finish, no visible joints', '', '', '', 'IMG-EX-001'],
-  ['Imagine', 'B', '', 'Site-Wide Work', 'CIVIL', '', '', '', 'Site-wide', 'Repair the common area paver walkway', '', '', 'High', 'Not Started', '2026-11-01', '2026-11-15', '', '', '80', 'Sqm', '', '', 'Material not received', '', 'IMG-EX-002'],
-  ['Imagine', 'B', 'Plots 5 & 6', 'Villa Work', 'ELEC', 'Concealed wiring', '', '', 'Entire Villa', 'Concealed electrical wiring through the villa', '', '', 'High', 'Not Started', '', '', '', '', '', '', '', '', '', 'IMG-EX-003'],
+  ['Your project', 'A', 'A-01', 'Villa Work', 'FIN', 'Painting', 'Ground Floor', 'Living Room', 'Specific Room/Area', 'Repaint living room walls and ceiling', '', '', 'Medium', 'In Progress', '2026-10-10', '2026-10-20', '', '40', '120', 'Sqm', 'Even finish, no visible joints', '', '', '', 'EX-001'],
+  ['Your project', 'A', '', 'Site-Wide Work', 'CIVIL', '', '', '', 'Site-wide', 'Repair the common area paver walkway', '', '', 'High', 'Not Started', '2026-11-01', '2026-11-15', '', '', '80', 'Sqm', '', '', 'Material not received', '', 'EX-002'],
+  ['Your project', 'A', 'Plots 5 & 6', 'Villa Work', 'ELEC', 'Concealed wiring', '', '', 'Entire Villa', 'Concealed electrical wiring through the villa', '', '', 'High', 'Not Started', '', '', '', '', '', '', '', '', '', 'EX-003'],
 ];
 
 /** Files go to the server in chunks, so the whole file can be much larger than one call takes. */

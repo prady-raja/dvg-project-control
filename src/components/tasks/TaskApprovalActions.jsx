@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, ShieldCheck, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { updateTask } from '@/lib/taskService';
 import { useAccess } from '@/lib/AccessContext';
 import OwnerAckDialog from '@/components/common/OwnerAckDialog';
 import { needsAck } from '@/lib/shared/ownerSignoff.ts';
 import { useCatalogs } from '@/lib/CatalogContext';
+import { isRework } from '@/lib/shared/rework.ts';
+import RejectDialog from '@/components/tasks/RejectDialog';
 
 const OPEN_FOR_EXECUTION = ['Not Started', 'In Progress', 'Blocked'];
 const AWAITING_APPROVAL = ['Execution Complete', 'Under Inspection'];
@@ -18,6 +20,7 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
   const access = useAccess();
   const cat = useCatalogs();
   const [asking, setAsking] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
@@ -27,17 +30,19 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
   const awaiting = AWAITING_APPROVAL.includes(task.status);
   const markComplete = canEdit && OPEN_FOR_EXECUTION.includes(task.status);
   const approveNow = canApprove && awaiting && completedById && completedById !== access.user?.id;
+  const startInspection = canApprove && task.status === 'Execution Complete';
+  const rejectNow = canApprove && awaiting;
   const selfCompleted = canApprove && awaiting && completedById === access.user?.id;
 
-  if (!markComplete && !approveNow && !selfCompleted && !completedById) return null;
+  if (!markComplete && !approveNow && !selfCompleted && !rejectNow && !completedById) return null;
 
   const ackNeeded = needsAck({ location: cat.locationById(task.location_id), project: cat.projectById(task.project_id) });
 
-  const apply = async (label, status, ownerAck) => {
+  const apply = async (label, status, ownerAck, rejection) => {
     setBusy(label);
     setError('');
     try {
-      await updateTask(task.id, { status, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
+      await updateTask(task.id, { expected_version: task.updated_date, status, ...(ownerAck ? { owner_ack: ownerAck } : {}), ...(rejection ? { rejection } : {}) });
       onChanged?.();
     } catch (e) {
       setError(e?.message || 'The change was refused.');
@@ -53,6 +58,18 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
           <Button size="sm" className="gap-2" disabled={!!busy} onClick={() => apply('complete', 'Execution Complete')}>
             <CheckCircle2 className="h-3.5 w-3.5" />
             {busy === 'complete' ? 'Saving…' : 'Mark execution complete'}
+          </Button>
+        )}
+        {startInspection && (
+          <Button size="sm" variant="outline" className="gap-2" disabled={!!busy} onClick={() => apply('inspect', 'Under Inspection')}>
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            {busy === 'inspect' ? 'Saving…' : 'Start inspection'}
+          </Button>
+        )}
+        {rejectNow && (
+          <Button size="sm" variant="outline" className="gap-2" disabled={!!busy} onClick={() => setRejecting(true)}>
+            <Undo2 className="h-3.5 w-3.5" />
+            Reject for rework
           </Button>
         )}
         {approveNow && (
@@ -79,9 +96,17 @@ export default function TaskApprovalActions({ task, canEdit, canApprove, onChang
             ? ' — a different Project Editor must approve or close this work.'
             : ''}
           {task.approved_by_name ? ` · Approved by ${task.approved_by_name}` : ''}
+          {isRework(task) ? ` · Sent back for rework ${task.rejection_count} time${task.rejection_count === 1 ? '' : 's'}: ${task.last_rejection_category} — ${task.last_rejection_reason}` : ''}
         </p>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      <RejectDialog
+        open={rejecting}
+        onOpenChange={setRejecting}
+        submitting={busy === 'reject'}
+        error={error}
+        onSubmit={async (rejection) => { await apply('reject', 'In Progress', null, rejection); setRejecting(false); }}
+      />
       <OwnerAckDialog open={asking} onOpenChange={setAsking} submitting={!!busy} onSubmit={async (ack) => { await apply('close', 'Closed', ack); setAsking(false); }} />
     </div>
   );

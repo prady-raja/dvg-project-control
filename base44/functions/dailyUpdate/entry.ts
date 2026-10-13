@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
 import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
-import { actorName, fail, getOne } from '../../shared/records.ts';
+import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { BLOCKER_CATEGORIES, TASK_STATUSES, defaultOwnerTypeFor } from '../../shared/enums.ts';
 import {
   isOlderThanLatest,
@@ -110,6 +110,16 @@ async function submitReport(base44, svc, user, body) {
         rank < 0 ? 'You are not a member of this project.' : 'Your project role is read-only.',
         403,
       );
+    }
+
+    // Retry safety (R-03): the same request id from the same person never files a
+    // second report. A phone that lost the reply and tries again gets the first one back.
+    const requestId = String(body?.client_request_id || '').trim().slice(0, 100);
+    if (requestId) {
+      const prior = listAll(await svc.DailyUpdate.filter({ client_request_id: requestId, reported_by_id: user.id, task_id: task.id }, { limit: 1 }))[0];
+      if (prior) {
+        return { update: prior, task, changed: 0, history_only: prior.history_only === true, duplicate: true, message: 'This update was already saved.' };
+      }
     }
 
     /* ------------------------------------------------------------- the report */
@@ -303,6 +313,7 @@ async function submitReport(base44, svc, user, body) {
       prev_latest_report_date: task.latest_report_date || null,
       history_only: historyOnly,
       member_ids: memberIds,
+      client_request_id: requestId || null,
       is_demo: false,
     });
 

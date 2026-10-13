@@ -1,12 +1,16 @@
 import { todayIst } from '@/lib/format';
 import React, { useState } from 'react';
-import { Database, Download, FileJson, Lock } from 'lucide-react';
+import { Database, Download, FileJson, Lock, ShieldCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { EXPORT_ENTITIES, NOT_EXPORTED_YET, RELATIONSHIPS } from '@/lib/exportSchema';
 import { Button } from '@/components/ui/button';
 import StackTable from '@/components/common/StackTable';
+import { backupAgeDays, backupState, verifyBackup } from '@/lib/backupCheck';
 
 const PAGE = 500;
+const LAST_KEY = 'dvg_last_full_backup';
+const readLast = () => { try { return localStorage.getItem(LAST_KEY) || ''; } catch { return ''; } };
+const writeLast = (iso) => { try { localStorage.setItem(LAST_KEY, iso); } catch { /* the reminder just starts again */ } };
 
 const csvValue = (value) => {
   if (value === null || value === undefined) return '';
@@ -39,6 +43,8 @@ export default function ExportPanel() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [counts, setCounts] = useState({});
+  const [lastBackup, setLastBackup] = useState(readLast);
+  const [check, setCheck] = useState(null);
 
   const fetchAll = async (entity) => {
     const rows = [];
@@ -89,7 +95,10 @@ export default function ExportPanel() {
         entities: bundle,
       };
       download(`dvg-project-control-${stamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
-      setMessage('Complete JSON bundle downloaded.');
+      const doneAt = new Date().toISOString();
+      writeLast(doneAt);
+      setLastBackup(doneAt);
+      setMessage('Complete JSON bundle downloaded. Check it with “Check a backup file” before you rely on it.');
     } catch (e) {
       setError(e?.message || 'The export failed.');
       setMessage('');
@@ -97,6 +106,20 @@ export default function ExportPanel() {
       setBusy('');
     }
   };
+
+  const checkFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setCheck({ name: file.name, ...verifyBackup(JSON.parse(await file.text())) });
+    } catch {
+      setCheck({ name: file.name, counts: {}, problems: ['This file could not be read as JSON.'] });
+    }
+  };
+
+  const state = backupState(lastBackup);
+  const age = backupAgeDays(lastBackup);
 
   const runCsv = async (item) => {
     setBusy(item.name);
@@ -120,6 +143,25 @@ export default function ExportPanel() {
 
   return (
     <div className="space-y-5">
+      <section className={`rounded-xl border p-4 text-xs ${state === 'fresh' ? 'border-border bg-card text-muted-foreground' : 'border-amber-500/50 bg-amber-500/10 text-foreground'}`}>
+        <p className="flex items-center gap-2 font-medium text-foreground"><ShieldCheck className="h-3.5 w-3.5" /> Weekly backup</p>
+        <p className="mt-1.5">
+          {state === 'none' && 'No full backup has been taken from this browser. Download the JSON bundle now, then every Sunday.'}
+          {state === 'overdue' && `The last full backup from this browser was ${age} days ago. Download a new JSON bundle (every Sunday).`}
+          {state === 'fresh' && `Last full backup from this browser: ${age === 0 ? 'today' : `${age} day${age === 1 ? '' : 's'} ago`}. Next one due on Sunday.`}
+        </p>
+        <label className="mt-2 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 font-medium text-foreground">
+          Check a backup file
+          <input type="file" accept="application/json,.json" className="hidden" onChange={checkFile} />
+        </label>
+        {check && (
+          <div className="mt-2">
+            <p className="font-medium text-foreground">{check.name}: {check.problems.length ? 'problems found' : 'whole — every entity present, counts and ids agree, links intact'}</p>
+            {check.problems.length > 0 && <ul className="mt-1 list-disc pl-5">{check.problems.map((line) => <li key={line}>{line}</li>)}</ul>}
+          </div>
+        )}
+      </section>
+
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-2xl">

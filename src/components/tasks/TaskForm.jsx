@@ -64,7 +64,7 @@ export default function TaskForm({ initial, prefill, cat, user, onSaved, onCance
     }
     setSaving(true);
     try {
-      const payload = formToPayload(form);
+      const payload = { ...formToPayload(form), ...(initial ? { expected_version: initial.updated_date } : {}) };
       const saved = initial ? await updateTask(initial.id, payload, user) : await createTask(payload, user);
       onSaved(saved);
     } catch (error) {

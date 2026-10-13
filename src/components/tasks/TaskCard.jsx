@@ -2,6 +2,7 @@ import { useQuickActions } from '@/components/layout/QuickActions';
 import React from 'react';
 import { CalendarClock, MapPin, Zap } from 'lucide-react';
 import Pill from '@/components/common/Pill';
+import { isRework } from '@/lib/shared/rework.ts';
 import ProgressMeter from '@/components/tasks/ProgressMeter';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format';
@@ -20,6 +21,7 @@ export default function TaskCard({ task, cat, onOpen }) {
           </div>
           <Pill value={task.status} />
         </div>
+        {isRework(task) && <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">Rework ×{task.rejection_count}: {task.last_rejection_category}</p>}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />

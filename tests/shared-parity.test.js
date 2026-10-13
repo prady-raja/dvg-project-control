@@ -17,13 +17,14 @@ import * as serverHealth from '../base44/shared/dataHealth.ts';
 import * as serverChecklists from '../base44/shared/checklists.ts';
 import * as serverOwnerAccess from '../base44/shared/ownerAccess.ts';
 import * as serverSignoff from '../base44/shared/ownerSignoff.ts';
+import * as serverRework from '../base44/shared/rework.ts';
 
 const copies = import.meta.glob('../src/lib/shared/*.ts', { eager: true });
 const servers = {
   'enums.ts': serverEnums, 'calendar.ts': serverCalendar, 'constraints.ts': serverConstraints,
   'attentionActions.ts': serverAttentionActions, 'assignees.ts': serverAssignees,
   'villaAreas.ts': serverAreas, 'drawingIntake.ts': serverDrawings, 'importChunks.ts': serverChunks,
-  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'dataHealth.ts': serverHealth, 'checklists.ts': serverChecklists, 'ownerAccess.ts': serverOwnerAccess, 'ownerSignoff.ts': serverSignoff,
+  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'dataHealth.ts': serverHealth, 'checklists.ts': serverChecklists, 'ownerAccess.ts': serverOwnerAccess, 'ownerSignoff.ts': serverSignoff, 'rework.ts': serverRework,
 };
 const nameOf = (path) => path.split('/').pop();
 

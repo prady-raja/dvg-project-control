@@ -161,7 +161,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [Q-01](#q-01) | Snag register page | Phase 2 | M | High | Open |
 | [Q-02](#q-02) | Snag workflow with rejection and photo evidence | Phase 2 | M | High | Open |
 | [Q-03](#q-03) | Raise snags from anywhere, and a snag walk mode | Phase 2 | M | High | Open |
-| [Q-04](#q-04) | Inspect a task: start inspection, approve, or reject for rework | Phase 2 | S | High | Open |
+| [Q-04](#q-04) | Inspect a task: start inspection, approve, or reject for rework | Phase 2 | S | High | Done (no photo yet) |
 | [Q-05](#q-05) | Inspection checklists and hold points | Phase 2 | L | High | Open |
 | [Q-06](#q-06) | Snag types: quality, safety, housekeeping and owner-reported | Phase 2 | S | High | Open |
 | [Q-07](#q-07) | Handover readiness, handover checklist and pack | Phase 2 | M | Medium | Open |
@@ -256,7 +256,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | --- | --- | --- | --- | --- | --- |
 | [R-01](#r-01) | TanStack Query for every read and write, with one invokeFn | Phase 2 | M | High | Partly (93ec269) |
 | [R-02](#r-02) | Load pages on demand and remove unused packages | Phase 2 | S | Medium | Done (910e56f) |
-| [R-03](#r-03) | Conflict checks and retry keys on writes | Phase 2 | M | High | Open |
+| [R-03](#r-03) | Conflict checks and retry keys on writes | Phase 2 | M | High | Partly (task writes and daily reports) |
 | [R-04](#r-04) | One scheduler function with named steps | Phase 2 | M | High | Open |
 | [R-05](#r-05) | Live updates with subscribe() | Future | S | Medium | Open |
 | [R-07](#r-07) | One Attachment entity for photos and files | Phase 2 | M | Medium | Open |
@@ -271,7 +271,7 @@ Effort is a relative size (S, M, L), not an estimate in days. "Verified" means t
 | [O-01](#o-01) | Safety net: Vitest, CI and a dry-run migration runner | MVP | M | High | Done (aa934a3) |
 | [O-02](#o-02) | Go-live kit: practice project, user testing, in-app Help and a go-live gate | MVP | M | High | Done (9245eec) |
 | [O-03](#o-03) | Staging app and end-to-end smoke tests | Phase 2 | M | Medium | Open |
-| [O-04](#o-04) | Weekly automatic backup | Phase 2 | S | Medium | Open |
+| [O-04](#o-04) | Weekly automatic backup | Phase 2 | S | Medium | Partly (reminder and file check; no restore yet) |
 
 ## 9. Item detail
 

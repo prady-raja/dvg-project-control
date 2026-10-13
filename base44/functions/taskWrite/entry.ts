@@ -28,6 +28,8 @@ import { clearOpenConstraints } from '../../shared/constraints.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { ackInput, needsAck } from '../../shared/ownerSignoff.ts';
+import { approvalHold, staleProblem } from '../../shared/approvalHold.ts';
+import { REJECTABLE_FROM, reworkInput, reworkPatch } from '../../shared/rework.ts';
 
 /**
  * The only path that creates or changes a task. Permissions are decided here
@@ -190,6 +192,9 @@ async function handler(req) {
         );
       }
 
+      const stale = staleProblem(task, body?.expected_version);
+      if (stale) throw fail(stale, 409);
+
       const members = await activeMembers(base44, task.project_id);
       const memberIds = memberIdsOf(members);
 
@@ -254,6 +259,17 @@ async function handler(req) {
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 
+      // Failed inspections are dealt with before work is approved or closed.
+      if (entries.some((e) => e.field_changed === 'status' && ['Approved', 'Closed'].includes(String(e.new_value)))) {
+        const [checklists, snags] = await Promise.all([
+          svc.InspectionChecklist.filter({ task_id: task.id }, { limit: 200 }),
+          svc.Snag.filter({ task_id: task.id }, { limit: 200 }),
+        ]);
+        const hold = approvalHold({ task, checklists: listAll(checklists), snags: listAll(snags) });
+        if (hold) throw fail(hold, 409);
+      }
+
+
       // Closing work in a handed-over villa carries the owner's acknowledgement (Q-08).
       let ack = null;
       if (entries.some((e) => e.field_changed === 'status' && e.new_value === 'Closed')) {
@@ -266,18 +282,35 @@ async function handler(req) {
         }
       }
 
+      // Reject for rework (Q-04): inspection sends finished work back to In Progress
+      // with a category and a note; the count and last reason are stamped here.
+      let rework = null;
+      if (body?.rejection) {
+        const statusEntry = entries.find((e) => e.field_changed === 'status');
+        if (!canApproveWork(rank)) throw fail('Only a Project Editor or an administrator can reject work for rework.', 403);
+        if (!REJECTABLE_FROM.includes(String(task.status)) || statusEntry?.new_value !== 'In Progress') {
+          throw fail(`Work can only be rejected from ${REJECTABLE_FROM.join(' or ')}, and goes back to In Progress.`);
+        }
+        rework = reworkInput(body.rejection);
+      }
+
       const patch = {};
       entries.forEach((entry) => {
         patch[entry.field_changed] = entry.new_value;
       });
       if (ack) Object.assign(patch, ack);
+      if (rework) Object.assign(patch, reworkPatch(task, rework), { rework_pending: true });
+      if (patch.status === 'Under Inspection') patch.rework_pending = false;
 
       // Server-owned stamps, and the separation of duties, travel with the change.
       const effects = deriveTaskEffects({ task, entries, user });
       Object.assign(patch, effects.patch);
-      const derived = ack
+      const reworkNote = rework
+        ? [{ change_type: 'Rework', field_changed: 'rejection', old_value: String(Number(task.rejection_count) || 0), new_value: String((Number(task.rejection_count) || 0) + 1), note: `Rejected for rework — ${rework.category}: ${rework.note}` }]
+        : [];
+      const derived = [...reworkNote, ...(ack
         ? [...effects.derived, { change_type: 'Owner Sign-off', field_changed: 'owner_ack', old_value: '', new_value: `${ack.owner_ack_name} · ${ack.owner_ack_date} · ${ack.owner_ack_method}`, note: 'Owner acknowledgement recorded when the work was closed' }]
-        : effects.derived;
+        : effects.derived)];
 
       const forecastEntry = entries.find((e) => e.field_changed === 'current_forecast_finish');
 

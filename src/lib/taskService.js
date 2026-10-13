@@ -15,9 +15,9 @@ export async function createTask(payload) {
 }
 
 export async function updateTask(id, changes, options = {}) {
-  // The owner's acknowledgement travels beside the change, not inside it (Q-08).
-  const { owner_ack: ownerAck, ...rest } = changes;
-  const data = await invoke('taskWrite', { action: 'update', id, changes: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
+  // The owner's acknowledgement (Q-08) and a rejection for rework (Q-04) travel beside the change, not inside it, and so does the version the person opened (R-03): if someone else changed the task since, the server refuses with a clear message.
+  const { owner_ack: ownerAck, rejection, expected_version: expectedVersion, ...rest } = changes;
+  const data = await invoke('taskWrite', { action: 'update', id, changes: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}), ...(rejection ? { rejection } : {}), ...(expectedVersion ? { expected_version: expectedVersion } : {}) });
   return data.task || null;
 }
 
