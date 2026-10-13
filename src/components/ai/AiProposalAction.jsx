@@ -15,7 +15,7 @@ const SEVERITIES = ['Minor', 'Major', 'Critical'];
 const ValueRows = ({ heading, rows }) =>
   !rows?.length ? null : (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{heading}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</p>
       <dl className="mt-1 space-y-0.5">
         {rows.map((row) => (
           <div key={`${heading}-${row.label}`} className="flex gap-2 text-xs">
@@ -46,7 +46,7 @@ export default function AiProposalAction({
         <Checkbox className="mt-0.5" checked={selected} disabled={busy} onCheckedChange={(value) => onToggle(value === true)} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{action.summary}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <span className="font-mono uppercase tracking-wide">{review.villa}</span>
             {!!review.scope_label && <span>· {review.scope_label}</span>}
             {!!review.scope_type && <span>· {review.scope_type}</span>}
@@ -73,7 +73,7 @@ export default function AiProposalAction({
         </div>
       )}
 
-      {!!review.note && <p className="mt-2 text-[11px] text-muted-foreground">{review.note}</p>}
+      {!!review.note && <p className="mt-2 text-xs text-muted-foreground">{review.note}</p>}
 
       {action.type === 'record_progress' && (
         <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
@@ -199,7 +199,7 @@ export default function AiProposalAction({
       )}
 
       {action.type === 'link_dependency' && (
-        <p className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground">
+        <p className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
           <Check className="h-3.5 w-3.5" /> The link is recorded exactly as shown — change the wording of the message to record a different one.
         </p>
       )}

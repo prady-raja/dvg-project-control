@@ -26,7 +26,7 @@ export default function Pill({ value, className, dot = false }) {
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2 py-0.5 text-[11px] font-medium leading-5',
+        'inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2 py-0.5 text-xs font-medium leading-5',
         tone,
         className,
       )}

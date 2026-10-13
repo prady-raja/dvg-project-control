@@ -143,13 +143,13 @@ export default function ImportUploadStep({ projects, projectId, onProjectChange,
           </div>
           <div>
             <p className="text-xs font-medium text-foreground">Template columns, in order</p>
-            <p className="field-mono mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="field-mono mt-1.5 text-xs leading-relaxed text-muted-foreground">
               {IMPORT_TEMPLATE_HEADERS.join(' · ')}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium text-foreground">Example row</p>
-            <p className="field-mono mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="field-mono mt-1.5 text-xs leading-relaxed text-muted-foreground">
               {IMPORT_EXAMPLE_ROWS[0].join(', ')}
             </p>
           </div>

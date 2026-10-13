@@ -26,7 +26,7 @@ export default function PhaseHealthStrip({ phases = [] }) {
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p className="mt-2 text-xs text-muted-foreground">
         Red: 15% or more of open work overdue, or 10% or more blocked. Amber: anything overdue, blocked or at risk. Green: none of these.
       </p>
     </div>

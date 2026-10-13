@@ -253,7 +253,7 @@ export default function Dashboard() {
                 <div className="scroll-slim overflow-x-auto">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
-                      <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 text-left">Discipline</th>
                         <th className="py-2 text-left">Open</th>
                         <th className="py-2 text-left">Overdue</th>

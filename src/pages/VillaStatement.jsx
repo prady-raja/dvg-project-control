@@ -91,7 +91,7 @@ export default function VillaStatement() {
         {view && (
           <article className="statement mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 print:max-w-none print:border-0 print:p-0">
             <header className="border-b border-border pb-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{view.villa.project}{view.villa.phase ? ` · ${view.villa.phase}` : ''}</p>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{view.villa.project}{view.villa.phase ? ` · ${view.villa.phase}` : ''}</p>
               <h1 className="mt-1 text-2xl font-semibold">Pending works — {view.villa.code}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 As of {formatDate(view.as_of)}. {view.villa.plots && <>Plots {view.villa.plots}. </>}

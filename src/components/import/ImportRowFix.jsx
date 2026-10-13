@@ -80,7 +80,7 @@ export default function ImportRowFix({ row, cat, projectId, onApply, onApplyMany
     return (
       <button
         type="button"
-        className="mt-1 text-left text-[11px] text-primary underline-offset-2 hover:underline"
+        className="mt-1 text-left text-xs text-primary underline-offset-2 hover:underline"
         disabled={!!busy}
         onClick={() => onApplyMany([row.row_number, ...others], patch)}
       >
@@ -323,7 +323,7 @@ export default function ImportRowFix({ row, cat, projectId, onApply, onApplyMany
       </div>
 
       {note && <p className="mt-3 text-xs text-foreground" role="status">{note}</p>}
-      <p className="mt-3 text-[11px] text-muted-foreground">
+      <p className="mt-3 text-xs text-muted-foreground">
         Corrections are held in this window only. Nothing is written to a task until you confirm the import.
       </p>
     </div>

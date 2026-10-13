@@ -28,7 +28,7 @@ export default function HeadlineTiles({ metrics = {}, change, onOpen }) {
           >
             <p className={cn('field-mono text-4xl font-semibold tnum', value ? TONE[tile.tone] : 'text-foreground')}>{value}</p>
             <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{tile.label}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {typeof delta === 'number'
                 ? delta === 0 ? 'No change since last week' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} since ${change.since}`
                 : 'Change shows after a week of history'}

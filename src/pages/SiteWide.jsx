@@ -134,7 +134,7 @@ export default function SiteWide() {
                 <div className="mb-4 grid gap-3 lg:grid-cols-3">
                   <ProgressNote progress={group.progress} counts={group.counts} />
                   <div className="rounded-xl border border-border px-4 py-3 lg:col-span-2">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Areas</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Areas</p>
                     <p className="mt-1 text-sm">{(group.areas || []).join(', ') || 'No area recorded'}</p>
                   </div>
                 </div>

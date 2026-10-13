@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
 import ShareMenu from '@/components/common/ShareMenu';
 import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
 
 /** Stage A / 5 — Daily and weekly planning. */
 const BUCKETS = [
@@ -144,8 +145,8 @@ export default function Planning() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contractor</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Contractor</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
@@ -154,11 +155,11 @@ export default function Planning() {
               {cat.contractors.filter((c) => c.active !== false).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Discipline</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Discipline</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={discipline}
               onChange={(e) => setDiscipline(e.target.value)}
@@ -166,7 +167,7 @@ export default function Planning() {
               {disciplineOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
       </DashboardFilters>

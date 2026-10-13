@@ -98,7 +98,7 @@ export default function DailyUpdateFeed({
             <h3 className="field-mono text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {formatDate(group.day)}
             </h3>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {group.rows.length} update{group.rows.length === 1 ? '' : 's'}
             </span>
             <span className="h-px flex-1 bg-border" />

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, formatDateTime } from '@/lib/format';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 const FIELD_LABELS = {
   baseline_start: 'Start',
@@ -80,12 +81,9 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
       baseline_finish: (dates[item.task_id]?.baseline_finish ?? item.baseline_finish ?? '') || null,
     }));
 
-  const approve = async () => {
-    const ok = window.confirm(
-      'Approve this baseline? The dates are frozen onto every covered task and can only be changed afterwards by creating a new baseline version.',
-    );
-    if (ok) await act('approve', { action: 'approve', baseline_version_id: draft.id });
-  };
+  const [askApprove, setAskApprove] = React.useState(false);
+  const approve = () => setAskApprove(true);
+  const doApprove = () => act('approve', { action: 'approve', baseline_version_id: draft.id });
 
   const saveRebaseline = async () => {
     if (!reason.trim()) {
@@ -109,6 +107,15 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
 
   return (
     <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
+      <ConfirmDialog
+        open={askApprove}
+        onOpenChange={setAskApprove}
+        title="Approve this baseline?"
+        description="The dates are frozen onto every covered task and can only be changed afterwards by creating a new baseline version."
+        confirmLabel="Approve baseline"
+        destructive={false}
+        onConfirm={doApprove}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-xs font-medium">
           <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
@@ -206,7 +213,7 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
                 </tbody>
               </table>
               {draft.changes.length > 12 && (
-                <p className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">
                   {draft.changes.length - 12} further change(s) not shown.
                 </p>
               )}
@@ -222,7 +229,7 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
       {superseded.length > 0 && (
         <div className="mt-3 space-y-1">
           {superseded.map((version) => (
-            <p key={version.id} className="text-[11px] text-muted-foreground">
+            <p key={version.id} className="text-xs text-muted-foreground">
               v{version.version_number} · {version.name} — superseded
               {version.approved_by_name ? ` (approved by ${version.approved_by_name})` : ''}
               {version.reason ? ` · ${version.reason}` : ''}

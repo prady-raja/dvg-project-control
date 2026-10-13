@@ -82,7 +82,7 @@ function BlockerRow({ row, onChanged }) {
         </div>
         <div className="flex flex-col items-end gap-1">
           <StatusPill status={row.status} />
-          <span className={`inline-flex items-center gap-1 text-[11px] ${row.constraint?.past_due ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+          <span className={`inline-flex items-center gap-1 text-xs ${row.constraint?.past_due ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
             <CalendarClock className="h-3 w-3" aria-hidden />
             {row.expected_resolution_date ? `clear by ${formatDate(row.expected_resolution_date)}${row.constraint?.past_due ? ' — past due' : ''}` : 'no date set'}
           </span>
@@ -101,7 +101,7 @@ function BlockerRow({ row, onChanged }) {
           <MessageCircle className="h-3.5 w-3.5" /> Chase
         </Button>
         {row.constraint?.chase_count > 0 && (
-          <span className="self-center text-[11px] text-muted-foreground">chased {row.constraint.chase_count}×{row.constraint.last_chased_at ? `, last ${formatDate(row.constraint.last_chased_at)}` : ''}</span>
+          <span className="self-center text-xs text-muted-foreground">chased {row.constraint.chase_count}×{row.constraint.last_chased_at ? `, last ${formatDate(row.constraint.last_chased_at)}` : ''}</span>
         )}
       </div>
       {editing && <EditDialog row={row} onClose={() => setEditing(false)} onSaved={onChanged} />}

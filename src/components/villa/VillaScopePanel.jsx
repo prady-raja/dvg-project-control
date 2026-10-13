@@ -136,7 +136,7 @@ export default function VillaScopePanel({ location, canManage }) {
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">
                     {floor.floor_name}
-                    {!!floor.floor_code && <span className="ml-2 font-mono text-[11px] text-muted-foreground">{floor.floor_code}</span>}
+                    {!!floor.floor_code && <span className="ml-2 font-mono text-xs text-muted-foreground">{floor.floor_code}</span>}
                   </p>
                   {canManage && (
                     <button type="button" onClick={() => setFloorDialog(floor)} className="text-muted-foreground transition-colors hover:text-foreground">
@@ -152,7 +152,7 @@ export default function VillaScopePanel({ location, canManage }) {
                           type="button"
                           disabled={!canManage}
                           onClick={() => canManage && setAreaDialog(area)}
-                          className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:hover:border-border disabled:hover:text-muted-foreground"
+                          className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:hover:border-border disabled:hover:text-muted-foreground"
                         >
                           {area.area_name}
                           {!!area.area_code && <span className="ml-1.5 font-mono">{area.area_code}</span>}
@@ -178,7 +178,7 @@ export default function VillaScopePanel({ location, canManage }) {
                       type="button"
                       disabled={!canManage}
                       onClick={() => canManage && setAreaDialog(area)}
-                      className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:hover:border-border disabled:hover:text-muted-foreground"
+                      className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:hover:border-border disabled:hover:text-muted-foreground"
                     >
                       {area.area_name}
                     </button>

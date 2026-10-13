@@ -15,7 +15,7 @@ export default function StatusPill({ status, className }) {
     <span
       title={token.help}
       className={cn(
-        'inline-flex max-w-full items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] font-medium leading-5',
+        'inline-flex max-w-full items-center gap-1 truncate rounded-full border px-2 py-0.5 text-xs font-medium leading-5',
         token.tone,
         className,
       )}

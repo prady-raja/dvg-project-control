@@ -59,7 +59,7 @@ export default function ImportProposal({ row, cat, reasons, edits, onReason, onE
                   <td className="px-3 py-2">
                     <span className="font-medium">{item.proposed_text || '—'}</span>
                     {((edits[row.row_number] || {})[item.field] !== undefined) && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">edited</span>
+                      <span className="ml-2 text-xs uppercase tracking-wide text-primary">edited</span>
                     )}
                   </td>
                 </tr>

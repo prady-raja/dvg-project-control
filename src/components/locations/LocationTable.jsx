@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Pill from '@/components/common/Pill';
 import { formatDate } from '@/lib/format';
 
-const th = 'whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+const th = 'whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
 export default function LocationTable({ locations, cat }) {
   return (

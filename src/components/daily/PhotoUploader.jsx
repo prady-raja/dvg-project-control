@@ -87,7 +87,7 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
 
       {progress && <p className="text-xs text-muted-foreground" role="status">Uploading {progress.done} of {progress.total}…</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {list.length > 0 && <p className="text-[11px] text-muted-foreground">{list.length} of {MAX_PHOTOS} photos attached.</p>}
+      {list.length > 0 && <p className="text-xs text-muted-foreground">{list.length} of {MAX_PHOTOS} photos attached.</p>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { toast } from '@/components/ui/use-toast';
 
 /**
  * Guarded writes for projects, phases, villas, work packages, contractor
@@ -8,6 +9,7 @@ import { base44 } from '@/api/base44Client';
 export async function saveRecord(entity, action, data = {}, id = '') {
   try {
     const res = await base44.functions.invoke('saveRecord', { entity, action, data, id });
+    toast({ description: action === 'delete' ? 'Removed.' : action === 'create' ? 'Created.' : 'Saved.' });
     return res?.data || {};
   } catch (error) {
     const message =

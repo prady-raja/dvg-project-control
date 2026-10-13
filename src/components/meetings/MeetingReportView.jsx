@@ -24,7 +24,7 @@ export default function MeetingReportView({ report, canRevise, rowAction }) {
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl border border-border bg-card px-4 py-3">
             <p className="field-mono text-xl font-semibold tnum">{value ?? 0}</p>
-            <p className="mt-1 text-[11px] uppercase leading-tight tracking-wide text-muted-foreground">{label}</p>
+            <p className="mt-1 text-xs uppercase leading-tight tracking-wide text-muted-foreground">{label}</p>
           </div>
         ))}
       </div>

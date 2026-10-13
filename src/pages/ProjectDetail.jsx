@@ -152,7 +152,7 @@ export default function ProjectDetail() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="field-mono rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+                        <span className="field-mono rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
                           {phase.code || '—'}
                         </span>
                         <Pill value={phase.status} />
@@ -163,6 +163,7 @@ export default function ProjectDetail() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Edit phase"
                         className="shrink-0"
                         onClick={() => {
                           setEditing(phase);

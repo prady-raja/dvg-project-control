@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
 
 /** Stage A / 7 and Stage B / 13 — contractor meeting reports and commitments. */
 export default function Meetings() {
@@ -134,8 +135,8 @@ export default function Meetings() {
       <div className="rounded-xl border border-border bg-card p-4 print:hidden">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Project</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Project</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={projectId}
               onChange={(e) => {
@@ -146,11 +147,11 @@ export default function Meetings() {
               {cat.projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Phase</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Phase</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={phaseId}
               onChange={(e) => setPhaseId(e.target.value)}
@@ -159,11 +160,11 @@ export default function Meetings() {
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Contractor</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Contractor</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
@@ -172,10 +173,10 @@ export default function Meetings() {
               {contractors.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}{c.trade ? ` — ${c.trade}` : ''}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Meeting date</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Meeting date</p>
             <input
               type="date"
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"

@@ -12,7 +12,7 @@ export function Metric({ label, value, tone = 'default', className }) {
   };
   return (
     <div className={cn('min-w-0', className)}>
-      <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={cn('field-mono mt-0.5 text-lg font-medium leading-tight', tones[tone])}>{value}</p>
     </div>
   );

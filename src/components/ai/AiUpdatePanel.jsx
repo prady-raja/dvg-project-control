@@ -207,7 +207,7 @@ export default function AiUpdatePanel({ projectId, phaseId, date, canReport, onS
               Discard
             </Button>
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Recorded through the same guarded daily-update path as a typed report: the report, the task and the change trail are
             written together, and a forecast date change still needs its reason.
           </p>

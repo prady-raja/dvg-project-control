@@ -43,7 +43,7 @@ export default function DailyUpdateCard({ update, hideVilla = false }) {
   return (
     <article className={`rounded-xl border border-border bg-card p-4 ${update.voided ? 'opacity-60' : ''}`}>
       {update.voided && (
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Taken back{update.voided_by_name ? ` by ${update.voided_by_name}` : ''} — kept on record, not counted
         </p>
       )}
@@ -108,7 +108,7 @@ export default function DailyUpdateCard({ update, hideVilla = false }) {
             <TriangleAlert className="h-3.5 w-3.5" /> Blocker · {update.blocker_category}
           </p>
           <p className="mt-1 text-sm">{update.blocker_description}</p>
-          <p className="mt-1 flex flex-wrap gap-x-4 text-[11px] text-muted-foreground">
+          <p className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
             {show(update.blocker_responsible_party) && <span>With {update.blocker_responsible_party}</span>}
             {show(update.expected_resolution_date) && (
               <span className="field-mono">Expected by {formatDate(update.expected_resolution_date)}</span>

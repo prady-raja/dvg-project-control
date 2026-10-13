@@ -44,7 +44,7 @@ const Chip = ({ active, children, onClick, tone = '' }) => (
 const Step = ({ n, title, children }) => (
   <section className="space-y-2">
     <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px]">{n}</span>{title}
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs">{n}</span>{title}
     </h3>
     {children}
   </section>
@@ -268,9 +268,9 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
                           className={cn('flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left', t.id === form.taskId ? 'border-primary bg-secondary/60' : 'border-border bg-card')}
                         >
                           <span className="min-w-0">
-                            <span className="field-mono block text-[11px] text-muted-foreground">{t.task_ref}</span>
+                            <span className="field-mono block text-xs text-muted-foreground">{t.task_ref}</span>
                             <span className="block truncate text-sm font-medium">{t.name}</span>
-                            {t.area_label && <span className="block truncate text-[11px] text-muted-foreground">{t.area_label}</span>}
+                            {t.area_label && <span className="block truncate text-xs text-muted-foreground">{t.area_label}</span>}
                           </span>
                           <StatusPill status={t.status} />
                         </button>

@@ -36,7 +36,7 @@ export default function PhotoStrip({ uris }) {
               );
             }
             return (
-              <div key={uri} className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border text-[10px] text-muted-foreground">
+              <div key={uri} className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
                 {failed[uri] ? 'Could not open' : 'Opening…'}
               </div>
             );

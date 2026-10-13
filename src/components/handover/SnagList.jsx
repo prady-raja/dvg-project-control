@@ -47,7 +47,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
               <Pill value={row.status} />
               <Pill value={row.severity} />
               {row.handover_blocker && (
-                <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-[10px] uppercase text-destructive">
+                <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-xs uppercase text-destructive">
                   blocks handover
                 </span>
               )}
@@ -77,7 +77,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
                 Close snag
               </Button>
               {(row.photo_uris || []).length === 0 && (
-                <span className="flex items-center gap-1.5 self-center text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5 self-center text-xs text-muted-foreground">
                   <Camera className="h-3.5 w-3.5" /> photographs optional
                 </span>
               )}

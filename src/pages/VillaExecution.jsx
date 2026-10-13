@@ -156,7 +156,7 @@ export default function VillaExecution() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {row.open} open · {row.overdue} overdue · {row.blocked} blocked · {row.awaitingVerification} awaiting verification
                   </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {row.progress?.reliable ? `Measured ${row.progress.percent}%` : row.progress?.reason || 'Not yet measured'}
                   </p>
                 </div>

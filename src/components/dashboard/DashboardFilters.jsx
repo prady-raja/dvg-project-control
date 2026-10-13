@@ -27,7 +27,7 @@ export default function DashboardFilters({
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Project</Label>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Project</Label>
           <EnumSelect
             className="mt-1.5"
             value={projectId}
@@ -37,7 +37,7 @@ export default function DashboardFilters({
           />
         </div>
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Phase</Label>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Phase</Label>
           <EnumSelect
             className="mt-1.5"
             value={phaseId}
@@ -47,7 +47,7 @@ export default function DashboardFilters({
           />
         </div>
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Measure overdue against</Label>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Measure overdue against</Label>
           <Input type="date" className="mt-1.5" value={date} onChange={(e) => onDate(e.target.value)} />
         </div>
         {children}
@@ -59,7 +59,7 @@ export default function DashboardFilters({
           <Label htmlFor="demo-view" className="text-xs">
             Demo/Test view — include labelled demo records
           </Label>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {includeDemo
               ? 'Demo records are included. They are test data, not site progress.'
               : 'Demo records are held out of every operational figure.'}

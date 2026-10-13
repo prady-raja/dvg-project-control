@@ -129,7 +129,7 @@ export default function Handover() {
             <div className="scroll-slim overflow-x-auto">
               <table className="w-full min-w-[1000px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 text-left">Villa</th>
                     <th className="py-2 text-left">Phase</th>
                     <th className="py-2 text-left">Possession</th>
@@ -150,7 +150,7 @@ export default function Handover() {
                           {row.villa}
                         </Link>
                         <div className="text-xs text-muted-foreground">{row.plot_numbers}</div>
-                        {row.on_hold && <span className="text-[10px] uppercase text-muted-foreground">on hold</span>}
+                        {row.on_hold && <span className="text-xs uppercase text-muted-foreground">on hold</span>}
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground">{row.phase}</td>
                       <td className="py-2.5"><Pill value={row.possession_status} /></td>

@@ -157,7 +157,7 @@ export default function BulkDrawingSheet({ open, onOpenChange, location, floors 
         {rows.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[820px] text-sm">
-              <thead><tr className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+              <thead><tr className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-2 py-2">File</th><th className="px-2">Number</th><th className="px-2">Title</th><th className="px-2">Rev</th><th className="px-2">Type</th><th className="px-2">Belongs to</th><th className="px-2">Check</th>
               </tr></thead>
               <tbody>
@@ -172,8 +172,8 @@ export default function BulkDrawingSheet({ open, onOpenChange, location, floors 
                     <td className="px-2 py-1.5">
                       {r.status === 'filed' ? <span className="text-xs font-medium text-emerald-800">Filed</span>
                         : r.status === 'failed' ? <span className="text-xs text-destructive">{r.failure}</span>
-                          : <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium', STATE_TONE[r.state])} title={r.note}>{STATE_LABEL[r.state]}</span>}
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">{r.status === 'ready' ? r.note : ''}</div>
+                          : <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', STATE_TONE[r.state])} title={r.note}>{STATE_LABEL[r.state]}</span>}
+                      <div className="mt-0.5 text-xs text-muted-foreground">{r.status === 'ready' ? r.note : ''}</div>
                     </td>
                   </tr>
                 ))}

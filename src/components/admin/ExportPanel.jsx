@@ -158,7 +158,7 @@ export default function ExportPanel() {
               <tr key={item.name}>
                 <td className="px-4 py-2.5">
                   <span className="font-medium">{item.label}</span>
-                  <span className="field-mono ml-2 text-[11px] text-muted-foreground">{item.name}</span>
+                  <span className="field-mono ml-2 text-xs text-muted-foreground">{item.name}</span>
                 </td>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.note || ''}</td>
                 <td className="field-mono px-4 py-2.5 text-right text-xs">

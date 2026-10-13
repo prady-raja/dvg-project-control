@@ -69,12 +69,12 @@ export default function UsersPanel({ users, memberships, projects, onChanged }) 
                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <Pill value={user.role === 'admin' ? 'Approved' : 'Active'} />
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {user.role === 'admin' ? 'Application administrator' : 'App role: user'}
                   </span>
                   {rows.length === 0 && <Pill value="Pending Setup" />}
                   {rows.map((m) => (
-                    <span key={m.id} className="text-[11px] text-muted-foreground">
+                    <span key={m.id} className="text-xs text-muted-foreground">
                       {m.role} · {projects.find((p) => p.id === m.project_id)?.name || 'project'}
                     </span>
                   ))}

@@ -17,6 +17,7 @@ import { useInvalidateWork } from '@/hooks/useDashboardQuery';
 import { FixDialog, DismissDialog } from '@/components/attention/AttentionDialogs';
 import ResolveScopeDialog from '@/components/tasks/ResolveScopeDialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import SearchSelect from '@/components/common/SearchableSelect';
 
 const PAGE = 100;
 
@@ -27,7 +28,7 @@ const SEVERITY_TONE = {
 
 const Stat = ({ label, value, tone = '' }) => (
   <div className="rounded-lg border border-border p-3">
-    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+    <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
     <p className={cn('mt-1 text-xl font-semibold tnum', tone)}>{value}</p>
   </div>
 );
@@ -131,8 +132,8 @@ export default function NeedsAttention() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Project</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Project</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={projectId}
               onChange={(e) => {
@@ -144,11 +145,11 @@ export default function NeedsAttention() {
               {cat.projects.map((project) => (
                 <option key={project.id} value={project.id}>{project.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Phase</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Phase</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={phaseId}
               onChange={(e) => setPhaseId(e.target.value)}
@@ -157,11 +158,11 @@ export default function NeedsAttention() {
               {phases.map((phase) => (
                 <option key={phase.id} value={phase.id}>{phase.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Issue</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Issue</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -170,10 +171,10 @@ export default function NeedsAttention() {
               {(data?.by_code || []).map((entry) => (
                 <option key={entry.code} value={entry.code}>{entry.label} ({entry.count})</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Data date</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Data date</p>
             <input
               type="date"
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
@@ -186,7 +187,7 @@ export default function NeedsAttention() {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={load} disabled={loading}>
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} /> Recalculate
           </Button>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {data?.data_date ? `Calculated for ${formatDate(data.data_date)}. ` : ''}
             Progress is never shown as measured when it is not, so this list is expected to stay long until the registers are filled in.
           </span>
@@ -292,7 +293,7 @@ export default function NeedsAttention() {
                       {canAct && (
                         <Checkbox className="mt-1" checked={!!picked[keyOf(item)]} onCheckedChange={(v) => setPicked((p) => ({ ...p, [keyOf(item)]: v === true }))} aria-label={`Select ${item.task_ref || item.villa}`} />
                       )}
-                      <span className={cn('mt-0.5 rounded-full border px-2 py-0.5 text-[11px] font-medium', SEVERITY_TONE[item.severity] || 'border-border text-muted-foreground')}>
+                      <span className={cn('mt-0.5 rounded-full border px-2 py-0.5 text-xs font-medium', SEVERITY_TONE[item.severity] || 'border-border text-muted-foreground')}>
                         {item.label}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -305,7 +306,7 @@ export default function NeedsAttention() {
                             <span>{item.task_name || 'Register gap'}</span>
                           )}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {item.villa || 'Site-wide'}{item.detail ? ` · ${item.detail}` : ''}
                         </p>
                         {canAct && (

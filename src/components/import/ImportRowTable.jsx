@@ -33,11 +33,11 @@ const IssueList = ({ issues }) => {
   return (
     <ul className="space-y-0.5">
       {issues.slice(0, 3).map((issue) => (
-        <li key={`${issue.code}-${issue.message}`} className={cn('text-[11px] leading-snug', issue.severity === 'error' ? 'text-destructive' : 'text-amber-600')}>
+        <li key={`${issue.code}-${issue.message}`} className={cn('text-xs leading-snug', issue.severity === 'error' ? 'text-destructive' : 'text-amber-600')}>
           {issue.message}
         </li>
       ))}
-      {issues.length > 3 && <li className="text-[11px] text-muted-foreground">+{issues.length - 3} more</li>}
+      {issues.length > 3 && <li className="text-xs text-muted-foreground">+{issues.length - 3} more</li>}
     </ul>
   );
 };
@@ -137,15 +137,15 @@ export default function ImportRowTable({
               </Button>
             </div>
             {!decision && ['update', 'duplicate', 'clarify'].includes(rec.outcome) && (
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-destructive">
+              <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                 <AlertTriangle className="h-3 w-3" /> Needs a decision
               </p>
             )}
             {!decision && rec.outcome === 'create' && (
-              <p className="mt-1 text-[10px] text-muted-foreground">Will be created unless you reject it</p>
+              <p className="mt-1 text-xs text-muted-foreground">Will be created unless you reject it</p>
             )}
             {rec.outcome === 'unchanged' && (
-              <p className="mt-1 text-[10px] text-muted-foreground">Nothing to write</p>
+              <p className="mt-1 text-xs text-muted-foreground">Nothing to write</p>
             )}
     </>
   );
@@ -229,17 +229,17 @@ export default function ImportRowTable({
                     <tr className={cn('align-top', busyRow === row.row_number && 'opacity-60')}>
                       <td className="field-mono px-3 py-2.5 text-xs text-muted-foreground">{row.row_number}</td>
                       <td className="px-3 py-2.5">
-                        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
+                        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
                           {rec.label || '—'}
                         </span>
                         {changes.length > 0 && (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}
                             {changes.length > 3 ? '…' : ''}
                           </p>
                         )}
                         {rec.match?.task_id && (
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {rec.match.confidence === 'confirmed' ? 'Matched' : 'Possible match'}{' '}
                             <span className="field-mono">{rec.match.task_ref}</span>
                           </p>
@@ -247,7 +247,7 @@ export default function ImportRowTable({
                       </td>
                       <td className="max-w-[240px] px-3 py-2.5">
                         <p className="font-medium leading-snug">{row.resolved.name || row.values.name || '—'}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {row.resolved.work_package || row.values.work_package || 'No work package'}
                           {row.values.source_reference ? ` · ref ${row.values.source_reference}` : ''}
                           {row.values.task_ref ? ` · file says ${row.values.task_ref}` : ''}
@@ -261,25 +261,25 @@ export default function ImportRowTable({
                         ) : (
                           <span className="text-muted-foreground">{row.values.villa_code || '—'}</span>
                         )}
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {row.resolved.area_label || (row.resolved.villa_code ? row.resolved.scope_type : '')}
                         </p>
                       </td>
                       <td className="px-3 py-2.5 text-xs">{row.resolved.discipline_name || row.values.discipline || '—'}</td>
                       <td className="px-3 py-2.5">
                         <Pill value={row.resolved.status_value} />
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{row.resolved.contractor_name || 'No contractor'}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{row.resolved.contractor_name || 'No contractor'}</p>
                       </td>
                       <td className="max-w-[300px] px-3 py-2.5">
                         {rec.clarifications?.length > 0 && (
                           <ul className="mb-1 space-y-0.5">
                             {rec.clarifications.slice(0, 2).map((note) => (
-                              <li key={note} className="text-[11px] leading-snug text-destructive">{note}</li>
+                              <li key={note} className="text-xs leading-snug text-destructive">{note}</li>
                             ))}
                           </ul>
                         )}
                         {row.duplicate && !rec.clarifications?.length && (
-                          <p className="mb-1 flex items-start gap-1 text-[11px] text-amber-600">
+                          <p className="mb-1 flex items-start gap-1 text-xs text-amber-600">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
                             <span>
                               Possible duplicate of <span className="field-mono">{row.duplicate.task_ref}</span>
@@ -289,7 +289,7 @@ export default function ImportRowTable({
                         )}
                         <IssueList issues={row.issues} />
                         {!row.issues.length && !row.duplicate && !rec.clarifications?.length && (
-                          <p className="flex items-center gap-1 text-[11px] text-emerald-600">
+                          <p className="flex items-center gap-1 text-xs text-emerald-600">
                             <CheckCircle2 className="h-3 w-3" /> Ready
                           </p>
                         )}
@@ -324,7 +324,7 @@ export default function ImportRowTable({
             <article key={row.row_number} className={cn('rounded-xl border border-border bg-card p-4', busyRow === row.row_number && 'opacity-60')}>
               <div className="flex items-center justify-between gap-2">
                 <span className="field-mono text-xs text-muted-foreground">Row {row.row_number}</span>
-                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
+                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
                   {rec.label || '—'}
                 </span>
               </div>
@@ -334,7 +334,7 @@ export default function ImportRowTable({
                 {row.resolved.area_label ? ` · ${row.resolved.area_label}` : ''} · {row.resolved.discipline_name || row.values.discipline || '—'} · {row.resolved.contractor_name || 'No contractor'}
               </p>
               {changes.length > 0 && (
-                <p className="mt-1 text-[11px] text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
               )}
               <div className="mt-2"><IssueList issues={row.issues} /></div>
               <div className="mt-3">{renderDecision(row, decision, rec, changes, open)}</div>

@@ -78,7 +78,7 @@ export default function CopyScopeDialog({ open, onOpenChange, location, location
             <label key={l.id} className="flex items-center gap-2 text-sm">
               <Checkbox checked={chosen.includes(l.id)} onCheckedChange={(v) => toggle(l.id, v === true)} />
               <span>{l.villa_code}</span>
-              {l.villa_type && <span className="text-[11px] text-muted-foreground">{l.villa_type}</span>}
+              {l.villa_type && <span className="text-xs text-muted-foreground">{l.villa_type}</span>}
             </label>
           ))}
         </div>

@@ -139,7 +139,7 @@ export default function AiAssistantPanel({ projectId, phaseId, date, onWritten }
           {busy ? <Sparkles className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
           {busy ? 'Reading the records…' : 'Read and prepare proposal'}
         </Button>
-        <span className="text-[11px] text-muted-foreground">Nothing is written until you confirm the proposal.</span>
+        <span className="text-xs text-muted-foreground">Nothing is written until you confirm the proposal.</span>
       </div>
 
       {error && (

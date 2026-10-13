@@ -10,23 +10,23 @@ export function ActivityFlags({ row }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       {row.overdue_days > 0 && (
-        <span className="rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+        <span className="rounded border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold uppercase text-destructive">
           {row.overdue_days}d overdue
         </span>
       )}
       {row.overdue_days === 0 && row.due_in_days !== null && row.due_in_days <= 7 && (
-        <span className="rounded border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[hsl(var(--warning))]">
+        <span className="rounded border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 px-1.5 py-0.5 text-xs font-semibold uppercase text-[hsl(var(--warning))]">
           due in {row.due_in_days}d
         </span>
       )}
       {!row.finish && (
-        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">no date</span>
+        <span className="rounded border border-border px-1.5 py-0.5 text-xs uppercase text-muted-foreground">no date</span>
       )}
       {row.blocker && (
-        <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-[10px] uppercase text-destructive">blocker</span>
+        <span className="rounded border border-destructive/40 px-1.5 py-0.5 text-xs uppercase text-destructive">blocker</span>
       )}
       {row.villa_on_hold && (
-        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">villa on hold</span>
+        <span className="rounded border border-border px-1.5 py-0.5 text-xs uppercase text-muted-foreground">villa on hold</span>
       )}
       {row.is_demo && (
         <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">demo</span>

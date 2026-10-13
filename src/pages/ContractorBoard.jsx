@@ -11,6 +11,7 @@ import ContractorBoardCard from '@/components/contractors/ContractorBoardCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import NoProjectState from '@/components/common/NoProjectState';
+import SearchSelect from '@/components/common/SearchableSelect';
 
 /** Stage A / 4 — Contractor dashboard. */
 export default function ContractorBoard() {
@@ -100,8 +101,8 @@ export default function ContractorBoard() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Villa</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Villa</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
@@ -110,11 +111,11 @@ export default function ContractorBoard() {
               {villas.map((v) => (
                 <option key={v.id} value={v.id}>{v.villa_code}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Discipline</p>
-            <select
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Discipline</p>
+            <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={discipline}
               onChange={(e) => setDiscipline(e.target.value)}
@@ -123,7 +124,7 @@ export default function ContractorBoard() {
               {disciplines.map((d) => (
                 <option key={d.id} value={d.code}>{d.name}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
       </DashboardFilters>

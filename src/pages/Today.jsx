@@ -35,7 +35,7 @@ function TaskCardRow({ row, quick }) {
     <li className="rounded-xl border border-border bg-card p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <Link to={`/tasks/${row.id}`} className="field-mono text-[11px] font-semibold text-muted-foreground hover:underline">{row.ref} · {row.villa}</Link>
+          <Link to={`/tasks/${row.id}`} className="field-mono text-xs font-semibold text-muted-foreground hover:underline">{row.ref} · {row.villa}</Link>
           <p className="mt-0.5 text-sm font-medium leading-snug">{row.name}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -45,7 +45,7 @@ function TaskCardRow({ row, quick }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {row.reasons.map((r) => (
-          <span key={r.code} className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', REASON_TONE[r.code])}>{r.label}</span>
+          <span key={r.code} className={cn('rounded-full border px-2 py-0.5 text-xs font-medium', REASON_TONE[r.code])}>{r.label}</span>
         ))}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{row.action}</p>
@@ -145,8 +145,8 @@ export default function Today() {
                   {view.villas.map((v) => (
                     <div key={v.id} className={cn('min-w-[150px] rounded-xl border p-3', v.reported_today ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50')}>
                       <Link to={`/locations/${v.id}`} className="text-sm font-semibold hover:underline">{v.code}</Link>
-                      <p className="mt-0.5 text-[11px]">{v.reported_today ? (v.reported_by_me ? 'You reported today' : 'Reported today') : 'Not reported today'}</p>
-                      <p className="text-[11px] text-muted-foreground">{v.open} open{v.overdue ? ` · ${v.overdue} overdue` : ''}{v.blocked ? ` · ${v.blocked} blocked` : ''}</p>
+                      <p className="mt-0.5 text-xs">{v.reported_today ? (v.reported_by_me ? 'You reported today' : 'Reported today') : 'Not reported today'}</p>
+                      <p className="text-xs text-muted-foreground">{v.open} open{v.overdue ? ` · ${v.overdue} overdue` : ''}{v.blocked ? ` · ${v.blocked} blocked` : ''}</p>
                       {!v.reported_today && quick.canReport && (
                         <Button size="sm" className="mt-2 h-7 w-full" onClick={() => quick.openLogUpdate({ locationId: v.id })}>Log update</Button>
                       )}

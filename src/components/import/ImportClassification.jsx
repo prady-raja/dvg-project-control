@@ -14,7 +14,7 @@ const TILES = [
 const Stat = ({ label, value, tone }) => (
   <div className="rounded-lg border border-border bg-card px-3 py-2.5">
     <p className={cn('field-mono text-lg font-semibold tnum', value > 0 ? tone : '')}>{value}</p>
-    <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{label}</p>
+    <p className="mt-0.5 text-xs leading-tight text-muted-foreground">{label}</p>
   </div>
 );
 

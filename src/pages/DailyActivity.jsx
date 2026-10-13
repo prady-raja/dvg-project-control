@@ -26,7 +26,7 @@ const SCOPES = ['All', 'Villa', 'Site-wide'];
 
 const Stat = ({ label, value }) => (
   <div className="rounded-xl border border-border bg-card px-4 py-3">
-    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+    <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
     <p className="field-mono mt-1 text-xl font-semibold">{value}</p>
   </div>
 );
