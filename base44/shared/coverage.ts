@@ -19,7 +19,7 @@ export function lastWorkingDays(asOf, settings, days = COVERAGE_DAYS) {
   return out;
 }
 
-export function coverageView({ locations = [], updates = [], tasks = [], members = [], settings, asOf, days = COVERAGE_DAYS }) {
+export function coverageView({ locations = [], updates = [], tasks = [], members = [], diaries = [], settings, asOf, days = COVERAGE_DAYS }) {
   const window = lastWorkingDays(asOf, settings, days);
   const held = heldLocationIds(locations);
   const villas = locations
@@ -67,9 +67,16 @@ export function coverageView({ locations = [], updates = [], tasks = [], members
     .filter((t) => t.villas || t.open || t.reports_today || t.user_id)
     .sort((a, b) => b.overdue - a.overdue || b.stale - a.stale || a.name.localeCompare(b.name));
 
+  // Headcount comes from the site diary (each crew counted once), not from task-level manpower.
+  const site = window.map((day) => {
+    const d = diaries.find((x) => toDay(x.diary_date) === day);
+    return { day, written: !!d, heads: d ? Number(d.total_heads) || 0 : null, closed: d?.closed === true };
+  });
+
   return {
     as_of: asOf,
     days: window,
+    site,
     rows,
     team,
     totals: {

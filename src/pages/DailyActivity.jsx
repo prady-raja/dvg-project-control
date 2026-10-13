@@ -23,6 +23,7 @@ import NoProjectState from '@/components/common/NoProjectState';
 import { useScopeState } from '@/lib/ScopeContext';
 import { useUrlState } from '@/lib/useUrlFilters';
 import CoverageGrid from '@/components/daily/CoverageGrid';
+import SiteDiaryForm from '@/components/daily/SiteDiaryForm';
 
 /** What the site did on one day, project-wide, grouped by phase and then villa. */
 const SCOPES = ['All', 'Villa', 'Site-wide'];
@@ -202,6 +203,10 @@ export default function DailyActivity() {
           canReport={canReport}
           onSaved={() => setRefresh((n) => n + 1)}
         />
+      </div>
+
+      <div className="mt-6">
+        <SiteDiaryForm projectId={projectId} date={date} />
       </div>
 
       <div className="mt-6">

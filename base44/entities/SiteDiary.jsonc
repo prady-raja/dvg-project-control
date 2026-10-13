@@ -1,0 +1,50 @@
+{
+  "name": "SiteDiary",
+  "type": "object",
+  "description": "The site's day (F-03): one row per project per IST date. Headcount per contractor counted once (task-level manpower repeats a crew across tasks), weather, hours lost, deliveries, visitors, incidents and notes. Any engineer adds to it; an administrator closes the day.",
+  "properties": {
+    "project_id": { "type": "string" },
+    "diary_date": { "type": "string", "format": "date" },
+    "labour": {
+      "type": "array",
+      "description": "[{ contractor_id, contractor_name, heads, villa_ids }]",
+      "items": { "type": "object" }
+    },
+    "weather_summary": { "type": "string" },
+    "temperature_c": { "type": "number" },
+    "rain_mm": { "type": "number" },
+    "weather_source": { "type": "string", "enum": ["Open-Meteo", "Manual"] },
+    "work_stopped_hours": { "type": "number" },
+    "work_stopped_reason": { "type": "string" },
+    "deliveries": {
+      "type": "array",
+      "description": "[{ material, quantity, task_id, task_ref, notes, challan_uri }]",
+      "items": { "type": "object" }
+    },
+    "visitors": { "type": "string" },
+    "incidents": { "type": "string" },
+    "notes": { "type": "string" },
+    "total_heads": { "type": "number", "description": "Sum of the labour rows. Server-maintained." },
+    "closed": { "type": "boolean", "default": false },
+    "closed_by_name": { "type": "string" },
+    "closed_at": { "type": "string", "format": "date-time" },
+    "updated_by_name": { "type": "string" },
+    "member_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": ["project_id", "diary_date"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.member_ids": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "server-only" } },
+    "update": { "user_condition": { "role": "server-only" } },
+    "delete": false
+  }
+}

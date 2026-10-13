@@ -118,6 +118,7 @@ async function handler(req) {
         });
       }
       case 'coverage': {
+        const db = makeDb({ entities: base44.asServiceRole.entities });
         const projectId = scope.projectId || data.projects[0]?.id || '';
         const members = projectId ? await activeMembers(base44, projectId) : [];
         return Response.json({
@@ -126,6 +127,7 @@ async function handler(req) {
             locations: data.locations.filter((l) => !projectId || l.project_id === projectId),
             updates: data.updates, tasks: data.tasks.filter((t) => !projectId || t.project_id === projectId),
             members, settings: ix.settings(projectId), asOf,
+            diaries: projectId ? (await db.readAll('SiteDiary', { project_id: projectId, diary_date: { $gte: shiftDay(asOf, -30) } }, { max: 100 })).items : [],
           }),
         });
       }

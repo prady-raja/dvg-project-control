@@ -48,6 +48,13 @@ export default function CoverageGrid({ projectId, phaseId, date, canReport }) {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td className="sticky left-0 bg-card pr-3 font-medium">Site diary</td>
+                    {data.site.map((d) => (
+                      <td key={d.day} className="px-0.5 text-center text-xs tnum" title={d.written ? `${d.heads} on site` : 'No diary'}>{d.written ? d.heads : '–'}</td>
+                    ))}
+                    <td />
+                  </tr>
                   {data.rows.map((row) => (
                     <tr key={row.location_id}>
                       <td className="sticky left-0 bg-card pr-3 font-mono"><button type="button" className="underline-offset-2 hover:underline" onClick={() => navigate(`/locations/${row.location_id}`)}>{row.villa}</button></td>

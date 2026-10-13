@@ -38,3 +38,13 @@ describe('coverageView', () => {
   });
   it('the team table counts reports today per engineer', () => expect(view.team.find((t) => t.user_id === 'u1').reports_today).toBe(1));
 });
+
+describe('headcount from the site diary', () => {
+  it('shows the diary total per working day and marks missing days', () => {
+    const view = coverageView({ locations: [], updates: [], tasks: [], members: [], settings, asOf, days: 3,
+      diaries: [{ diary_date: '2026-03-12', total_heads: 41, closed: true }] });
+    expect(view.site.map((d) => d.heads)).toEqual([null, null, 41]);
+    expect(view.site[2].closed).toBe(true);
+    expect(view.site[0].written).toBe(false);
+  });
+});
