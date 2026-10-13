@@ -38,3 +38,11 @@ describe('villaListView', () => {
   });
   it('a villa with everything closed has nothing open', () => expect(view.rows.find((r) => r.villa === 'A-03').open).toBe(0));
 });
+
+describe('the chips (MVP gap step 1)', () => {
+  it('rows carry the engineer id so Mine can be answered', () => {
+    const locations = [{ id: 'a', project_id: 'p', villa_code: 'A-01', location_type: 'Villa', assigned_engineer_user_id: 'u1' }];
+    const ix2 = buildIndex({ projects: [{ id: 'p' }], locations, tasks: [] });
+    expect(villaListView({ tasks: [], locations, snags: [], ix: ix2, asOf: '2026-03-12' }).rows[0].engineer_user_id).toBe('u1');
+  });
+});

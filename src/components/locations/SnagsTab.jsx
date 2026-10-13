@@ -7,12 +7,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import DataState from '@/components/common/DataState';
 import SnagList from '@/components/handover/SnagList';
+import InspectionResults from '@/components/inspection/InspectionResults';
 
 /** The snags of one location, with the raise-a-snag button (L-02). */
 export default function SnagsTab({ location, canEdit }) {
   const quick = useQuickActions();
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
+  const [checklistKey, setChecklistKey] = useState(0);
   const [state, setState] = useState({ loading: true, error: '' });
   const load = useCallback(async () => {
     setState({ loading: true, error: '' });
@@ -34,6 +36,7 @@ export default function SnagsTab({ location, canEdit }) {
       <DataState loading={state.loading} error={state.error} onRetry={load}>
         <SnagList
           rows={rows}
+          onChecklist={() => setChecklistKey((n) => n + 1)}
           canEdit={canEdit}
           emptyLabel="No snag recorded against this location."
           onAdvance={async (row, patch) => {
@@ -41,6 +44,7 @@ export default function SnagsTab({ location, canEdit }) {
           }}
         />
       </DataState>
+      <div className="mt-4"><InspectionResults filter={{ location_id: location.id, subject_type: 'Snag' }} refreshKey={checklistKey} title="Snag inspection checklists" /></div>
     </section>
   );
 }

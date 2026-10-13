@@ -11,7 +11,8 @@
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
     "test": "vitest run",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check:phone": "vite build --config tests/harness/vite.config.js && node scripts/phone-check.mjs"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.53",

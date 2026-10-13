@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import EnumSelect from '@/components/common/EnumSelect';
 import Field from '@/components/common/Field';
 import { cn } from '@/lib/utils';
+import StackTable from '@/components/common/StackTable';
 
 const STATUSES = ['Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -43,7 +44,7 @@ export default function ImportProposal({ row, cat, reasons, edits, onReason, onE
         <p className="text-xs text-muted-foreground">The recorded values already match this row.</p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <table className="w-full text-xs">
+          <StackTable><table className="w-full text-xs">
             <thead className="bg-muted/40 text-left text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">Field</th>
@@ -65,7 +66,7 @@ export default function ImportProposal({ row, cat, reasons, edits, onReason, onE
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></StackTable>
         </div>
       )}
 

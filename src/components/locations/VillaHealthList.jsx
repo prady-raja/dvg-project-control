@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/format';
 import DataState from '@/components/common/DataState';
 import Pill from '@/components/common/Pill';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/AuthContext';
 
 const Count = ({ label, value, tone }) => (
   <div className="text-center">
@@ -23,12 +24,17 @@ const Count = ({ label, value, tone }) => (
  */
 export default function VillaHealthList({ projectId, phaseId, filters }) {
   const [term, setTerm] = useState('');
+  const { user } = useAuth();
+  const me = user?.id || '';
   const { data, isLoading, error, refetch } = useDashboardQuery('villaList', { projectId, phaseId }, { enabled: true });
   const rows = useMemo(() => (data?.rows || []).filter((r) =>
     (!filters.location_type || r.location_type === filters.location_type)
     && (!filters.possession_status || r.possession_status === filters.possession_status)
     && (!filters.active_status || r.active_status === filters.active_status)
-    && matchesPlotRef(term, r)), [data, filters, term]);
+    && (!filters.mine || (me && r.engineer_user_id === me))
+    && (!filters.overdue || r.overdue > 0)
+    && (!filters.blocked || r.blocked > 0)
+    && matchesPlotRef(term, r)), [data, filters, term, me]);
 
   return (
     <div>

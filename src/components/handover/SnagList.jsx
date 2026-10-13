@@ -9,6 +9,7 @@ import ContactChip from '@/components/common/ContactChip';
 import PhotoLightbox from '@/components/common/PhotoLightbox';
 import OwnerAckDialog from '@/components/common/OwnerAckDialog';
 import { needsAck } from '@/lib/shared/ownerSignoff.ts';
+import InspectionChecklistDialog from '@/components/inspection/InspectionChecklistDialog';
 
 /**
  * The snag register. A snag never changes a task by itself: closing it is its
@@ -38,9 +39,10 @@ function SnagThumbs({ uris, captions = {} }) {
   );
 }
 
-export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyLabel = 'No snag recorded for this villa.' }) {
+export default function SnagList({ rows = [], canEdit = false, onAdvance, onChecklist, emptyLabel = 'No snag recorded for this villa.' }) {
   const cat = useCatalogs();
   const [asking, setAsking] = React.useState(null);
+  const [inspecting, setInspecting] = React.useState(null);
   const close = (row) => (needsAck({ location: cat.locationById(row.location_id), project: cat.projectById(row.project_id) })
     ? setAsking(row)
     : onAdvance(row, { status: 'Closed' }));
@@ -84,6 +86,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
                   Ready for reinspection
                 </Button>
               )}
+              <Button size="sm" variant="outline" onClick={() => setInspecting(row)}>Checklist</Button>
               <Button size="sm" variant="outline" onClick={() => close(row)}>
                 Close snag
               </Button>
@@ -96,6 +99,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
           )}
         </article>
       ))}
+      <InspectionChecklistDialog open={!!inspecting} onOpenChange={(o) => !o && setInspecting(null)} subjectType="Snag" subject={inspecting} onSaved={() => onChecklist?.()} />
       <OwnerAckDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)} onSubmit={async (ack) => { const row = asking; setAsking(null); await onAdvance(row, { status: 'Closed', owner_ack: ack }); }} />
     </div>
   );

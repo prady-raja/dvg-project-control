@@ -142,3 +142,25 @@
   .statement { color: #000; }
   .break-inside-avoid { break-inside: avoid; }
 }
+
+/* MVP gap, step 2: on a phone (640px and narrower) every management table stacks into cards.
+   The first three columns show; tapping a card opens the rest. No page scrolls sideways. */
+@media (max-width: 640px) {
+  .stack-table table { display: block; width: 100%; min-width: 0 !important; }
+  .stack-table thead { display: none; }
+  .stack-table tbody { display: block; }
+  .stack-table tr {
+    display: block; position: relative; min-height: 3rem; margin-bottom: 0.75rem; padding: 0.25rem 0.75rem;
+    border: 1px solid hsl(var(--border)); border-radius: 0.75rem; background: hsl(var(--card));
+  }
+  .stack-table td {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.4rem 0 !important; border: 0 !important; text-align: right; min-height: 2.5rem;
+  }
+  .stack-table td::before { content: attr(data-label); flex-shrink: 0; font-size: 0.75rem; color: hsl(var(--muted-foreground)); text-align: left; }
+  .stack-table td > * { min-width: 0; }
+  .stack-table tr[data-more]:not([data-open]) td:nth-child(n+4):not([data-keep]) { display: none; }
+  .stack-table tr[data-more]:not([data-open])::after { content: 'Tap for more'; display: block; padding: 0.25rem 0 0.5rem; font-size: 0.75rem; color: hsl(var(--primary)); }
+  .stack-table tr[data-more][data-open]::after { content: 'Tap to fold'; display: block; padding: 0.25rem 0 0.5rem; font-size: 0.75rem; color: hsl(var(--primary)); }
+  .stack-table tr[data-more] { cursor: pointer; }
+}

@@ -17,6 +17,7 @@ import { withLog } from '../../shared/log.ts';
 import { compareRevisions } from '../../shared/drawingIntake.ts';
 import { settingsProblems } from '../../shared/calendar.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
+import { parseTemplateText } from '../../shared/checklists.ts';
 
 const DRAWING_TYPES = [
   'Floor Plan', 'Furniture Layout', 'Electrical Layout', 'Plumbing Layout',
@@ -42,7 +43,7 @@ const FIELDS = {
   WorkPackage: ['project_id', 'discipline', 'package_name', 'sort_order', 'active', 'notes'],
   ContractorDefault: ['project_id', 'phase_id', 'discipline', 'contractor_id', 'active', 'notes'],
   Contractor: ['name', 'classification', 'trade', 'contact_person', 'phone', 'email', 'active', 'notes'],
-  Discipline: ['name', 'code', 'sort_order', 'active', 'notes'],
+  Discipline: ['name', 'code', 'sort_order', 'active', 'notes', 'checklist_template'],
   ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes', 'phone', 'initials'],
   MeetingCommitment: [
     'project_id', 'phase_id', 'contractor_id', 'task_id', 'meeting_date', 'commitment',
@@ -121,6 +122,11 @@ async function handler(req) {
         payload[field] = data[field] === '' || data[field] === undefined ? null : data[field];
       }
     });
+
+    if (entityName === 'Discipline' && Object.prototype.hasOwnProperty.call(payload, 'checklist_template')) {
+      // A plain list of items; tidied so it can only ever hold short lines of text.
+      payload.checklist_template = parseTemplateText(Array.isArray(payload.checklist_template) ? payload.checklist_template.join('\n') : '');
+    }
 
     if (entityName === 'Project') {
       const problems = settingsProblems(payload);

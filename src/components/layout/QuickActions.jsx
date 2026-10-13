@@ -101,6 +101,7 @@ export function QuickActionsProvider({ children }) {
         locationId={snagFor?.locationId || ''}
         disciplines={cat.disciplines}
         contractors={cat.contractors}
+        prefill={snagFor?.prefill || null}
         onSaved={() => { setSnagFor(null); afterSave(); }}
       />
       <BlockerSheet task={blockFor} onClose={() => setBlockFor(null)} onSaved={afterSave} />

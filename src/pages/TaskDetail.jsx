@@ -20,10 +20,15 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import CompleteTaskChip from '@/components/tasks/CompleteTaskChip';
 import LocationCrumbs from '@/components/locations/LocationCrumbs';
 import TaskCommitments from '@/components/tasks/TaskCommitments';
 import ContactChip from '@/components/common/ContactChip';
 import { useQuery } from '@tanstack/react-query';
+import { ClipboardCheck } from 'lucide-react';
+import { INSPECTABLE_TASK_STATUSES } from '@/lib/shared/checklists.ts';
+import InspectionResults from '@/components/inspection/InspectionResults';
+import InspectionChecklistDialog from '@/components/inspection/InspectionChecklistDialog';
 
 const Section = ({ title, children }) => (
   <section className="rounded-xl border border-border bg-card p-5">
@@ -41,6 +46,8 @@ export default function TaskDetail() {
   const navigate = useNavigate();
   const [scopeOpen, setScopeOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistKey, setChecklistKey] = useState(0);
 
   // Read through the query cache (R-01): a save elsewhere refreshes this page too.
   const query = useQuery({
@@ -120,6 +127,8 @@ export default function TaskDetail() {
         }
       />
 
+      <div className="mb-4"><CompleteTaskChip task={task} onSaved={load} /></div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Pill value={task.status} />
         <Pill value={task.priority} />
@@ -143,6 +152,16 @@ export default function TaskDetail() {
       )}
 
       <TaskApprovalActions task={task} canEdit={canEdit} canApprove={canManage} onChanged={load} />
+
+      {canEdit && INSPECTABLE_TASK_STATUSES.includes(task.status) && (
+        <div className="mt-3">
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => setChecklistOpen(true)}>
+            <ClipboardCheck className="h-4 w-4" /> Inspect with a checklist
+          </Button>
+        </div>
+      )}
+      <InspectionChecklistDialog open={checklistOpen} onOpenChange={setChecklistOpen} subjectType="Task" subject={task} onSaved={() => setChecklistKey((n) => n + 1)} />
+      <div className="mt-4"><InspectionResults filter={{ task_id: task.id }} refreshKey={checklistKey} /></div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <Section title="Identification">

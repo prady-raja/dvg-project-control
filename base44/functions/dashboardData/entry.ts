@@ -16,6 +16,7 @@ import { makeDb } from '../../shared/dbCore.ts';
 import { withLog } from '../../shared/log.ts';
 import { commitmentSummary } from '../../shared/commitments.ts';
 import { coverageView } from '../../shared/coverage.ts';
+import { dataHealthView } from '../../shared/dataHealth.ts';
 
 /**
  * One guarded read path for every management dashboard.
@@ -116,6 +117,13 @@ async function handler(req) {
             updates: data.updates, members, locations: data.locations.filter((l) => !scope.projectId || l.project_id === scope.projectId),
             settings: ix.settings(scope.projectId || data.projects[0]?.id), asOf,
           }),
+        });
+      }
+      case 'dataHealth': {
+        if (!isAppAdmin(user)) throw fail('Administrator access required.', 403);
+        return Response.json({
+          ...header,
+          ...dataHealthView({ tasks: data.tasks, ix, asOf, options: { ...options, field: String(body?.field || ''), offset: body?.offset, limit: body?.limit } }),
         });
       }
       case 'coverage': {

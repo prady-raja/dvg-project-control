@@ -1,0 +1,43 @@
+{
+  "name": "InspectionChecklist",
+  "type": "object",
+  "description": "A checklist filled in when inspecting a task or a snag (MVP gap, step 4): the items looked at, Pass / Fail / N/A against each, a comment and an optional photo. It records what was looked at; it never changes a status or decides who may approve. Each inspection is its own record, so earlier ones are kept.",
+  "properties": {
+    "project_id": { "type": "string" },
+    "phase_id": { "type": "string" },
+    "location_id": { "type": "string" },
+    "subject_type": { "type": "string", "enum": ["Task", "Snag"] },
+    "task_id": { "type": "string" },
+    "task_ref": { "type": "string" },
+    "snag_id": { "type": "string" },
+    "snag_ref": { "type": "string" },
+    "discipline": { "type": "string" },
+    "items": {
+      "type": "array",
+      "description": "[{ text, result: Pass | Fail | N/A, comment, photo_uri }]",
+      "items": { "type": "object" }
+    },
+    "overall": { "type": "string", "enum": ["Pass", "Fail"] },
+    "fail_count": { "type": "number" },
+    "completed_by_id": { "type": "string" },
+    "completed_by_name": { "type": "string" },
+    "completed_date": { "type": "string", "format": "date" },
+    "member_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": ["project_id", "subject_type", "items"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.member_ids": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "server-only" } },
+    "update": { "user_condition": { "role": "server-only" } },
+    "delete": false
+  }
+}

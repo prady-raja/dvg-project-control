@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import ShareMenu from '@/components/common/ShareMenu';
 import { useScopeState } from '@/lib/ScopeContext';
 import { useUrlState } from '@/lib/useUrlFilters';
+import StackTable from '@/components/common/StackTable';
 
 const CELL_TONE = {
   Stuck: 'border-red-300 bg-red-50 text-red-900',
@@ -111,7 +112,7 @@ export default function VillaMatrix() {
                 {' '}Colours also say what they mean: {view.legend.map((l) => `${l.category} = ${l.meaning}`).join('; ')}.
               </p>
               <div className="scroll-slim overflow-x-auto rounded-xl border border-border bg-card">
-                <table className="w-full min-w-[900px] text-sm">
+                <StackTable><table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="sticky left-0 z-10 bg-card px-3 py-2.5">Villa</th>
@@ -168,7 +169,7 @@ export default function VillaMatrix() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></StackTable>
               </div>
             </div>
           )}

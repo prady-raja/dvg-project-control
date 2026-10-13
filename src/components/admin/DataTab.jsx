@@ -9,11 +9,70 @@ import { loadDashboard } from '@/lib/dashboardService';
 import { useCatalogs } from '@/lib/CatalogContext';
 import EnumSelect from '@/components/common/EnumSelect';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import StackTable from '@/components/common/StackTable';
 
 /**
  * Data health for the administrator: the one-off backfills (dry run first, then
  * apply) and the latest errors caught in people's browsers.
  */
+/** Tasks missing the engineer, the forecast or the priority — counts, and the exact tasks behind each (MVP gap, step 3). */
+function DataHealthPanel() {
+  const cat = useCatalogs();
+  const [projectId, setProjectId] = useState('');
+  const [field, setField] = useState('');
+  const [state, setState] = useState({ loading: false, error: '', view: null });
+
+  useEffect(() => {
+    if (!projectId && cat.projects.length) setProjectId(cat.projects.find((p) => p.status === 'Active')?.id || cat.projects[0].id);
+  }, [cat.projects, projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    setState((s) => ({ ...s, loading: true, error: '' }));
+    loadDashboard('dataHealth', { projectId, date: todayIst(), field, limit: 200 })
+      .then((view) => setState({ loading: false, error: '', view }))
+      .catch((e) => setState({ loading: false, error: errorMessageOf(e, 'Data health could not be read.'), view: null }));
+  }, [projectId, field]);
+
+  const v = state.view;
+  return (
+    <BoardSection
+      title="Missing task details"
+      description="Imported work lists leave these blank. Nothing is filled in for anyone; each count opens the exact tasks."
+      actions={<div className="w-48"><EnumSelect value={projectId} onChange={(id) => { setProjectId(id); setField(''); }} options={cat.projects.map((p) => ({ value: p.id, label: p.name }))} /></div>}
+    >
+      <DataState loading={state.loading && !v} error={state.error} onRetry={() => setField(field)}>
+        {v && (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {v.fields.map((f) => (
+                <button key={f.key} type="button" onClick={() => setField(field === f.key ? '' : f.key)} aria-pressed={field === f.key}
+                  className={`rounded-xl border px-4 py-3 text-left ${field === f.key ? 'border-primary' : 'border-border'} bg-card`}>
+                  <p className="field-mono text-2xl font-semibold tnum">{f.count}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{f.label}</p>
+                  <p className="mt-1 text-xs text-primary">{field === f.key ? 'Hide the tasks' : 'Show the tasks'}</p>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Out of {v.tasks_reviewed} outstanding tasks.</p>
+            {v.field && (
+              <ul className="mt-3 divide-y divide-border rounded-xl border border-border bg-card">
+                {v.rows.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+                    <a href={`/tasks/${r.id}`} className="min-w-0 hover:underline"><span className="field-mono text-xs">{r.ref}</span> {r.name}</a>
+                    <span className="text-xs text-muted-foreground">{r.villa} {r.discipline}</span>
+                  </li>
+                ))}
+                {v.total > v.rows.length && <li className="px-4 py-2 text-xs text-muted-foreground">Showing {v.rows.length} of {v.total}. Fix some and reopen for the rest.</li>}
+              </ul>
+            )}
+          </>
+        )}
+      </DataState>
+    </BoardSection>
+  );
+}
+
 /** How much the app is being used: reports per person per working day, and villas reported today. */
 function AdoptionPanel() {
   const cat = useCatalogs();
@@ -43,14 +102,14 @@ function AdoptionPanel() {
         {v && (
           <>
             <p className="text-sm"><strong>{v.villas_reported_today}</strong> of {v.villas_total} villas reported today · {v.reports_today} report{v.reports_today === 1 ? '' : 's'} today.</p>
-            <table className="mt-3 w-full text-sm">
+            <StackTable><table className="mt-3 w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="py-1">Person</th><th>Reports</th><th>Per working day</th><th>Days reported</th></tr></thead>
               <tbody>
                 {v.rows.map((r) => (
                   <tr key={r.user_id} className="border-t border-border/60"><td className="py-1.5">{r.name}</td><td className="tnum">{r.total}</td><td className="tnum">{r.per_working_day}</td><td className="tnum">{r.days_reported} of {v.working_days}</td></tr>
                 ))}
               </tbody>
-            </table>
+            </table></StackTable>
           </>
         )}
       </DataState>
@@ -106,6 +165,7 @@ export default function DataTab() {
         confirmLabel="Apply to live records"
         onConfirm={() => run(pendingRun, false)}
       />
+      <DataHealthPanel />
       <AdoptionPanel />
       <DataState loading={state.loading} error={state.error} onRetry={load}>
         <BoardSection

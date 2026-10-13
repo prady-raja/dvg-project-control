@@ -23,6 +23,7 @@ import ShareMenu from '@/components/common/ShareMenu';
 import NoProjectState from '@/components/common/NoProjectState';
 import { useScopeState } from '@/lib/ScopeContext';
 import { useUrlState } from '@/lib/useUrlFilters';
+import StackTable from '@/components/common/StackTable';
 
 const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
 
@@ -261,7 +262,7 @@ export default function Dashboard() {
                 <p className="px-1 py-6 text-center text-sm text-muted-foreground">No outstanding work recorded for this scope.</p>
               ) : (
                 <div className="scroll-slim overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-sm">
+                  <StackTable><table className="w-full min-w-[640px] text-sm">
                     <thead>
                       <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 text-left">Discipline</th>
@@ -290,7 +291,7 @@ export default function Dashboard() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></StackTable>
                 </div>
               )}
             </BoardSection>

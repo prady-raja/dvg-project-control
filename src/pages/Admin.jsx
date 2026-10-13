@@ -43,7 +43,7 @@ export default function Admin() {
         <Skeleton className="h-72 rounded-xl" />
       ) : (
         <Tabs defaultValue="work-packages">
-          <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
+          <TabsList className="h-auto w-full flex-wrap justify-start sm:w-auto">
             <TabsTrigger value="disciplines">Disciplines</TabsTrigger>
             <TabsTrigger value="work-packages">Work packages</TabsTrigger>
             <TabsTrigger value="defaults">Contractor defaults</TabsTrigger>
