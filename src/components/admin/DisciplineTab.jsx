@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import { createRecord, updateRecord } from '@/lib/recordService';
+import { parseTemplateText, templateFor } from '@/lib/shared/checklists.ts';
+import { Textarea } from '@/components/ui/textarea';
 
-const empty = { name: '', code: '', sort_order: '', active: true };
+const empty = { name: '', code: '', sort_order: '', active: true, checklist: '' };
 
 export default function DisciplineTab({ cat }) {
   const [open, setOpen] = useState(false);
@@ -21,7 +23,7 @@ export default function DisciplineTab({ cat }) {
     setEditing(discipline || null);
     setForm(
       discipline
-        ? { name: discipline.name, code: discipline.code, sort_order: discipline.sort_order ?? '', active: discipline.active !== false }
+        ? { name: discipline.name, code: discipline.code, sort_order: discipline.sort_order ?? '', active: discipline.active !== false, checklist: (discipline.checklist_template || []).join('\n') }
         : { ...empty, sort_order: (cat.disciplines.length || 0) + 1 },
     );
     setError('');
@@ -35,8 +37,10 @@ export default function DisciplineTab({ cat }) {
     }
     setSaving(true);
     try {
+      const { checklist, ...rest } = form;
       const payload = {
-        ...form,
+        ...rest,
+        checklist_template: parseTemplateText(checklist),
         code: form.code.trim().toUpperCase(),
         sort_order: form.sort_order === '' ? null : Number(form.sort_order),
       };
@@ -119,6 +123,9 @@ export default function DisciplineTab({ cat }) {
           </Field>
           <Field label="Display order">
             <Input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
+          </Field>
+          <Field label="Inspection checklist" hint="One item per line. Leave empty to use the starting list." className="sm:col-span-2">
+            <Textarea rows={6} value={form.checklist} onChange={(e) => setForm((f) => ({ ...f, checklist: e.target.value }))} placeholder={templateFor(form.code, []).join('\n')} />
           </Field>
         </div>
       </FormDialog>

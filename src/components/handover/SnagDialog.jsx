@@ -26,7 +26,7 @@ const EMPTY_FORM = {
 };
 
 /** Raising a snag. Photos stay optional so a routine snag takes seconds. */
-export default function SnagDialog({ open, onOpenChange, projectId, phaseId, locationId, disciplines = [], contractors = [], onSaved }) {
+export default function SnagDialog({ open, onOpenChange, projectId, phaseId, locationId, disciplines = [], contractors = [], prefill = null, onSaved }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [photos, setPhotos] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -36,10 +36,15 @@ export default function SnagDialog({ open, onOpenChange, projectId, phaseId, loc
   // A cancelled draft must not come back the next time the dialog opens.
   useEffect(() => {
     if (!open) return;
-    setForm(EMPTY_FORM);
-    setPhotos([]);
+    // A failed checklist item arrives with its wording, trade, contractor, place and photo filled in.
+    setForm(prefill ? {
+      ...EMPTY_FORM,
+      title: prefill.title || '', description: prefill.description || '', discipline: prefill.discipline || '', contractor_id: prefill.contractor_id || '',
+      floor_id: prefill.floor_id || '', area_ids: prefill.area_ids || [],
+    } : EMPTY_FORM);
+    setPhotos(prefill?.photo_uris?.length ? prefill.photo_uris.map((file_uri) => ({ file_uri })) : []);
     setError('');
-  }, [open]);
+  }, [open, prefill]);
 
   const save = async () => {
     if (!form.title.trim()) {

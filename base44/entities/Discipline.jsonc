@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Company-wide discipline list. Not project-scoped, so every signed-in user may read it; only application administrators may change it.",
   "properties": {
+    "checklist_template": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Items of the inspection checklist for this discipline, in order. Empty means the starting list is used."
+    },
     "name": {
       "type": "string"
     },
