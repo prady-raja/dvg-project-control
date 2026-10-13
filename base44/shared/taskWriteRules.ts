@@ -12,22 +12,14 @@
 import { canApproveWork, canManageProject } from './access.ts';
 import { BASELINE_FIELDS } from './history.ts';
 import { actorName, fail } from './records.ts';
+import { todayIst } from './dashboardCore.ts';
+import { delayCategoryFor } from './delay.ts';
 
-export const TASK_STATUSES = [
-  'Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed',
-];
+import {
+  APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES,
+} from './enums.ts';
 
-export const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete', 'Materials Pending', 'Client Selection Pending', 'Owner Access Pending',
-  'Drawing / Design Clarification', 'Contractor Manpower', 'DVG Approval', 'External Utility / Authority', 'Other',
-];
-
-/** Every task starts here. Completion, inspection, approval and closure are recorded on the task. */
-export const OPENING_STATUSES = ['Not Started', 'In Progress', 'Blocked'];
-
-/** Work may only be approved from one of these, and closed from these or Approved. */
-export const APPROVABLE_FROM = ['Execution Complete', 'Under Inspection'];
-export const CLOSABLE_FROM = ['Approved', 'Execution Complete', 'Under Inspection'];
+export { APPROVABLE_FROM, BLOCKER_CATEGORIES, CLOSABLE_FROM, OPENING_STATUSES, TASK_STATUSES };
 
 /**
  * A source work list saying any of these means the work is *reported* as done.
@@ -43,10 +35,8 @@ export const REPORTED_COMPLETE_STATUS = 'Execution Complete';
 
 export const COMPLETION_NOTE = 'Imported as complete — needs verification';
 
-const IST_OFFSET_MINUTES = 330;
-
-/** The server's own date in Asia/Kolkata — never the browser's. */
-export const todayIst = () => new Date(Date.now() + IST_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
+/** The server's own date in Asia/Kolkata — never the browser's (one definition, in dashboardCore). */
+export { todayIst };
 
 const entryFor = (entries, field) => (entries || []).find((entry) => entry.field_changed === field);
 
@@ -218,16 +208,16 @@ export function blockedStateFor({ task, next = {}, isCreate = false }) {
  * Throws when the caller may not make this change. `entries` are the genuinely
  * changed fields from diffFields, so an unchanged field never blocks a save.
  */
-export function guardTaskChanges({ task, entries, rank, user, reason }) {
+export function guardTaskChanges({ task, entries, rank, user, reason, category, inferCategory = false }) {
   const list = entries || [];
   const find = (field) => entryFor(list, field);
   const manager = canManageProject(rank);
 
   if (find('archived') && !manager) {
-    throw fail('Only a Project Manager or an administrator can archive or restore a task.', 403);
+    throw fail('Only a Project Editor or an administrator can archive or restore a task.', 403);
   }
   if ((find('project_id') || find('phase_id')) && !manager) {
-    throw fail('Only a Project Manager or an administrator can move a task between phases.', 403);
+    throw fail('Only a Project Editor or an administrator can move a task between phases.', 403);
   }
 
   guardBaseline(task, list);
@@ -245,6 +235,8 @@ export function guardTaskChanges({ task, entries, rank, user, reason }) {
   if (find('current_forecast_finish') && !String(reason || '').trim()) {
     throw fail('A forecast date change needs a date revision reason.');
   }
+  // ...and a category, chosen from the fixed list, so delay causes can be counted.
+  if (find('current_forecast_finish')) delayCategoryFor({ category, reason, infer: inferCategory });
 }
 
 /** A new task may not be born completed, approved or closed. */
@@ -266,13 +258,33 @@ export function guardTaskCreation({ changes }) {
  * in the session claims to have done it, so no completion actor is recorded and
  * the completion waits to be verified.
  */
-export function deriveTaskEffects({ task, entries, user, importedCompletion = false }) {
+export function deriveTaskEffects({ task, entries, user, importedCompletion = false, onDate = '' }) {
   const patch = {};
   const derived = [];
   const statusEntry = entryFor(entries, 'status');
   if (!statusEntry) return { patch, derived };
 
   const next = statusEntry.new_value;
+  const day = onDate || todayIst();
+
+  // Actual dates are stamped by the move itself, never typed: the first time work
+  // starts, and when it is reported executed. Reopening clears the finish.
+  if (['In Progress', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(next) && !task.actual_start) {
+    patch.actual_start = day;
+  }
+  if (['Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(next) && !task.actual_finish && !importedCompletion) {
+    patch.actual_finish = day;
+  }
+  if (['Not Started', 'In Progress', 'Blocked'].includes(next) && task.actual_finish) {
+    patch.actual_finish = null;
+    derived.push({
+      change_type: 'Status Change',
+      field_changed: 'actual_finish',
+      old_value: String(task.actual_finish).slice(0, 10),
+      new_value: '',
+      note: 'Reopened — the actual finish is cleared, and the history keeps it',
+    });
+  }
 
   if (next === 'Execution Complete') {
     if (importedCompletion) {

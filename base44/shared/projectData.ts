@@ -11,12 +11,12 @@
 import { APP_ADMIN_RANK, isAppAdmin, resolveRank } from './access.ts';
 import { listAll } from './records.ts';
 import { buildIndex, shiftDay, todayIst } from './dashboardCore.ts';
+import { makeDb } from './dbCore.ts';
 
-const MAX_TASKS = 2000;
-const PAGE = 500;
-const TASK_PAGES = Math.ceil(MAX_TASKS / PAGE);
-const MAX_UPDATES = 600;
-const MAX_ROWS = 1000;
+/** Daily reports are read for this many days back; staleness and blocker dates never need older ones. */
+export const UPDATE_WINDOW_DAYS = 60;
+/** A safety ceiling per collection, far above any real project; hitting it is reported, never hidden. */
+const MAX_ROWS = 20000;
 
 /** Project ids the signed-in user may see at all. */
 export async function accessibleProjectIds(base44, user) {
@@ -53,6 +53,7 @@ export async function scopeFor(base44, user, projectId) {
  */
 export async function loadProjectData(base44, user, options = {}) {
   const svc = base44.asServiceRole.entities;
+  const db = makeDb({ entities: svc });
   const projectIds = options.projectIds && options.projectIds.length
     ? options.projectIds
     : await accessibleProjectIds(base44, user);
@@ -63,72 +64,74 @@ export async function loadProjectData(base44, user, options = {}) {
     dependencies: options.dependencies === true,
     commitments: options.commitments === true,
     snags: options.snags === true,
+    proposals: options.proposals === true,
+    constraints: options.constraints === true,
+    dismissals: options.dismissals === true,
   };
   const asOf = options.asOf || todayIst();
 
   const [projectsRes, phasesRes, locationsRes, contractorsRes, disciplinesRes] = await Promise.all([
-    svc.Project.filter({ id: inScope }, { limit: 200 }),
-    svc.Phase.filter({ project_id: inScope }, { limit: 400 }),
-    svc.Location.filter({ project_id: inScope }, { limit: MAX_ROWS }),
-    svc.Contractor.filter({}, { limit: 300 }),
-    svc.Discipline.filter({}, { limit: 200 }),
+    db.readAll('Project', { id: inScope }),
+    db.readAll('Phase', { project_id: inScope }),
+    db.readAll('Location', { project_id: inScope }),
+    db.readAll('Contractor', {}),
+    db.readAll('Discipline', {}),
   ]);
 
-  const tasks = [];
-  let cursor;
-  for (let page = 0; page < TASK_PAGES; page += 1) {
-    const res = await svc.Task.filter(
-      { project_id: inScope, archived: { $ne: true } },
-      { limit: PAGE, cursor },
-    );
-    tasks.push(...listAll(res));
-    cursor = res?.next_cursor;
-    if (!res?.has_more || !cursor) break;
-  }
-
-  const [updatesRes, dependenciesRes, commitmentsRes, snagsRes] = await Promise.all([
+  const updatesFrom = shiftDay(asOf, -UPDATE_WINDOW_DAYS);
+  const empty = { items: [], truncated: false };
+  const [tasksRes, updatesRes, dependenciesRes, commitmentsRes, snagsRes, proposalsRes, constraintsRes, dismissalsRes] = await Promise.all([
+    db.readAll('Task', { project_id: inScope, archived: { $ne: true } }, { max: MAX_ROWS }),
     load.updates
-      ? svc.DailyUpdate.filter({ project_id: inScope }, { sort: '-reported_at', limit: MAX_UPDATES })
-      : Promise.resolve([]),
-    load.dependencies
-      ? svc.TaskDependency.filter({ project_id: inScope }, { limit: MAX_ROWS })
-      : Promise.resolve([]),
-    load.commitments
-      ? svc.MeetingCommitment.filter({ project_id: inScope }, { sort: '-meeting_date', limit: 500 })
-      : Promise.resolve([]),
-    load.snags
-      ? svc.Snag.filter({ project_id: inScope }, { sort: '-raised_date', limit: 500 })
-      : Promise.resolve([]),
+      ? db.readAll('DailyUpdate', { project_id: inScope, voided: { $ne: true }, reported_at: { $gte: `${updatesFrom}T00:00:00Z` } }, { sort: '-reported_at', max: MAX_ROWS })
+      : empty,
+    load.dependencies ? db.readAll('TaskDependency', { project_id: inScope }, { max: MAX_ROWS }) : empty,
+    load.commitments ? db.readAll('MeetingCommitment', { project_id: inScope }, { sort: '-meeting_date', max: MAX_ROWS }) : empty,
+    load.snags ? db.readAll('Snag', { project_id: inScope }, { sort: '-raised_date', max: MAX_ROWS }) : empty,
+    load.proposals ? db.readAll('AiProposal', { project_id: inScope, user_id: user.id, status: 'Proposed' }, { sort: '-proposed_at', max: 200 }) : empty,
+    load.constraints ? db.readAll('TaskConstraint', { project_id: inScope, status: 'Open' }, { max: MAX_ROWS }) : empty,
+    load.dismissals ? db.readAll('AttentionDismissal', { project_id: inScope, active: true }, { max: MAX_ROWS }) : empty,
   ]);
 
-  const updates = listAll(updatesRes);
-  const dependencies = listAll(dependenciesRes);
-  const commitments = listAll(commitmentsRes);
-  const snags = listAll(snagsRes);
+  const tasks = tasksRes.items;
+  const updates = updatesRes.items;
+  const dependencies = dependenciesRes.items;
+  const commitments = commitmentsRes.items;
+  const snags = snagsRes.items;
+  const truncated = [
+    ['tasks', tasksRes], ['daily reports', updatesRes], ['dependencies', dependenciesRes],
+    ['commitments', commitmentsRes], ['snags', snagsRes],
+  ].filter(([, res]) => res.truncated).map(([name]) => name);
 
   const ix = buildIndex({
-    projects: listAll(projectsRes),
-    phases: listAll(phasesRes),
-    locations: listAll(locationsRes),
-    contractors: listAll(contractorsRes),
-    disciplines: listAll(disciplinesRes),
+    projects: projectsRes.items,
+    phases: phasesRes.items,
+    locations: locationsRes.items,
+    contractors: contractorsRes.items,
+    disciplines: disciplinesRes.items,
     updates,
+    tasks,
+    dependencies,
   });
 
   return {
     asOf,
-    projects: listAll(projectsRes),
-    phases: listAll(phasesRes),
-    locations: listAll(locationsRes),
-    contractors: listAll(contractorsRes),
-    disciplines: listAll(disciplinesRes),
+    projects: projectsRes.items,
+    phases: phasesRes.items,
+    locations: locationsRes.items,
+    contractors: contractorsRes.items,
+    disciplines: disciplinesRes.items,
     tasks,
     updates,
     dependencies,
     commitments,
     snags,
+    proposals: proposalsRes.items,
+    constraints: constraintsRes.items,
+    dismissals: dismissalsRes.items,
     ix,
     reportWindow: { from: shiftDay(asOf, -7), to: asOf },
+    meta: { truncated, updates_from: load.updates ? updatesFrom : '', counts: { tasks: tasks.length, snags: snags.length, commitments: commitments.length } },
   };
 }
 

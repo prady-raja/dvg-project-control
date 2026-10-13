@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Zap, CalendarPlus, Activity } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
 import PageHeader from '@/components/common/PageHeader';
@@ -11,30 +10,33 @@ import DetailList from '@/components/common/DetailList';
 import EmptyState from '@/components/common/EmptyState';
 import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
-import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import LocationDialog from '@/components/locations/LocationDialog';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
-import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
+import VillaScopePanel from '@/components/villa/VillaScopePanel';
+import DrawingRegister from '@/components/drawings/DrawingRegister';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList } from 'lucide-react';
 import { formatDate } from '@/lib/format';
+import { data } from '@/api/data';
+import DataState from '@/components/common/DataState';
+import TruncationBanner from '@/components/common/TruncationBanner';
+import { errorMessageOf } from '@/lib/clientErrors';
 
 export default function LocationDetail() {
   const { locationId } = useParams();
   const cat = useCatalogs();
-  const { user } = useAuth();
   const access = useAccess();
   const navigate = useNavigate();
+  const quick = useQuickActions();
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [quickTask, setQuickTask] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [taskTotal, setTaskTotal] = useState(null);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [reportTask, setReportTask] = useState(null);
-  const [dailyRefresh, setDailyRefresh] = useState(0);
 
   const location = cat.locationById(locationId);
   const phase = location ? cat.phaseById(location.phase_id) : null;
@@ -43,17 +45,38 @@ export default function LocationDetail() {
   const loadTasks = useCallback(async () => {
     if (!locationId) return;
     setLoadingTasks(true);
-    const res = await base44.entities.Task.filter(
-      { location_id: locationId, archived: { $ne: true } },
-      { sort: '-created_date', limit: 200 },
-    );
-    setTasks(items(res));
-    setLoadingTasks(false);
+    setLoadError('');
+    const query = { location_id: locationId, archived: { $ne: true } };
+    try {
+      const [res, count] = await Promise.all([
+        base44.entities.Task.filter(query, { sort: '-created_date', limit: 200 }),
+        base44.entities.Task.count(query),
+      ]);
+      setTasks(items(res));
+      setTaskTotal(Number(count) || 0);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The tasks for this villa could not be loaded.'));
+    } finally {
+      setLoadingTasks(false);
+    }
   }, [locationId]);
+
+  const loadAllTasks = async () => {
+    setLoadingAll(true);
+    try {
+      const all = await data.readAll('Task', { location_id: locationId, archived: { $ne: true } }, { sort: '-created_date', max: 5000 });
+      setTasks(all.items);
+      setTaskTotal(all.items.length);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The full task list could not be loaded.'));
+    } finally {
+      setLoadingAll(false);
+    }
+  };
 
   useEffect(() => {
     loadTasks();
-  }, [loadTasks]);
+  }, [loadTasks, quick.version]);
 
   if (cat.loading) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -87,6 +110,11 @@ export default function LocationDetail() {
           <>
             <Pill value={location.possession_status} />
             <Pill value={location.active_status} />
+            {location.location_type === 'Villa' && (
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link to={`/villas/${location.id}/statement`}>Pending works statement</Link>
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link to={`/locations/${location.id}/execution`}>
                 <Activity className="h-3.5 w-3.5" /> Execution dashboard
@@ -113,6 +141,13 @@ export default function LocationDetail() {
         />
       </div>
 
+      {location.location_type === 'Villa' && (
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <VillaScopePanel location={location} canManage={canManage} />
+          <DrawingRegister location={location} canManage={canManage} />
+        </div>
+      )}
+
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -120,7 +155,7 @@ export default function LocationDetail() {
               Task register for this location
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Works stay open and editable after handover. {tasks.length} task{tasks.length === 1 ? '' : 's'}.
+              Works stay open and editable after handover. {taskTotal ?? tasks.length} task{(taskTotal ?? tasks.length) === 1 ? '' : 's'}.
             </p>
           </div>
           <Button
@@ -132,7 +167,9 @@ export default function LocationDetail() {
           </Button>
         </div>
 
-        {loadingTasks ? (
+        {loadError ? (
+          <DataState error={loadError} onRetry={loadTasks} />
+        ) : loadingTasks ? (
           <Skeleton className="h-56 rounded-xl" />
         ) : tasks.length === 0 ? (
           <div className="rounded-xl border border-border bg-card">
@@ -144,6 +181,15 @@ export default function LocationDetail() {
           </div>
         ) : (
           <>
+            <TruncationBanner
+              shown={tasks.length}
+              total={taskTotal ?? undefined}
+              noun="tasks"
+              onLoadAll={loadAllTasks}
+              loading={loadingAll}
+              to={`/tasks?location=${location.id}`}
+              className="mb-3"
+            />
             <div className="rounded-xl border border-border bg-card">
               <TaskTable tasks={tasks} cat={cat} onOpen={(t) => navigate(`/tasks/${t.id}`)} />
             </div>
@@ -154,7 +200,6 @@ export default function LocationDetail() {
                   task={t}
                   cat={cat}
                   onOpen={() => navigate(`/tasks/${t.id}`)}
-                  onQuickUpdate={setQuickTask}
                 />
               ))}
             </div>
@@ -176,13 +221,13 @@ export default function LocationDetail() {
             </p>
           </div>
           {canEdit && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => quick.openLogUpdate({ locationId: location.id })}>
               <CalendarPlus className="h-4 w-4" /> Log daily update
             </Button>
           )}
         </div>
         <DailyUpdateFeed
-          key={dailyRefresh}
+          key={quick.version}
           filter={{ location_id: location.id }}
           hideVilla
           emptyTitle="No daily updates for this location yet"
@@ -190,37 +235,8 @@ export default function LocationDetail() {
         />
       </section>
 
-      <TaskPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        projectId={location.project_id}
-        locationId={location.id}
-        onPick={(task) => {
-          setPickerOpen(false);
-          setReportTask(task);
-        }}
-      />
 
-      <DailyUpdateDialog
-        task={reportTask}
-        open={!!reportTask}
-        onOpenChange={(v) => !v && setReportTask(null)}
-        onSaved={() => {
-          setReportTask(null);
-          setDailyRefresh((n) => n + 1);
-        }}
-      />
 
-      <QuickUpdateDialog
-        task={quickTask}
-        open={!!quickTask}
-        onOpenChange={(v) => !v && setQuickTask(null)}
-        user={user}
-        onSaved={() => {
-          setQuickTask(null);
-          loadTasks();
-        }}
-      />
 
       <LocationDialog open={editOpen} onOpenChange={setEditOpen} location={location} cat={cat} />
     </>

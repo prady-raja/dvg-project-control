@@ -3,13 +3,19 @@ import { activeMembers, canEditTasks, memberIdsOf, resolveRank } from '../../sha
 import { diffFields, writeTaskHistory } from '../../shared/history.ts';
 import { blockedStateFor, deriveTaskEffects, guardTaskChanges } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
+import { BLOCKER_CATEGORIES, TASK_STATUSES, defaultOwnerTypeFor } from '../../shared/enums.ts';
 import {
-  BACKDATE_LIMIT_DAYS,
   isOlderThanLatest,
   MAX_REPORT_PHOTOS,
   reportDateProblem,
   reportTargetProblem,
 } from '../../shared/dailyReportRules.ts';
+import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
+import { projectSettings } from '../../shared/calendar.ts';
+import { delayCategoryFor } from '../../shared/delay.ts';
+import { appliedChanges, planVoid } from '../../shared/reportVoid.ts';
+import { clearOpenConstraints } from '../../shared/constraints.ts';
 
 /**
  * The only path that records site work.
@@ -22,27 +28,17 @@ import {
  * browser claims about the user or about the previous values.
  */
 
-const STATUSES = [
-  'Not Started', 'In Progress', 'Blocked', 'Execution Complete', 'Under Inspection', 'Approved', 'Closed',
-];
-
-const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete', 'Materials Pending', 'Client Selection Pending', 'Owner Access Pending',
-  'Drawing / Design Clarification', 'Contractor Manpower', 'DVG Approval', 'External Utility / Authority', 'Other',
-];
+const STATUSES = TASK_STATUSES;
 
 /** Task fields a daily report is allowed to move. Baselines are deliberately absent. */
 const REPORT_FIELDS = [
   'status', 'progress_percent', 'latest_update', 'remarks', 'actual_manpower',
   'blocker_category', 'blocker_description', 'blocker_responsible_party', 'blocked_since',
-  'current_forecast_finish', 'date_revision_reason',
+  'current_forecast_finish', 'date_revision_reason', 'date_revision_category',
 ];
 
 const MAX_MANPOWER_ROWS = 12;
 const MAX_TEXT = 2000;
-const IST_OFFSET_MINUTES = 330;
-
-const todayIst = () => new Date(Date.now() + IST_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
 
 const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 
@@ -51,7 +47,7 @@ const text = (value, max = MAX_TEXT) => {
   return cleaned ? cleaned.slice(0, max) : null;
 };
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -59,6 +55,29 @@ export default async function (req) {
 
     const body = await req.json().catch(() => ({}));
     const svc = base44.asServiceRole.entities;
+
+    /* ------------------------------------------- taking back your own report today */
+    if (body?.action === 'void') {
+      const original = await getOne(svc.DailyUpdate, String(body?.report_id || ''));
+      const original_task = original ? await getOne(svc.Task, original.task_id) : null;
+      const plan = planVoid({ report: original, task: original_task, userId: user.id, today: todayIst() });
+      if (plan.error) throw fail(plan.error, 400);
+      const when = new Date().toISOString();
+      if (plan.patch && original_task) {
+        const members = memberIdsOf(await activeMembers(base44, original_task.project_id));
+        await svc.Task.update(original_task.id, { ...plan.patch, updated_by_name: actorName(user) });
+        await clearOpenConstraints(svc, original_task, { userName: actorName(user), nextStatus: plan.patch.status });
+        await svc.TaskHistory.bulkCreate(Object.keys(plan.patch).filter((f) => f !== 'latest_report_date').map((field) => ({
+          task_id: original_task.id, project_id: original_task.project_id, member_ids: members, change_type: 'Report Voided',
+          field_changed: field, old_value: original_task[field] === null || original_task[field] === undefined ? '' : String(original_task[field]),
+          new_value: plan.patch[field] === null ? '' : String(plan.patch[field]),
+          changed_by_id: user.id, changed_by_name: actorName(user), changed_at: when,
+          note: `Report of ${original.update_date} taken back by the person who filed it; the report stays on record, marked voided`,
+        })));
+      }
+      await svc.DailyUpdate.update(original.id, { voided: true, voided_at: when, voided_by_name: actorName(user) });
+      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
+    }
 
     const task = await getOne(svc.Task, String(body?.task_id || ''));
     if (!task) throw fail('That task no longer exists.', 404);
@@ -76,7 +95,7 @@ export default async function (req) {
     /* ------------------------------------------------------------- the report */
     const updateDate = isDate(body?.update_date) ? String(body.update_date) : todayIst();
     const project = await getOne(svc.Project, task.project_id);
-    const dateProblem = reportDateProblem(updateDate, todayIst(), project?.backdate_limit_days ?? BACKDATE_LIMIT_DAYS);
+    const dateProblem = reportDateProblem(updateDate, todayIst(), projectSettings(project).backdate_limit_days);
     if (dateProblem) throw fail(dateProblem);
     let status = STATUSES.includes(body?.status) ? body.status : task.status || 'Not Started';
 
@@ -125,6 +144,7 @@ export default async function (req) {
       ? String(body.current_forecast_finish)
       : null;
     const revisionReason = text(body?.date_revision_reason, 400);
+    const revisionCategory = text(body?.date_revision_category, 40);
 
     const photoUris = (Array.isArray(body?.photo_uris) ? body.photo_uris : [])
       .filter((uri) => typeof uri === 'string' && uri.trim().length > 0)
@@ -152,6 +172,8 @@ export default async function (req) {
     if (forecastNew) {
       changes.current_forecast_finish = forecastNew;
       changes.date_revision_reason = revisionReason;
+      // A person chooses the category; a confirmed AI/site-message update has it read from the reason.
+      changes.date_revision_category = delayCategoryFor({ category: revisionCategory, reason: revisionReason, infer: body?.source === 'ai' });
     }
     if (blockerReported) {
       changes.blocker_category = blockerCategory;
@@ -178,8 +200,8 @@ export default async function (req) {
       entries = diffFields(task, changes, REPORT_FIELDS);
       // Permission, baseline lock, approval separation and the reason rule are
       // decided once, for every write path into a task.
-      guardTaskChanges({ task, entries, rank, user, reason: revisionReason });
-      effects = deriveTaskEffects({ task, entries, user });
+      guardTaskChanges({ task, entries, rank, user, reason: revisionReason, category: changes.date_revision_category, inferCategory: body?.source === 'ai' });
+      effects = deriveTaskEffects({ task, entries, user, onDate: updateDate });
     }
     const forecastEntry = entries.find((entry) => entry.field_changed === 'current_forecast_finish');
     const location = task.location_id ? await getOne(svc.Location, task.location_id) : null;
@@ -199,6 +221,21 @@ export default async function (req) {
         patch.member_ids = memberIds;
       }
       if (entries.length || task.latest_report_date !== updateDate) updatedTask = await svc.Task.update(task.id, patch);
+      await clearOpenConstraints(svc, task, { userName: actorName(user), nextStatus: patch.status });
+      // A blocker reported on a daily report is a blocker record too (F-02), so it has an owner and shows on the board.
+      if (blockerReported) {
+        const found = await svc.TaskConstraint.filter({ task_id: task.id, status: 'Open' }, { limit: 1 });
+        const open = (found?.items || found || [])[0];
+        const record = {
+          project_id: task.project_id, phase_id: task.phase_id || null, location_id: task.location_id || null,
+          task_id: task.id, task_ref: task.task_ref || '', status: 'Open', member_ids: memberIds,
+          category: blockerCategory, description: blockerDescription,
+          owner_type: defaultOwnerTypeFor(blockerCategory), owner_name: blockerResponsible || null,
+          due_date: expectedResolution || null,
+        };
+        if (open) await svc.TaskConstraint.update(open.id, record);
+        else await svc.TaskConstraint.create({ ...record, raised_by_name: actorName(user), raised_at: new Date().toISOString(), chase_count: 0 });
+      }
     }
 
     const report = await svc.DailyUpdate.create({
@@ -206,7 +243,7 @@ export default async function (req) {
       phase_id: task.phase_id || null,
       location_id: task.location_id || null,
       work_scope: task.location_id ? 'Villa' : 'Site-wide',
-      site_area: task.location_id ? null : text(body?.site_area, 120),
+      site_area: text(body?.site_area, 160),
       task_id: task.id,
       task_ref: task.task_ref || '',
       task_name: task.name || '',
@@ -232,6 +269,9 @@ export default async function (req) {
       forecast_new: forecastEntry ? forecastEntry.new_value : null,
       date_revision_reason: forecastEntry ? revisionReason : null,
       photo_uris: photoUris,
+      applied: appliedChanges({ entries, effectsPatch: effects.patch, task }),
+      prev_latest_report_date: task.latest_report_date || null,
+      history_only: historyOnly,
       member_ids: memberIds,
       is_demo: false,
     });
@@ -301,3 +341,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('dailyUpdate', handler);

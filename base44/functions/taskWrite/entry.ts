@@ -22,35 +22,10 @@ import {
   guardTaskCreation,
 } from '../../shared/taskWriteRules.ts';
 import { actorName, fail, getOne, listAll, pick } from '../../shared/records.ts';
-import { describeScope } from '../../shared/villaAreas.ts';
-
-/**
- * A task's floor and rooms are checked against the villa's own register before
- * they are stored, and the readable scope and the scope type are derived here, so
- * no screen and no message can state a scope the records do not support.
- */
-async function resolveTaskScope(svc, { projectId, locationId, floorId, areaIds, scopeType }) {
-  const ids = [...new Set((Array.isArray(areaIds) ? areaIds : []).filter(Boolean))];
-  if (!ids.length && !floorId && !scopeType) return null;
-
-  const areas = ids.length ? listAll(await svc.VillaArea.filter({ id: { $in: ids } }, { limit: 200 })) : [];
-  if (areas.length !== ids.length) throw fail('One of the rooms chosen no longer exists.');
-  const wrong = areas.find((area) => area.project_id !== projectId || (locationId && area.location_id !== locationId));
-  if (wrong) throw fail(`The room “${wrong.area_name}” belongs to a different villa.`);
-
-  const floor = floorId ? await getOne(svc.VillaFloor, floorId) : null;
-  if (floorId && !floor) throw fail('That floor no longer exists.');
-  if (floor && locationId && floor.location_id !== locationId) throw fail('That floor belongs to a different villa.');
-
-  return describeScope({
-    scope_type: scopeType,
-    area_ids: ids,
-    floor_id: floor?.id || '',
-    location_id: locationId || '',
-    areas,
-    floors: floor ? [floor] : [],
-  });
-}
+import { withLog } from '../../shared/log.ts';
+import { assigneeFor, checkWatchers } from '../../shared/assignees.ts';
+import { clearOpenConstraints } from '../../shared/constraints.ts';
+import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 
 /**
  * The only path that creates or changes a task. Permissions are decided here
@@ -58,7 +33,7 @@ async function resolveTaskScope(svc, { projectId, locationId, floorId, areaIds, 
  * before/after values, and approved baselines and approval separation are
  * enforced regardless of what the browser sends.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -81,9 +56,11 @@ export default async function (req) {
       let phaseId = changes.phase_id || null;
       let locationId = changes.location_id || null;
       let locationType = '';
+      let villa = null;
 
       if (locationId) {
         const location = await getOne(svc.Location, locationId);
+        villa = location;
         if (!location) throw fail('That villa or location no longer exists.');
         if (location.project_id !== projectId) throw fail('That villa belongs to a different project.');
         phaseId = location.phase_id || phaseId;
@@ -108,7 +85,8 @@ export default async function (req) {
         scopeType: changes.scope_type,
       });
 
-      const memberIds = memberIdsOf(await activeMembers(base44, projectId));
+      const members = await activeMembers(base44, projectId);
+      const memberIds = memberIdsOf(members);
       const [claim] = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, 1, {
         memberIds,
         userId: user.id,
@@ -123,6 +101,15 @@ export default async function (req) {
       const openingBlocked = blockedStateFor({ task: null, next: changes, isCreate: true });
 
       const payload = pick(changes, TASK_FIELDS);
+      // Work is assigned to a real member; a new task inherits the villa's engineer.
+      Object.assign(payload, assigneeFor({
+        requested: changes.assignee_user_id,
+        members,
+        location: villa,
+        isCreate: true,
+        typedName: String(changes.responsible_engineer || '').trim(),
+      }));
+      payload.watcher_ids = checkWatchers(changes.watcher_ids, members);
       payload.project_id = projectId;
       payload.phase_id = phaseId;
       payload.location_id = locationId;
@@ -201,7 +188,20 @@ export default async function (req) {
         );
       }
 
-      const memberIds = memberIdsOf(await activeMembers(base44, task.project_id));
+      const members = await activeMembers(base44, task.project_id);
+      const memberIds = memberIdsOf(members);
+
+      if (Object.prototype.hasOwnProperty.call(changes, 'assignee_user_id')) {
+        Object.assign(changes, assigneeFor({
+          requested: changes.assignee_user_id,
+          members,
+          typedName: Object.prototype.hasOwnProperty.call(changes, 'responsible_engineer') ? String(changes.responsible_engineer || '').trim() : '',
+        }));
+        if (!changes.assignee_user_id) changes.assignee_user_id = null;
+      }
+      if (Object.prototype.hasOwnProperty.call(changes, 'watcher_ids')) {
+        changes.watcher_ids = checkWatchers(changes.watcher_ids, members);
+      }
 
       // Where the work is goes through the same register check as a new task, and
       // the stored scope fields are re-derived rather than trusted.
@@ -248,7 +248,7 @@ export default async function (req) {
 
       // Permission, the baseline lock, the approval separation and the reason
       // rule are decided once, for every write path into a task.
-      guardTaskChanges({ task, entries, rank, user, reason });
+      guardTaskChanges({ task, entries, rank, user, reason, category: changes.date_revision_category });
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 
@@ -267,6 +267,7 @@ export default async function (req) {
       patch.updated_by_name = actorName(user);
       patch.member_ids = memberIds;
       const updated = await svc.Task.update(id, patch);
+      await clearOpenConstraints(svc, task, { userName: actorName(user), nextStatus: patch.status });
 
       await writeTaskHistory(base44, {
         task,
@@ -342,7 +343,7 @@ export default async function (req) {
 
       const rank = await resolveRank(base44, task.project_id, user);
       if (!canManageProject(rank)) {
-        throw fail('Only a Project Manager or an administrator can archive or restore a task.', 403);
+        throw fail('Only a Project Editor or an administrator can archive or restore a task.', 403);
       }
 
       const archived = action === 'archive';
@@ -371,3 +372,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('taskWrite', handler);

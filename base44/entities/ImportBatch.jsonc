@@ -72,7 +72,8 @@
         "Importing",
         "Completed",
         "Completed with exceptions",
-        "Failed"
+        "Failed",
+        "Undone"
       ],
       "default": "Importing"
     },
@@ -85,6 +86,12 @@
     "imported_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "undone_at": { "type": "string", "format": "date-time" },
+    "undone_by_name": { "type": "string" },
+    "undo_report": {
+      "type": "object",
+      "description": "What an undo archived, reverted and skipped (rows edited since the import are skipped)"
     },
     "report": {
       "type": "array",

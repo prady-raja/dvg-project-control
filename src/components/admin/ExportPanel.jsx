@@ -1,3 +1,4 @@
+import { todayIst } from '@/lib/format';
 import React, { useState } from 'react';
 import { Database, Download, FileJson, Lock } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -29,7 +30,7 @@ const download = (filename, text, type) => {
   URL.revokeObjectURL(url);
 };
 
-const stamp = () => new Date().toISOString().slice(0, 10);
+const stamp = () => todayIst();
 
 /** Full, ID-preserving exports of every business entity, for the future migration. */
 export default function ExportPanel() {

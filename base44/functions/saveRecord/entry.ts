@@ -13,6 +13,10 @@ import {
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
 import { writeRecordAudit } from '../../shared/recordAudit.ts';
 import { AREA_TYPES, normalizeAreaName } from '../../shared/villaAreas.ts';
+import { withLog } from '../../shared/log.ts';
+import { compareRevisions } from '../../shared/drawingIntake.ts';
+import { settingsProblems } from '../../shared/calendar.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
 
 const DRAWING_TYPES = [
   'Floor Plan', 'Furniture Layout', 'Electrical Layout', 'Plumbing Layout',
@@ -23,21 +27,26 @@ const DELETABLE = ['ProjectMembership', 'Project', 'TaskDependency'];
 
 /** Only these fields are ever accepted from the browser — nothing else is written. */
 const FIELDS = {
-  Project: ['name', 'code', 'location', 'status', 'enabled_disciplines', 'planned_villa_count', 'notes'],
+  Project: [
+    'name', 'code', 'location', 'status', 'enabled_disciplines', 'planned_villa_count', 'notes',
+    'working_days', 'holidays', 'stale_days', 'at_risk_window_days', 'backdate_limit_days',
+    'report_cutoff_time', 'site_lat', 'site_lng',
+  ],
   Phase: ['project_id', 'name', 'code', 'planned_villa_count', 'status', 'sort_order', 'notes'],
   Location: [
     'project_id', 'phase_id', 'villa_code', 'location_type', 'plot_numbers',
     'possession_status', 'possession_date', 'works_stage', 'active_status',
-    'planned_completion_date', 'assigned_engineer', 'sort_order', 'notes',
+    'planned_completion_date', 'assigned_engineer', 'assigned_engineer_user_id', 'sort_order', 'notes',
+    'on_hold_reason', 'on_hold_since', 'villa_type',
   ],
   WorkPackage: ['project_id', 'discipline', 'package_name', 'sort_order', 'active', 'notes'],
   ContractorDefault: ['project_id', 'phase_id', 'discipline', 'contractor_id', 'active', 'notes'],
   Contractor: ['name', 'classification', 'trade', 'contact_person', 'phone', 'email', 'active', 'notes'],
   Discipline: ['name', 'code', 'sort_order', 'active', 'notes'],
-  ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes'],
+  ProjectMembership: ['user_email', 'user_name', 'project_id', 'role', 'active', 'notes', 'phone', 'initials'],
   MeetingCommitment: [
     'project_id', 'phase_id', 'contractor_id', 'task_id', 'meeting_date', 'commitment',
-    'responsible_person', 'promised_date', 'status', 'fulfilled_date', 'remarks',
+    'responsible_person', 'responsible_user_id', 'promised_date', 'status', 'fulfilled_date', 'remarks',
   ],
   AiSettings: [
     'enabled', 'allowed_roles', 'model', 'provider', 'provider_api', 'base_url', 'daily_request_limit', 'context_item_limit',
@@ -51,6 +60,7 @@ const FIELDS = {
   Drawing: [
     'project_id', 'phase_id', 'location_id', 'floor_id', 'title', 'drawing_type', 'revision',
     'revision_date', 'uploaded_date', 'file_uri', 'file_name', 'status', 'supersedes_id', 'notes', 'is_demo',
+    'drawing_number', 'villa_type',
   ],
   TaskDependency: [
     'project_id', 'predecessor_task_id', 'successor_task_id', 'dependency_type', 'lag_days', 'active', 'notes',
@@ -88,7 +98,7 @@ const clientFor = (svc, name) =>
  * Note: because the app cannot read the user directory, a member is recorded by
  * email and matched to their account the first time they sign in.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -111,6 +121,11 @@ export default async function (req) {
         payload[field] = data[field] === '' || data[field] === undefined ? null : data[field];
       }
     });
+
+    if (entityName === 'Project') {
+      const problems = settingsProblems(payload);
+      if (problems.length) throw fail(problems.join(' '));
+    }
 
     const existing = id ? await getOne(target, id) : null;
     if (action !== 'create' && !existing) throw fail('Record not found.', 404);
@@ -161,6 +176,14 @@ export default async function (req) {
       return Response.json({ ok: true, deleted: id });
     }
 
+    // A villa's engineer is a real member; their name is kept as text for older screens.
+    if (entityName === 'Location' && payload.assigned_engineer_user_id) {
+      const members = await activeMembers(base44, projectId);
+      const member = members.find((m) => m.user_id === payload.assigned_engineer_user_id);
+      if (!member) throw fail('The engineer must be an active member of this project.');
+      payload.assigned_engineer = member.name || member.email || null;
+    }
+
     const isProjectScoped = PROJECT_SCOPED.includes(entityName);
     if (isProjectScoped && projectId) {
       payload.member_ids = memberIdsOf(await activeMembers(base44, projectId));
@@ -189,7 +212,7 @@ export default async function (req) {
       if (entityName === 'MeetingCommitment') {
         if (!String(payload.commitment || '').trim()) throw fail('Record what was committed.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.meeting_date || ''))) {
-          payload.meeting_date = new Date().toISOString().slice(0, 10);
+          payload.meeting_date = todayIst();
         }
         const task = payload.task_id ? await getOne(svc.Task, payload.task_id) : null;
         if (task && task.project_id !== projectId) throw fail('That task belongs to a different project.');
@@ -260,20 +283,39 @@ export default async function (req) {
         payload.drawing_type = DRAWING_TYPES.includes(payload.drawing_type) ? payload.drawing_type : 'Floor Plan';
         payload.uploaded_date = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.uploaded_date || ''))
           ? payload.uploaded_date
-          : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+          : todayIst();
         payload.status = 'Current';
         payload.uploaded_by_id = user.id;
         payload.uploaded_by_name = actorName(user);
 
-        if (location) {
-          const current = listAll(
-            await svc.Drawing.filter(
-              { location_id: location.id, title: payload.title, status: 'Current' },
-              { limit: 5 },
-            ),
-          );
-          priorDrawing = current[0] || null;
-          if (priorDrawing) payload.supersedes_id = priorDrawing.id;
+        if (!location && !String(payload.villa_type || '').trim()) {
+          throw fail('Say which villa, common area or villa type this drawing is for.');
+        }
+        payload.drawing_number = String(payload.drawing_number || '').trim() || null;
+        payload.villa_type = location ? null : String(payload.villa_type || '').trim();
+
+        // The same drawing within the same scope: by its own number when it has one,
+        // otherwise by title. Newer revisions supersede the current one; an older
+        // one is kept as history and the current one stays current.
+        const scopeFilter = location
+          ? { location_id: location.id, ...(payload.floor_id ? { floor_id: payload.floor_id } : {}) }
+          : { project_id: projectId, villa_type: payload.villa_type };
+        const same = listAll(await svc.Drawing.filter(
+          payload.drawing_number ? { ...scopeFilter, drawing_number: payload.drawing_number } : { ...scopeFilter, title: payload.title },
+          { limit: 200 },
+        ));
+        // Only a revision that is actually named can be a duplicate; two unlabelled files are a re-filing.
+        const named = String(payload.revision || '').trim().toLowerCase();
+        if (named && same.some((d) => String(d.revision || '').trim().toLowerCase() === named)) {
+          throw fail(`${payload.drawing_number || payload.title} revision ${payload.revision || '—'} is already on the register.`);
+        }
+        const current = same.filter((d) => d.status === 'Current').sort((a, b) => compareRevisions(b.revision, a.revision))[0];
+        if (current && compareRevisions(payload.revision, current.revision) < 0) {
+          payload.status = 'Superseded';
+          payload.superseded_by_id = current.id;
+        } else if (current) {
+          priorDrawing = current;
+          payload.supersedes_id = current.id;
         }
       }
 
@@ -364,3 +406,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('saveRecord', handler);

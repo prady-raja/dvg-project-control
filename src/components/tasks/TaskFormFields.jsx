@@ -3,6 +3,8 @@ import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import UserPicker from '@/components/common/UserPicker';
+import VillaScopePicker from '@/components/villa/VillaScopePicker';
 import { TASK_PRIORITIES, TASK_STATUSES, WORK_PACKAGE_REQUIRED_DISCIPLINES } from '@/lib/constants';
 
 export default function TaskFormFields({
@@ -51,7 +53,7 @@ export default function TaskFormFields({
           />
         </Field>
         <Field label="Villa / Location" hint={isCommonProject ? 'Choose project, phase or common-work level.' : undefined}>
-          <EnumSelect value={form.location_id} onChange={(v) => update({ location_id: v })} options={locations} placeholder="Select villa or location" />
+          <EnumSelect value={form.location_id} onChange={(v) => update({ location_id: v, floor_id: '', area_ids: [] })} options={locations} placeholder="Select villa or location" />
         </Field>
       </div>
 
@@ -93,14 +95,31 @@ export default function TaskFormFields({
         >
           <EnumSelect value={form.contractor_id} onChange={onContractorChange} options={contractors} placeholder="Select contractor" />
         </Field>
-        <Field label="Responsible Site Engineer">
-          <Input
-            value={form.responsible_engineer}
-            onChange={(e) => update({ responsible_engineer: e.target.value })}
-            placeholder="Engineer name"
+        <Field
+          label="Assigned to"
+          hint={form.responsible_engineer && !form.assignee_user_id ? `Recorded earlier as “${form.responsible_engineer}” — choose the person to link it.` : undefined}
+        >
+          <UserPicker
+            projectId={form.project_id}
+            value={form.assignee_user_id}
+            onChange={(userId) => update({ assignee_user_id: userId, ...(userId ? { responsible_engineer: '' } : {}) })}
+            placeholder="Unassigned"
           />
         </Field>
       </div>
+
+      {form.location_id && cat.locationById(form.location_id)?.location_type === 'Villa' && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <VillaScopePicker
+            key={form.location_id}
+            locationId={form.location_id}
+            villaLabel={cat.locationById(form.location_id)?.villa_code}
+            floorId={form.floor_id}
+            areaIds={form.area_ids}
+            onChange={(patch) => update(patch)}
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Status">

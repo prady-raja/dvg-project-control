@@ -3,6 +3,10 @@
   "type": "object",
   "description": "Baseline versioning for a project phase. Drafts are editable by a Project Editor; once approved a version is frozen permanently and superseded rather than edited, so every approved and superseded version stays as an immutable historical record. Written only by the trusted baseline operation.",
   "properties": {
+    "apply_progress": {
+      "type": "number",
+      "description": "Tasks written so far while this version is being approved; lets a timed-out approval resume"
+    },
     "project_id": {
       "type": "string"
     },

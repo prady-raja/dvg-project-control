@@ -10,7 +10,6 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 // Add page imports here
 import Login from '@/pages/Login';
-import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Projects from '@/pages/Projects';
@@ -26,6 +25,12 @@ import Admin from '@/pages/Admin';
 import Access from '@/pages/Access';
 import DailyActivity from '@/pages/DailyActivity';
 import WorkImport from '@/pages/WorkImport';
+import ImportHistory from '@/pages/ImportHistory';
+import Today from '@/pages/Today';
+import Help from '@/pages/Help';
+import VillaMatrix from '@/pages/VillaMatrix';
+import VillaStatement from '@/pages/VillaStatement';
+import HomeRedirect from '@/components/layout/HomeRedirect';
 import Dashboard from '@/pages/Dashboard';
 import Planning from '@/pages/Planning';
 import BlockerBoard from '@/pages/BlockerBoard';
@@ -64,13 +69,19 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* Sign-up is closed: people are invited by the administrator (Users & access). */}
+      <Route path="/register" element={<Navigate to="/login" replace />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/today" element={<Today />} />
+          <Route path="/overview" element={<Dashboard />} />
+          <Route path="/matrix" element={<VillaMatrix />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/villas/:locationId/statement" element={<VillaStatement />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/locations" element={<Locations />} />
@@ -86,6 +97,7 @@ const AuthenticatedApp = () => {
           <Route path="/ai" element={<AskDvgAi />} />
           <Route path="/attention" element={<NeedsAttention />} />
           <Route path="/import" element={<WorkImport />} />
+          <Route path="/import/history" element={<ImportHistory />} />
           <Route path="/tasks" element={<TaskRegister />} />
           <Route path="/tasks/new" element={<TaskEditor />} />
           <Route path="/tasks/:taskId" element={<TaskDetail />} />
@@ -94,10 +106,9 @@ const AuthenticatedApp = () => {
           <Route path="/contractors/:contractorId" element={<ContractorDetail />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/access" element={<Access />} />
+          <Route path="*" element={<PageNotFound />} />
         </Route>
       </Route>
-
-      <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };

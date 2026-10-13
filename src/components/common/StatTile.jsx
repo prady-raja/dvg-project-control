@@ -1,11 +1,12 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import GlossaryTip from '@/components/common/GlossaryTip';
 
 /**
  * One headline figure. Every number on a dashboard is clickable so management
  * can open the records behind it instead of trusting the tile.
  */
-export default function StatTile({ label, value, hint, onClick, tone = 'default', active = false }) {
+export default function StatTile({ label, value, hint, onClick, tone = 'default', active = false, term }) {
   const clickable = typeof onClick === 'function';
   const tones = {
     default: 'text-foreground',
@@ -17,7 +18,7 @@ export default function StatTile({ label, value, hint, onClick, tone = 'default'
   const content = (
     <>
       <p className={cn('field-mono text-2xl font-semibold tnum', tones[tone] || tones.default)}>{value}</p>
-      <p className="mt-1 text-[11px] uppercase leading-tight tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 flex items-center gap-1 text-[11px] uppercase leading-tight tracking-wide text-muted-foreground">{label}{term && !clickable && <GlossaryTip term={term} />}</p>
       {hint && <p className="mt-1 text-[11px] leading-tight text-muted-foreground">{hint}</p>}
     </>
   );

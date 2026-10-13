@@ -40,6 +40,11 @@ export default function TaskTable({ tasks, cat, onOpen }) {
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-sm">
                   {location?.villa_code || <span className="text-muted-foreground">—</span>}
+                  {location?.location_type === 'Villa' && (
+                    <div className="max-w-[200px] truncate text-[11px] text-muted-foreground">
+                      {task.area_label || (task.scope_type === 'Entire Villa' ? 'Entire villa' : 'Scope not stated')}
+                    </div>
+                  )}
                   {task.is_demo && (
                     <span className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
                       demo

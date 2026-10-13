@@ -1,0 +1,32 @@
+{
+  "name": "MetricSnapshot",
+  "type": "object",
+  "description": "One row per scope (project or phase) per day: the headline numbers as they stood at the end of that day, so the dashboard can show the change since last week. Written only by the server, on the first dashboard read after 23:30 IST, until a scheduler exists after the move to Supabase.",
+  "properties": {
+    "scope_type": { "type": "string", "enum": ["project", "phase"] },
+    "scope_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "snapshot_date": { "type": "string", "format": "date" },
+    "metrics": {
+      "type": "object",
+      "description": "overdue, at_risk, blocked, awaiting_verification, open, handed_over_open_works"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": ["scope_type", "scope_id", "project_id", "snapshot_date"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.member_ids": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "server-only" } },
+    "update": { "user_condition": { "role": "server-only" } },
+    "delete": false
+  }
+}

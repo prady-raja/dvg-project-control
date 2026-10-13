@@ -1,0 +1,22 @@
+{
+  "name": "MigrationRun",
+  "type": "object",
+  "description": "One row per real (not dry) backfill run, so what was changed on live data is on file. Temporary: after the move to Supabase, schema changes are SQL migrations and backfills run as scripts.",
+  "properties": {
+    "migration": { "type": "string" },
+    "dry_run": { "type": "boolean", "default": false },
+    "run_by": { "type": "string" },
+    "run_at": { "type": "string", "format": "date-time" },
+    "planned": { "type": "number" },
+    "written": { "type": "number" },
+    "failed": { "type": "number" },
+    "report": { "type": "string", "description": "JSON: counts, sample diffs and errors" }
+  },
+  "required": ["migration"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

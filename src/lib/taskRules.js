@@ -66,6 +66,14 @@ export function validateTask(form, options = {}) {
     errors.push('A forecast date change needs a date revision reason.');
   }
 
+  if (
+    originalForecast !== undefined &&
+    (form.current_forecast_finish || null) !== (originalForecast || null) &&
+    !form.date_revision_category
+  ) {
+    errors.push('Choose the delay category for the date change.');
+  }
+
   return errors;
 }
 

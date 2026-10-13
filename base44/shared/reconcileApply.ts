@@ -16,6 +16,7 @@
  *    contractor empty cannot erase what is recorded.
  */
 
+import { delayCategoryFor } from './delay.ts';
 import { diffFields, TASK_FIELDS, writeTaskHistory } from './history.ts';
 import {
   blockedStateFor,
@@ -133,7 +134,7 @@ export async function applyTaskUpdate({
   const note = forecastChanged && reason ? `Forecast revision — ${reason}` : '';
 
   // The same permission, baseline and approval rules as the task editor.
-  guardTaskChanges({ task: fresh, entries, rank, user, reason });
+  guardTaskChanges({ task: fresh, entries, rank, user, reason, inferCategory: true });
 
   const effects = deriveTaskEffects({ task: fresh, entries, user, importedCompletion });
   const write = {};
@@ -143,7 +144,10 @@ export async function applyTaskUpdate({
   Object.assign(write, effects.patch);
   // The reason for moving a forecast date travels with the task as well as into
   // the audit trail, so the record always shows why its forecast last moved.
-  if (forecastChanged && reason) write.date_revision_reason = reason;
+  if (forecastChanged && reason) {
+    write.date_revision_reason = reason;
+    write.date_revision_category = delayCategoryFor({ reason, infer: true });
+  }
   // A reported completion is stamped on the task itself: the file's own word is
   // kept, and the completion is marked as waiting to be verified.
   if (importedCompletion) {
@@ -190,11 +194,25 @@ export async function applyTaskUpdate({
   return {
     outcome: 'updated',
     note: forecastChanged ? `Forecast revised — ${reason}` : '',
-    changed: entries.map((entry) => ({
-      field: entry.field_changed,
-      label: labelFor(entry.field_changed),
-      from: entry.old_value,
-      to: entry.new_value,
-    })),
+    // Everything the import wrote, including the stamps the rules added, with the
+    // value each held before — so a batch can be undone exactly (I-02).
+    changed: [
+      ...entries.map((entry) => ({
+        field: entry.field_changed,
+        label: labelFor(entry.field_changed),
+        from: entry.old_value,
+        to: entry.new_value,
+      })),
+      ...Object.keys(write)
+        .filter((key) => !entries.some((entry) => entry.field_changed === key)
+          && !['updated_by_name', 'member_ids', 'date_revision_reason', 'date_revision_category'].includes(key))
+        .map((key) => ({
+          field: key,
+          label: labelFor(key),
+          from: fresh[key] === undefined ? null : fresh[key],
+          to: write[key] === undefined ? null : write[key],
+          derived: true,
+        })),
+    ],
   };
 }

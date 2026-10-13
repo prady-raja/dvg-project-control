@@ -7,6 +7,9 @@ import ImportRowFix from '@/components/import/ImportRowFix';
 import ImportProposal from '@/components/import/ImportProposal';
 import { cn } from '@/lib/utils';
 
+/** Rows drawn at a time: a full Imagine list is thousands of rows. */
+const PAGE = 100;
+
 const FILTERS = [
   'All rows',
   'Needing a decision',
@@ -53,6 +56,7 @@ export default function ImportRowTable({
   edits,
   busyRow,
   onOverride,
+  onOverrideMany,
   onClearOverride,
   onDecision,
   onReason,
@@ -61,6 +65,7 @@ export default function ImportRowTable({
 }) {
   const [filter, setFilter] = useState('All rows');
   const [openRow, setOpenRow] = useState(0);
+  const [limit, setLimit] = useState(PAGE);
 
   const shown = useMemo(() => {
     const list = rows || [];
@@ -76,6 +81,118 @@ export default function ImportRowTable({
     }[filter];
     return key ? list.filter((row) => row.reconcile?.outcome === key) : list;
   }, [rows, filter]);
+  const visible = shown.slice(0, limit);
+
+  const renderDecision = (row, decision, rec, changes, open) => (
+    <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {changes.length > 0 && rec.match?.task_id && !row.blocking && (
+                <Button
+                  size="sm"
+                  variant={decision === 'update' ? 'default' : 'outline'}
+                  onClick={() => onDecision(row.row_number, 'update', rec.match.task_id)}
+                >
+                  Accept update
+                </Button>
+              )}
+              {!row.blocking && rec.outcome !== 'unchanged' && (
+                <Button
+                  size="sm"
+                  variant={decision === 'import' ? 'default' : 'outline'}
+                  onClick={() => onDecision(row.row_number, 'import', '')}
+                >
+                  Import as new
+                </Button>
+              )}
+              {!changes.length && rec.match?.task_id && (
+                <Button
+                  size="sm"
+                  variant={decision === 'link' ? 'default' : 'outline'}
+                  onClick={() => onDecision(row.row_number, 'link', rec.match.task_id)}
+                >
+                  Same task, no change
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant={decision === 'defer' ? 'default' : 'outline'}
+                onClick={() => onDecision(row.row_number, 'defer', '')}
+              >
+                Defer
+              </Button>
+              <Button
+                size="sm"
+                variant={decision === 'skip' ? 'default' : 'outline'}
+                onClick={() => onDecision(row.row_number, 'skip', '')}
+              >
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-muted-foreground"
+                onClick={() => setOpenRow(open ? 0 : row.row_number)}
+              >
+                {open ? 'Hide' : 'Review'}
+              </Button>
+            </div>
+            {!decision && ['update', 'duplicate', 'clarify'].includes(rec.outcome) && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Needs a decision
+              </p>
+            )}
+            {!decision && rec.outcome === 'create' && (
+              <p className="mt-1 text-[10px] text-muted-foreground">Will be created unless you reject it</p>
+            )}
+            {rec.outcome === 'unchanged' && (
+              <p className="mt-1 text-[10px] text-muted-foreground">Nothing to write</p>
+            )}
+    </>
+  );
+
+  const renderReview = (row, rec) => (
+    <div className="space-y-4">
+      <ImportProposal
+        row={row}
+        cat={cat}
+        reasons={reasons}
+        edits={edits}
+        onReason={onReason}
+        onEdit={onEdit}
+        busy={busyRow === row.row_number}
+      />
+      {(rec.candidates || []).length > 1 && (
+        <div className="max-w-md">
+          <p className="mb-1 text-xs font-medium">Match this row to a different task</p>
+          <EnumSelect
+            value=""
+            size="sm"
+            placeholder="Choose the task this row belongs to"
+            onChange={(value) => {
+              if (value) onLink(row.row_number, value);
+            }}
+            options={(rec.candidates || []).map((candidate) => ({
+              value: candidate.id,
+              label: `${candidate.task_ref} — ${candidate.name} (${candidate.villa}${candidate.area_label ? ` · ${candidate.area_label}` : ''})`,
+            }))}
+          />
+        </div>
+      )}
+      <div>
+        <p className="mb-1 text-xs font-medium">Correct how this row was read</p>
+        <ImportRowFix
+          row={row}
+          cat={cat}
+          projectId={projectId}
+          busy={busyRow === row.row_number}
+          onApply={onOverride}
+          onApplyMany={onOverrideMany}
+          allRows={rows}
+          onClear={onClearOverride}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
@@ -83,10 +200,10 @@ export default function ImportRowTable({
         <p className="text-xs text-muted-foreground">
           {shown.length} of {rows.length} row(s) shown · nothing is written until you confirm the import
         </p>
-        <EnumSelect value={filter} onChange={setFilter} options={FILTERS} size="sm" className="w-[240px]" />
+        <EnumSelect value={filter} onChange={(value) => { setFilter(value); setLimit(PAGE); }} options={FILTERS} size="sm" className="w-[240px]" />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
@@ -102,7 +219,7 @@ export default function ImportRowTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {shown.map((row) => {
+              {visible.map((row) => {
                 const rec = row.reconcile || {};
                 const decision = decisions[row.row_number] || '';
                 const open = openRow === row.row_number;
@@ -178,112 +295,13 @@ export default function ImportRowTable({
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {changes.length > 0 && rec.match?.task_id && !row.blocking && (
-                            <Button
-                              size="sm"
-                              variant={decision === 'update' ? 'default' : 'outline'}
-                              onClick={() => onDecision(row.row_number, 'update', rec.match.task_id)}
-                            >
-                              Accept update
-                            </Button>
-                          )}
-                          {!row.blocking && rec.outcome !== 'unchanged' && (
-                            <Button
-                              size="sm"
-                              variant={decision === 'import' ? 'default' : 'outline'}
-                              onClick={() => onDecision(row.row_number, 'import', '')}
-                            >
-                              Import as new
-                            </Button>
-                          )}
-                          {!changes.length && rec.match?.task_id && (
-                            <Button
-                              size="sm"
-                              variant={decision === 'link' ? 'default' : 'outline'}
-                              onClick={() => onDecision(row.row_number, 'link', rec.match.task_id)}
-                            >
-                              Same task, no change
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant={decision === 'defer' ? 'default' : 'outline'}
-                            onClick={() => onDecision(row.row_number, 'defer', '')}
-                          >
-                            Defer
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={decision === 'skip' ? 'default' : 'outline'}
-                            onClick={() => onDecision(row.row_number, 'skip', '')}
-                          >
-                            Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-muted-foreground"
-                            onClick={() => setOpenRow(open ? 0 : row.row_number)}
-                          >
-                            {open ? 'Hide' : 'Review'}
-                          </Button>
-                        </div>
-                        {!decision && ['update', 'duplicate', 'clarify'].includes(rec.outcome) && (
-                          <p className="mt-1 flex items-center gap-1 text-[10px] text-destructive">
-                            <AlertTriangle className="h-3 w-3" /> Needs a decision
-                          </p>
-                        )}
-                        {!decision && rec.outcome === 'create' && (
-                          <p className="mt-1 text-[10px] text-muted-foreground">Will be created unless you reject it</p>
-                        )}
-                        {rec.outcome === 'unchanged' && (
-                          <p className="mt-1 text-[10px] text-muted-foreground">Nothing to write</p>
-                        )}
+                        {renderDecision(row, decision, rec, changes, open)}
                       </td>
                     </tr>
                     {open && (
                       <tr>
                         <td colSpan={8} className="bg-muted/20 px-3 py-4">
-                          <div className="space-y-4">
-                            <ImportProposal
-                              row={row}
-                              cat={cat}
-                              reasons={reasons}
-                              edits={edits}
-                              onReason={onReason}
-                              onEdit={onEdit}
-                              busy={busyRow === row.row_number}
-                            />
-                            {(rec.candidates || []).length > 1 && (
-                              <div className="max-w-md">
-                                <p className="mb-1 text-xs font-medium">Match this row to a different task</p>
-                                <EnumSelect
-                                  value=""
-                                  size="sm"
-                                  placeholder="Choose the task this row belongs to"
-                                  onChange={(value) => {
-                                    if (value) onLink(row.row_number, value);
-                                  }}
-                                  options={(rec.candidates || []).map((candidate) => ({
-                                    value: candidate.id,
-                                    label: `${candidate.task_ref} — ${candidate.name} (${candidate.villa}${candidate.area_label ? ` · ${candidate.area_label}` : ''})`,
-                                  }))}
-                                />
-                              </div>
-                            )}
-                            <div>
-                              <p className="mb-1 text-xs font-medium">Correct how this row was read</p>
-                              <ImportRowFix
-                                row={row}
-                                cat={cat}
-                                projectId={projectId}
-                                busy={busyRow === row.row_number}
-                                onApply={onOverride}
-                                onClear={onClearOverride}
-                              />
-                            </div>
-                          </div>
+                          {renderReview(row, rec)}
                         </td>
                       </tr>
                     )}
@@ -294,6 +312,44 @@ export default function ImportRowTable({
           </table>
         </div>
       </div>
+
+      {/* On a phone each row is a card: the same facts and the same decisions. */}
+      <div className="space-y-3 md:hidden">
+        {visible.map((row) => {
+          const rec = row.reconcile || {};
+          const decision = decisions[row.row_number] || '';
+          const open = openRow === row.row_number;
+          const changes = rec.changes || [];
+          return (
+            <article key={row.row_number} className={cn('rounded-xl border border-border bg-card p-4', busyRow === row.row_number && 'opacity-60')}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="field-mono text-xs text-muted-foreground">Row {row.row_number}</span>
+                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide', OUTCOME_TONE[rec.outcome] || OUTCOME_TONE.unchanged)}>
+                  {rec.label || '—'}
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-medium leading-snug">{row.resolved.name || row.values.name || '—'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {row.resolved.villa_code || (row.resolved.category === 'Site-Wide Work' ? 'Site-wide' : row.values.villa_code || '—')}
+                {row.resolved.area_label ? ` · ${row.resolved.area_label}` : ''} · {row.resolved.discipline_name || row.values.discipline || '—'} · {row.resolved.contractor_name || 'No contractor'}
+              </p>
+              {changes.length > 0 && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
+              )}
+              <div className="mt-2"><IssueList issues={row.issues} /></div>
+              <div className="mt-3">{renderDecision(row, decision, rec, changes, open)}</div>
+              {open && <div className="mt-3">{renderReview(row, rec)}</div>}
+            </article>
+          );
+        })}
+      </div>
+
+      {shown.length > visible.length && (
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span>Showing {visible.length} of {shown.length} rows.</span>
+          <Button size="sm" variant="outline" onClick={() => setLimit((n) => n + PAGE)}>Show {Math.min(PAGE, shown.length - visible.length)} more</Button>
+        </div>
+      )}
     </div>
   );
 }

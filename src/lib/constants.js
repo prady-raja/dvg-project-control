@@ -1,35 +1,11 @@
-export const TASK_STATUSES = [
-  'Not Started',
-  'In Progress',
-  'Blocked',
-  'Execution Complete',
-  'Under Inspection',
-  'Approved',
-  'Closed',
-];
+import { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES } from '@shared/enums.ts';
 
-export const OPEN_TASK_STATUSES = [
-  'Not Started',
-  'In Progress',
-  'Blocked',
-  'Execution Complete',
-  'Under Inspection',
-  'Approved',
-];
+export { BLOCKER_CATEGORIES, MEMBERSHIP_ROLES, OPEN_TASK_STATUSES, TASK_STATUSES };
+
+/** A report holds at most this many photos; the server refuses more (dailyReportRules MAX_REPORT_PHOTOS). */
+export const MAX_PHOTOS = 10;
 
 export const TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-
-export const BLOCKER_CATEGORIES = [
-  'Previous Work Incomplete',
-  'Materials Pending',
-  'Client Selection Pending',
-  'Owner Access Pending',
-  'Drawing / Design Clarification',
-  'Contractor Manpower',
-  'DVG Approval',
-  'External Utility / Authority',
-  'Other',
-];
 
 export const BASELINE_APPROVAL_STATUSES = ['Not Submitted', 'Submitted', 'Approved', 'Rejected'];
 export const SELECTION_STATUSES = ['Not Required', 'Pending Selection', 'Selected'];
@@ -47,30 +23,8 @@ export const POSSESSION_STATUSES = ['Handed Over', 'Not Handed Over'];
 export const WORKS_STAGES = ['Not Started', 'Under Construction', 'Works Pending', 'Completed'];
 export const ACTIVE_STATUSES = ['Active', 'On Hold'];
 export const CONTRACTOR_CLASSIFICATIONS = ['Internal Execution Team', 'External Contractor'];
-// Same list, same order as base44/shared/access.ts MEMBERSHIP_ROLES (a test keeps them equal).
-export const MEMBERSHIP_ROLES = ['Project Editor', 'Viewer', 'Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor'];
 
 export const WORK_PACKAGE_REQUIRED_DISCIPLINES = ['Finishes'];
-
-export const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/', icon: 'LayoutDashboard', group: 'Overview' },
-  { label: 'Projects', to: '/projects', icon: 'Building2', group: 'Overview' },
-  { label: 'Villas & Locations', to: '/locations', icon: 'MapPin', group: 'Overview' },
-  { label: 'Task Register', to: '/tasks', icon: 'ClipboardList', group: 'Execution' },
-  { label: 'Planning', to: '/planning', icon: 'CalendarRange', group: 'Execution' },
-  { label: 'Daily Activity', to: '/daily', icon: 'CalendarCheck', group: 'Execution' },
-  { label: 'Blockers', to: '/blockers', icon: 'ShieldAlert', group: 'Execution' },
-  { label: 'Needs Attention', to: '/attention', icon: 'ClipboardCheck', group: 'Execution' },
-  { label: 'Handover & Snagging', to: '/handover', icon: 'ClipboardCheck', group: 'Execution' },
-  { label: 'Site-wide Works', to: '/site-wide', icon: 'Construction', group: 'Execution' },
-  { label: 'Contractor Dashboard', to: '/contractor-board', icon: 'HardHat', group: 'Teams' },
-  { label: 'Contractors', to: '/contractors', icon: 'UsersRound', group: 'Teams' },
-  { label: 'Meetings', to: '/meetings', icon: 'CalendarClock', group: 'Teams' },
-  { label: 'Ask DVG AI', to: '/ai', icon: 'Bot', group: 'Intelligence' },
-  { label: 'Import Works', to: '/import', icon: 'Upload', group: 'Data' },
-  { label: 'Administration', to: '/admin', icon: 'Settings2', group: 'Setup' },
-  { label: 'Users & Access', to: '/access', icon: 'UserCog', group: 'Setup' },
-];
 
 /* ---------------------------------------------------------------- seed data */
 

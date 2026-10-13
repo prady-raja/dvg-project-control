@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import HealthBadge from '@/components/common/HealthBadge';
 import Pill from '@/components/common/Pill';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -35,14 +36,17 @@ export function ActivityFlags({ row }) {
 }
 
 /** One activity on a narrow screen — the same facts as the table row. */
-export default function ActivityCard({ row, showAction = false }) {
+export default function ActivityCard({ row, showAction = false, rowAction }) {
   return (
     <article className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link to={`/tasks/${row.id}`} className="field-mono text-xs font-semibold hover:underline">
           {row.ref}
         </Link>
-        <Pill value={row.status} />
+        <span className="flex flex-wrap items-center gap-1.5">
+          {row.health && <HealthBadge health={row.health} slipDays={row.slip_days} />}
+          <Pill value={row.status} />
+        </span>
       </div>
       <p className="mt-2 text-sm font-medium">{row.name}</p>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -91,6 +95,7 @@ export default function ActivityCard({ row, showAction = false }) {
           {row.blocker ? `Blocker: ${row.blocker}` : row.action}
         </p>
       )}
+      {rowAction && <div className="mt-3 border-t border-border pt-3">{rowAction(row)}</div>}
     </article>
   );
 }

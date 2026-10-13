@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, FileText } from 'lucide-react';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
@@ -18,8 +18,10 @@ import {
   downloadReconciledWorkbook,
   downloadReconciliation,
   downloadTemplate,
-  runWorkImport,
+  runChunkedImport,
 } from '@/lib/workImportService';
+import ColumnMappingPanel from '@/components/import/ColumnMappingPanel';
+import { clearReview, loadReview, prepareHeadings, saveMappingFor, saveReview } from '@/lib/importMapping';
 
 /**
  * Import Works — a reviewed Excel or CSV work list in, new tasks, agreed changes
@@ -45,11 +47,22 @@ export default function WorkImport() {
   const [busy, setBusy] = useState('');
   const [busyRow, setBusyRow] = useState(0);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState(null);
+  const [headings, setHeadings] = useState({ unrecognised: [], mapping: {} });
 
   const projects = useMemo(
     () => cat.projects.filter((project) => access.can(project.id, 'manage_project')),
     [cat.projects, access],
   );
+
+  // Start on the project the person is already working in, so the template and
+  // the upload are available straight away.
+  useEffect(() => {
+    if (projectId || !projects.length) return;
+    const fromUrl = new URLSearchParams(window.location.search).get('project');
+    const pick = projects.find((p) => p.id === fromUrl) || projects.find((p) => p.status === 'Active') || projects[0];
+    setProjectId(pick.id);
+  }, [projects, projectId]);
 
   // The chosen project's villa register, written into the Excel template's
   // Villa_Mapping sheet so a code is copied rather than retyped.
@@ -67,22 +80,22 @@ export default function WorkImport() {
   );
 
   const previewFor = useCallback(
-    async (target, { nextOverrides, nextLinks, useAi } = {}) => {
-      if (!target?.text || !projectId) return;
+    async (target, { nextOverrides, nextLinks, useAi, forProject } = {}) => {
+      const project = forProject || projectId;
+      if (!target?.text || !project) return;
       setBusy('preview');
       setError('');
       try {
-        const data = await runWorkImport({
+        const data = await runChunkedImport({
           action: 'preview',
-          project_id: projectId,
-          file_name: target.name,
-          source_sheet: target.sheet || '',
-          row_numbers: target.rowNumbers || [],
-          checksum: target.checksum,
-          file_text: target.text,
-          overrides: nextOverrides || overrides,
-          links: nextLinks || links,
-          use_ai: useAi === true,
+          file: target,
+          params: {
+            project_id: project,
+            overrides: nextOverrides || overrides,
+            links: nextLinks || links,
+            use_ai: useAi === true,
+          },
+          onProgress: setProgress,
         });
         setPreview(data);
       } catch (caught) {
@@ -90,6 +103,7 @@ export default function WorkImport() {
         setPreview(null);
       } finally {
         setBusy('');
+        setProgress(null);
       }
     },
     [projectId, overrides, links],
@@ -98,29 +112,52 @@ export default function WorkImport() {
   // A CSV arrives as text; an Excel workbook arrives already read from its Works
   // sheet, together with the worksheet row each row sits on. Both then travel the
   // identical server path.
+  const readFile = async (source, rawText, mapping) => {
+    const prepared = prepareHeadings(rawText, mapping);
+    setHeadings({ unrecognised: prepared.unrecognised, mapping: prepared.mapping });
+    const target = {
+      name: source.name,
+      rawText,
+      text: prepared.text,
+      sheet: source.sheet || '',
+      rowNumbers: source.rowNumbers || [],
+      // The fingerprint is of the file as uploaded, so the same upload is recognised whatever the mapping.
+      checksum: checksumOf(rawText),
+    };
+    setFile(target);
+    // A review in progress for this exact file comes back after navigating away.
+    const saved = loadReview(target.checksum);
+    const restore = saved && saved.projectId === projectId ? saved : null;
+    setOverrides(restore?.overrides || {});
+    setDecisions(restore?.decisions || {});
+    setLinks(restore?.links || {});
+    setReasons(restore?.reasons || {});
+    setEdits(restore?.edits || {});
+    await previewFor(target, { nextOverrides: restore?.overrides || {}, nextLinks: restore?.links || {} });
+  };
+
   const handleFile = async (source) => {
     if (!source?.text) return;
     setResult(null);
     setError('');
     if (source.text.length > MAX_FILE_BYTES) {
-      setError('That file is larger than 1.5 MB. Split the work list into smaller files.');
+      setError('That file is larger than 8 MB. Split the work list into smaller files.');
       return;
     }
-    const target = {
-      name: source.name,
-      text: source.text,
-      sheet: source.sheet || '',
-      rowNumbers: source.rowNumbers || [],
-      checksum: checksumOf(source.text),
-    };
-    setFile(target);
-    setOverrides({});
-    setDecisions({});
-    setLinks({});
-    setReasons({});
-    setEdits({});
-    await previewFor(target, { nextOverrides: {}, nextLinks: {} });
+    await readFile(source, source.text);
   };
+
+  const applyMapping = async (mapping) => {
+    if (!file) return;
+    saveMappingFor(file.rawText, mapping);
+    await readFile({ name: file.name, sheet: file.sheet, rowNumbers: file.rowNumbers }, file.rawText, mapping);
+  };
+
+  // What the person has decided so far survives leaving the page, per file.
+  useEffect(() => {
+    if (!file?.checksum || result) return;
+    saveReview(file.checksum, { projectId, overrides, decisions, links, reasons, edits });
+  }, [file, projectId, overrides, decisions, links, reasons, edits, result]);
 
   const handleProject = async (value) => {
     setProjectId(value);
@@ -134,28 +171,7 @@ export default function WorkImport() {
       setPreview(null);
       return;
     }
-    setBusy('preview');
-    setError('');
-    try {
-      const data = await runWorkImport({
-        action: 'preview',
-        project_id: value,
-        file_name: file.name,
-        source_sheet: file.sheet || '',
-        row_numbers: file.rowNumbers || [],
-        checksum: file.checksum,
-        file_text: file.text,
-        overrides: {},
-        links: {},
-        use_ai: false,
-      });
-      setPreview(data);
-    } catch (caught) {
-      setError(caught.message);
-      setPreview(null);
-    } finally {
-      setBusy('');
-    }
+    await previewFor(file, { nextOverrides: {}, nextLinks: {}, forProject: value });
   };
 
   const applyOverride = async (rowNumber, patch) => {
@@ -165,6 +181,22 @@ export default function WorkImport() {
     await previewFor(file, { nextOverrides: next });
     setBusyRow(0);
     setDecisions((current) => ({ ...current, [rowNumber]: '' }));
+  };
+
+  // One correction for every row that carries the same wording (for example a villa
+  // code the register spells differently), previewed once.
+  const applyOverrideMany = async (rowNumbers, patch) => {
+    const next = { ...overrides };
+    rowNumbers.forEach((n) => { next[n] = { ...(next[n] || {}), ...patch }; });
+    setOverrides(next);
+    setBusyRow(rowNumbers[0]);
+    await previewFor(file, { nextOverrides: next });
+    setBusyRow(0);
+    setDecisions((current) => {
+      const copy = { ...current };
+      rowNumbers.forEach((n) => { copy[n] = ''; });
+      return copy;
+    });
   };
 
   const clearOverride = async (rowNumber) => {
@@ -227,26 +259,26 @@ export default function WorkImport() {
     setBusy('commit');
     setError('');
     try {
-      const data = await runWorkImport({
+      const data = await runChunkedImport({
         action: 'commit',
-        project_id: projectId,
-        file_name: file.name,
-        source_sheet: file.sheet || '',
-        row_numbers: file.rowNumbers || [],
-        checksum: file.checksum,
-        file_text: file.text,
-        overrides,
-        decisions,
-        links,
-        reasons,
-        edits,
-        // The record version this comparison was made against, row by row: a task
-        // edited in the meantime is refused rather than written over quietly.
-        expected: Object.fromEntries(
-          (preview?.rows || []).map((row) => [row.row_number, row.reconcile?.match?.updated_date || '']),
-        ),
-        ai_status: preview?.ai?.note || '',
+        file,
+        params: {
+          project_id: projectId,
+          overrides,
+          decisions,
+          links,
+          reasons,
+          edits,
+          // The record version this comparison was made against, row by row: a task
+          // edited in the meantime is refused rather than written over quietly.
+          expected: Object.fromEntries(
+            (preview?.rows || []).map((row) => [row.row_number, row.reconcile?.match?.updated_date || '']),
+          ),
+          ai_status: preview?.ai?.note || '',
+        },
+        onProgress: setProgress,
       });
+      clearReview(file.checksum);
       setResult(data);
       setPreview(null);
       setConfirmOpen(false);
@@ -254,10 +286,13 @@ export default function WorkImport() {
       setError(caught.message);
     } finally {
       setBusy('');
+      setProgress(null);
     }
   };
 
   const restart = () => {
+    if (file?.checksum) clearReview(file.checksum);
+    setHeadings({ unrecognised: [], mapping: {} });
     setFile(null);
     setPreview(null);
     setOverrides({});
@@ -303,7 +338,7 @@ export default function WorkImport() {
           description="Bring a reviewed Excel or CSV work list onto the task register."
         />
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-          Import Works is available to Project Managers and administrators. You do not manage a project yet — your roles are
+          Import Works is available to Project Editors and administrators. You do not manage a project yet — your roles are
           shown on Users &amp; Access.
         </div>
       </>
@@ -318,10 +353,10 @@ export default function WorkImport() {
         description="Upload a reviewed Excel workbook or CSV work list. Every row is compared with the register, and only the rows you decide on are written."
         actions={
           <>
-            <Button className="gap-2" onClick={downloadWorkbook}>
+            <Button className="gap-2" onClick={downloadWorkbook} disabled={!projectId} title={projectId ? '' : 'Choose a project first'}>
               <FileSpreadsheet className="h-4 w-4" /> Download Excel template
             </Button>
-            <Button variant="outline" className="gap-2" onClick={downloadTemplate}>
+            <Button variant="outline" className="gap-2" onClick={downloadTemplate} disabled={!projectId} title={projectId ? '' : 'Choose a project first'}>
               <FileText className="h-4 w-4" /> CSV template
             </Button>
           </>
@@ -350,6 +385,21 @@ export default function WorkImport() {
             file={file}
           />
 
+          {busy && progress && progress.total > 1 && (
+            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground" role="status">
+              {busy === 'commit' ? 'Importing' : 'Checking'} rows up to {progress.rows.toLocaleString()} of {progress.rowsInFile.toLocaleString()} (part {progress.index + 1} of {progress.total})…
+            </p>
+          )}
+
+          {file && (
+            <ColumnMappingPanel
+              key={`${file.checksum}-${Object.keys(headings.mapping).length}-${headings.unrecognised.length}`}
+              unrecognised={headings.unrecognised}
+              mapping={headings.mapping}
+              onApply={applyMapping}
+            />
+          )}
+
           {preview && (
             <>
               <ImportClassification
@@ -372,6 +422,7 @@ export default function WorkImport() {
                 edits={edits}
                 busyRow={busyRow}
                 onOverride={applyOverride}
+                onOverrideMany={applyOverrideMany}
                 onClearOverride={clearOverride}
                 onDecision={decide}
                 onReason={setReason}

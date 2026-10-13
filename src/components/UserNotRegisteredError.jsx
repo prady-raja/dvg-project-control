@@ -1,4 +1,5 @@
 import React from 'react';
+import { base44 } from '@/api/base44Client';
 
 const UserNotRegisteredError = () => {
   return (
@@ -14,6 +15,16 @@ const UserNotRegisteredError = () => {
           <p className="text-slate-600 mb-8">
             You are not registered to use this application. Please contact the app administrator to request access.
           </p>
+          <button
+            type="button"
+            onClick={async () => {
+              await base44.auth.logout();
+              window.location.href = '/login';
+            }}
+            className="mb-6 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Sign out and use a different account
+          </button>
           <div className="p-4 bg-slate-50 rounded-md text-sm text-slate-600">
             <p>If you believe this is an error, you can:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">

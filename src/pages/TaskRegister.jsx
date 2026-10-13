@@ -2,19 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, ClipboardList, Layers } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import TaskFilters, { EMPTY_TASK_FILTERS } from '@/components/tasks/TaskFilters';
 import TaskTable from '@/components/tasks/TaskTable';
 import TaskCard from '@/components/tasks/TaskCard';
-import QuickUpdateDialog from '@/components/tasks/QuickUpdateDialog';
 import VillaWorkDialog from '@/components/tasks/VillaWorkDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import DataState from '@/components/common/DataState';
+import { errorMessageOf } from '@/lib/clientErrors';
 import { escapeRegex } from '@/lib/taskForm';
 
 const PAGE_SIZE = 50;
@@ -22,7 +23,7 @@ const PAGE_SIZE = 50;
 export default function TaskRegister() {
   const cat = useCatalogs();
   const access = useAccess();
-  const { user } = useAuth();
+  const quick = useQuickActions();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -43,8 +44,8 @@ export default function TaskRegister() {
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
-  const [quickTask, setQuickTask] = useState(null);
   const [villaOpen, setVillaOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const canEdit = access.canAnywhere('edit_tasks');
@@ -82,36 +83,47 @@ export default function TaskRegister() {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const query = buildQuery();
-      const [page, count] = await Promise.all([
-        base44.entities.Task.filter(query, { sort: '-created_date', limit: PAGE_SIZE }),
-        base44.entities.Task.count(query),
-      ]);
-      if (cancelled) return;
-      setTasks(items(page));
-      setCursor(page?.next_cursor || null);
-      setHasMore(!!page?.has_more);
-      setTotal(count || 0);
-      setLoading(false);
+      setLoadError('');
+      try {
+        const query = buildQuery();
+        const [page, count] = await Promise.all([
+          base44.entities.Task.filter(query, { sort: '-created_date', limit: PAGE_SIZE }),
+          base44.entities.Task.count(query),
+        ]);
+        if (cancelled) return;
+        setTasks(items(page));
+        setCursor(page?.next_cursor || null);
+        setHasMore(!!page?.has_more);
+        setTotal(count || 0);
+      } catch (e) {
+        if (!cancelled) setLoadError(errorMessageOf(e, 'The task list could not be loaded.'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     load();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey, reloadKey]);
+  }, [filterKey, reloadKey, quick.version]);
 
   const loadMore = async () => {
     setLoadingMore(true);
-    const page = await base44.entities.Task.filter(buildQuery(), {
-      sort: '-created_date',
-      limit: PAGE_SIZE,
-      cursor,
-    });
-    setTasks((t) => [...t, ...items(page)]);
-    setCursor(page?.next_cursor || null);
-    setHasMore(!!page?.has_more);
-    setLoadingMore(false);
+    try {
+      const page = await base44.entities.Task.filter(buildQuery(), {
+        sort: '-created_date',
+        limit: PAGE_SIZE,
+        cursor,
+      });
+      setTasks((t) => [...t, ...items(page)]);
+      setCursor(page?.next_cursor || null);
+      setHasMore(!!page?.has_more);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'More tasks could not be loaded.'));
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -146,7 +158,9 @@ export default function TaskRegister() {
         </p>
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <DataState error={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : loading ? (
         <Skeleton className="h-72 rounded-xl" />
       ) : tasks.length === 0 ? (
         <div className="rounded-xl border border-border bg-card">
@@ -170,7 +184,7 @@ export default function TaskRegister() {
           </div>
           <div className="space-y-3 md:hidden">
             {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} cat={cat} onOpen={() => navigate(`/tasks/${t.id}`)} onQuickUpdate={setQuickTask} />
+              <TaskCard key={t.id} task={t} cat={cat} onOpen={() => navigate(`/tasks/${t.id}`)} />
             ))}
           </div>
           {hasMore && (
@@ -192,16 +206,6 @@ export default function TaskRegister() {
         onCreated={() => setReloadKey((k) => k + 1)}
       />
 
-      <QuickUpdateDialog
-        task={quickTask}
-        open={!!quickTask}
-        onOpenChange={(v) => !v && setQuickTask(null)}
-        user={user}
-        onSaved={() => {
-          setQuickTask(null);
-          setReloadKey((k) => k + 1);
-        }}
-      />
     </>
   );
 }

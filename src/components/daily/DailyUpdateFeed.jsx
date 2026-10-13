@@ -1,3 +1,5 @@
+import DataState from '@/components/common/DataState';
+import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -23,17 +25,24 @@ export default function DailyUpdateFeed({
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
   const key = JSON.stringify(filter || {});
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await base44.entities.DailyUpdate.filter(JSON.parse(key), { sort: '-reported_at', limit: 25 });
-    const page = Array.isArray(res) ? { items: res } : res || {};
-    setRows(items(res));
-    setCursor(page.next_cursor || null);
-    setHasMore(!!page.has_more);
-    setLoading(false);
+    setError('');
+    try {
+      const res = await base44.entities.DailyUpdate.filter(JSON.parse(key), { sort: '-update_date', limit: 25 });
+      const page = Array.isArray(res) ? { items: res } : res || {};
+      setRows(items(res));
+      setCursor(page.next_cursor || null);
+      setHasMore(!!page.has_more);
+    } catch (e) {
+      setError(errorMessageOf(e, 'The daily updates could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
   }, [key]);
 
   useEffect(() => {
@@ -43,18 +52,24 @@ export default function DailyUpdateFeed({
   const loadMore = async () => {
     if (!cursor) return;
     setLoadingMore(true);
-    const res = await base44.entities.DailyUpdate.filter(JSON.parse(key), {
-      sort: '-reported_at',
-      limit: 25,
-      cursor,
-    });
-    const page = Array.isArray(res) ? { items: res } : res || {};
-    setRows((prev) => [...prev, ...items(res)]);
-    setCursor(page.next_cursor || null);
-    setHasMore(!!page.has_more);
-    setLoadingMore(false);
+    try {
+      const res = await base44.entities.DailyUpdate.filter(JSON.parse(key), {
+        sort: '-update_date',
+        limit: 25,
+        cursor,
+      });
+      const page = Array.isArray(res) ? { items: res } : res || {};
+      setRows((prev) => [...prev, ...items(res)]);
+      setCursor(page.next_cursor || null);
+      setHasMore(!!page.has_more);
+    } catch (e) {
+      setError(errorMessageOf(e, 'More updates could not be loaded.'));
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
+  if (error) return <DataState error={error} onRetry={load} />;
   if (loading) return <Skeleton className="h-40 rounded-xl" />;
 
   if (!rows.length) {
@@ -72,6 +87,8 @@ export default function DailyUpdateFeed({
     if (last && last.day === day) last.rows.push(row);
     else days.push({ day, rows: [row] });
   });
+  // The feed is paged by the day each report describes; within a day, newest filing first.
+  days.forEach((group) => group.rows.sort((a, b) => String(b.reported_at).localeCompare(String(a.reported_at))));
 
   return (
     <div className="space-y-6">

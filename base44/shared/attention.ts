@@ -17,9 +17,10 @@
  * meaning. A blocker is a condition beside the execution stage, not a stage.
  */
 
-import { isOutstanding, isAwaitingVerification, shiftDay, toDay } from './dashboardCore.ts';
+import { isBlocked, isCountable, isOutstanding, isAwaitingVerification, isStale, toDay } from './dashboardCore.ts';
 import { normalizeAreaName } from './villaAreas.ts';
 import { looseKey, plotNumbersOf } from './villaResolve.ts';
+import { isDismissed } from './attentionActions.ts';
 
 export const READINESS_STATES = ['Ready', 'Waiting', 'Unknown'];
 
@@ -33,7 +34,7 @@ export const LIFECYCLE_STAGES = [
 /** The standard stage for a stored status, plus the blocker condition beside it. */
 export function lifecycleOf(task) {
   const status = task?.status || 'Not Started';
-  const blocked = status === 'Blocked' || !!task?.blocker_description;
+  const blocked = isBlocked(task);
   let stage = 'Not Started';
   if (status === 'Closed') stage = 'Verified / Closed';
   else if (status === 'Approved') stage = 'Verified / Closed';
@@ -77,7 +78,7 @@ export function readinessOf(task, { dependencies = [], tasksById } = {}) {
   );
   const openPredecessors = predecessors.filter((link) => {
     const before = tasksById?.get(link.predecessor_task_id);
-    return before ? before.status !== 'Closed' : true;
+    return before ? !['Closed', 'Approved'].includes(before.status) : true;
   });
   if (openPredecessors.length) {
     reasons.push({
@@ -111,12 +112,13 @@ export const ATTENTION_CODES = {
   no_coordinator: { label: 'No responsible DVG coordinator', severity: 'incomplete' },
   no_dates: { label: 'No baseline or forecast date', severity: 'incomplete' },
   progress_unknown: { label: 'Progress not measured', severity: 'incomplete' },
-  stale_update: { label: 'No site update in the last 7 days', severity: 'incomplete' },
+  stale_update: { label: 'No site update for too long', severity: 'incomplete' },
   unverified_complete: { label: 'Executed but not verified', severity: 'incomplete' },
   incomplete_predecessor: { label: 'A recorded predecessor is not closed', severity: 'incomplete' },
   possible_duplicate: { label: 'Possibly the same work listed twice', severity: 'invalid' },
   ambiguous_reference: { label: 'Ambiguous villa or plot reference', severity: 'invalid' },
   room_register_missing: { label: 'Villa has no rooms registered', severity: 'incomplete' },
+  completed_with_open_work: { label: 'Villa marked Works Completed but work is still open', severity: 'invalid' },
   unassigned_location: { label: 'Villa work with no villa recorded', severity: 'invalid' },
 };
 
@@ -128,10 +130,12 @@ const SEVERITY_ORDER = { invalid: 0, incomplete: 1 };
  * before it can be trusted) or merely incomplete (acceptable to import and fill
  * in later).
  */
-export function attentionFor({ tasks = [], locations = [], areas = [], floors = [], dependencies = [], updates = [], asOf, ix, options = {} }) {
+export function attentionFor({ tasks = [], locations = [], areas = [], floors = [], dependencies = [], updates = [], dismissals = [], asOf, ix, options = {} }) {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  // Demo and archived records never reach the review list; the same filter as every board.
   const scope = (options.projectId ? tasks.filter((task) => task.project_id === options.projectId) : tasks)
-    .filter((task) => (options.phaseId ? task.phase_id === options.phaseId : true));
+    .filter((task) => (options.phaseId ? task.phase_id === options.phaseId : true))
+    .filter((task) => isCountable(task, { includeDemo: options.includeDemo === true }));
   const items = [];
   const add = (code, row) => {
     const meta = ATTENTION_CODES[code] || { label: code, severity: 'incomplete' };
@@ -147,11 +151,11 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       detail: row.detail,
       link: row.task?.id ? `/tasks/${row.task.id}` : '',
       readiness: row.readiness || '',
+      since: toDay(row.task?.updated_date || row.task?.created_date),
     });
   };
 
-  const staleBefore = shiftDay(asOf, -7);
-  const lastReport = (task) => ix?.lastReportAt(task.id) || task.updated_date || '';
+  const lastReport = (task) => ix?.lastReportAt(task.id) || task.latest_report_date || task.updated_date || '';
   const roomfulVillas = new Set((areas || []).map((area) => area.location_id));
 
   const seen = new Map();
@@ -178,8 +182,13 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     if (isAwaitingVerification(task)) {
       add('unverified_complete', { task, detail: `${life.executed_by || 'Site team'} reported the work executed; verification is pending.`, readiness: readiness.state });
     }
-    if (lastReport(task) && String(lastReport(task)).slice(0, 10) < staleBefore) {
-      add('stale_update', { task, detail: `Last site update ${String(lastReport(task)).slice(0, 10)}.`, readiness: readiness.state });
+    const settings = ix?.settings ? ix.settings(task.project_id) : undefined;
+    if (lastReport(task) && isStale(lastReport(task), asOf, settings)) {
+      add('stale_update', {
+        task,
+        detail: `Last site update ${String(lastReport(task)).slice(0, 10)}; more than ${settings?.stale_days ?? 7} working days ago.`,
+        readiness: readiness.state,
+      });
     }
     if (readiness.reasons.some((reason) => reason.code === 'predecessor')) {
       add('incomplete_predecessor', { task, detail: readiness.reasons.find((reason) => reason.code === 'predecessor').label, readiness: readiness.state });
@@ -224,6 +233,27 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     });
   });
 
+  // The register says the works are finished while tasks are still open — one of the two is wrong.
+  villasWithWork.forEach((locationId) => {
+    const villa = (locations || []).find((item) => item.id === locationId);
+    if (!villa || villa.works_stage !== 'Completed') return;
+    const openHere = scope.filter((task) => isOutstanding(task) && task.location_id === locationId && !task.is_villa_work_parent).length;
+    items.push({
+      code: 'completed_with_open_work',
+      label: ATTENTION_CODES.completed_with_open_work.label,
+      severity: 'invalid',
+      task_id: '',
+      task_ref: '',
+      task_name: '',
+      villa: villa.villa_code,
+      discipline: '',
+      detail: `${villa.villa_code} is marked Works Completed but ${openHere} task(s) are still open. Either close the work or correct the villa's works stage.`,
+      link: `/locations/${villa.id}`,
+      readiness: '',
+      since: toDay(villa.updated_date),
+    });
+  });
+
   // Ambiguous references inside the register itself: two villas of one phase
   // answering to the same plot number. Plot 14 is the live example, where the
   // suffix decides — so the register asks instead of choosing.
@@ -257,9 +287,17 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     });
   });
 
+  // Dismissed with a reason (or snoozed to a date not yet reached): kept out of the list, counted apart.
+  const kept = items.filter((item) => !isDismissed(item, dismissals, asOf));
+  const dismissedCount = items.length - kept.length;
+  items.length = 0;
+  items.push(...kept);
+
+  // Most serious first, then by kind, then oldest first inside each kind.
   items.sort((a, b) =>
     SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
     || a.code.localeCompare(b.code)
+    || String(a.since || '9999').localeCompare(String(b.since || '9999'))
     || String(a.villa).localeCompare(String(b.villa))
     || String(a.task_ref).localeCompare(String(b.task_ref)));
 
@@ -290,12 +328,29 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       invalid: items.filter((item) => item.severity === 'invalid').length,
       incomplete: items.filter((item) => item.severity === 'incomplete').length,
       total: items.length,
+      dismissed: dismissedCount,
     },
     by_code: byCode,
     readiness,
     readiness_reasons: [...readinessReasons.values()].sort((a, b) => b.count - a.count),
-    items: items.slice(0, Math.min(Math.max(Number(options.itemLimit) || 200, 20), 500)),
+    ...pageOf(items, options),
     data_date: asOf,
+  };
+}
+
+/**
+ * The list is filtered by issue code and paged on the server, so a code late in
+ * the severity order is never cut off by a cap on the whole list, and each page
+ * says how many there are in all.
+ */
+export function pageOf(items, options = {}) {
+  const code = options.code || '';
+  const filtered = code ? items.filter((item) => item.code === code) : items;
+  const limit = Math.min(Math.max(Number(options.itemLimit) || 100, 10), 500);
+  const offset = Math.max(Number(options.offset) || 0, 0);
+  return {
+    items: filtered.slice(offset, offset + limit),
+    page: { code, offset, limit, total: filtered.length, has_more: offset + limit < filtered.length },
   };
 }
 

@@ -17,6 +17,14 @@
       "type": "string",
       "description": "Set when the drawing covers one floor"
     },
+    "drawing_number": {
+      "type": "string",
+      "description": "The drawing's own number from the drawing set; with the revision it identifies the sheet"
+    },
+    "villa_type": {
+      "type": "string",
+      "description": "When set (and no villa), the drawing applies to every villa of this type"
+    },
     "title": {
       "type": "string"
     },

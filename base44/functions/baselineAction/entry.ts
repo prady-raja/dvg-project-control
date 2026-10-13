@@ -6,21 +6,29 @@ import {
   resolveRank,
   syncProjectMemberIds,
 } from '../../shared/access.ts';
-import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
+import { actorName, fail, getOne } from '../../shared/records.ts';
+import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
+import { makeDb } from '../../shared/dbCore.ts';
 
-const todayIst = () =>
-  new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+
+const CHUNK = 100;
+
+/** Every task of the phase, read to the end. A silently short snapshot would corrupt a baseline, so truncation is an error. */
+const readPhaseTasks = async (svc, projectId, phaseId) => {
+  const db = makeDb({ entities: svc });
+  const [tasks, locations] = await Promise.all([
+    db.readAll('Task', { project_id: projectId, phase_id: phaseId, is_villa_work_parent: { $ne: true }, archived: { $ne: true } }),
+    db.readAll('Location', { project_id: projectId, phase_id: phaseId }),
+  ]);
+  if (tasks.truncated || locations.truncated) throw fail('This phase is larger than one safe read, so a baseline cannot be captured.', 500);
+  return { tasks: tasks.items, locations: locations.items };
+};
 
 const snapshotPhase = async (svc, projectId, phaseId) => {
-  const [tasksRes, locationsRes] = await Promise.all([
-    svc.Task.filter(
-      { project_id: projectId, phase_id: phaseId, is_villa_work_parent: { $ne: true }, archived: { $ne: true } },
-      { limit: 500 },
-    ),
-    svc.Location.filter({ project_id: projectId, phase_id: phaseId }, { limit: 500 }),
-  ]);
-  const locations = new Map(listAll(locationsRes).map((l) => [l.id, l]));
-  return listAll(tasksRes)
+  const { tasks, locations: locationRows } = await readPhaseTasks(svc, projectId, phaseId);
+  const locations = new Map(locationRows.map((l) => [l.id, l]));
+  return tasks
     .sort((a, b) => String(a.task_ref || '').localeCompare(String(b.task_ref || '')))
     .map((task) => ({
       task_id: task.id,
@@ -65,14 +73,12 @@ const diffSnapshots = (previous, next) => {
 };
 
 const nextVersionNumber = async (svc, projectId, phaseId) => {
-  const res = await svc.BaselineVersion.filter({ project_id: projectId, phase_id: phaseId }, { limit: 200 });
-  const versions = listAll(res);
+  const versions = (await makeDb({ entities: svc }).readAll('BaselineVersion', { project_id: projectId, phase_id: phaseId })).items;
   return versions.reduce((max, v) => Math.max(max, Number(v.version_number) || 0), 0) + 1;
 };
 
 const phaseVersions = async (svc, projectId, phaseId) => {
-  const res = await svc.BaselineVersion.filter({ project_id: projectId, phase_id: phaseId }, { limit: 200 });
-  return listAll(res);
+  return (await makeDb({ entities: svc }).readAll('BaselineVersion', { project_id: projectId, phase_id: phaseId })).items;
 };
 
 /**
@@ -80,7 +86,7 @@ const phaseVersions = async (svc, projectId, phaseId) => {
  * version is frozen for good — later change happens by creating a new version
  * that records the previous and new dates, who approved it, why, and when.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -103,7 +109,7 @@ export default async function (req) {
 
     const rank = await resolveRank(base44, projectId, user);
     if (!canEditBaselines(rank)) {
-      throw fail('Only a Project Manager or an administrator can manage baselines.', 403);
+      throw fail('Only a Project Editor or an administrator can manage baselines.', 403);
     }
 
     const memberIds = memberIdsOf(await activeMembers(base44, projectId));
@@ -173,46 +179,61 @@ export default async function (req) {
         throw fail('A baseline revision needs a reason before it can be approved.');
       }
 
-      // The dates are frozen onto the covered tasks first, and the version it
-      // replaces stays approved and active until that has fully succeeded. A failure
-      // here rolls back the dates it wrote, so the committed programme is untouched.
+      // The baseline covers exactly the tasks it was captured from. If tasks were
+      // added or archived since, it must be recaptured, not approved short.
+      const phaseNow = await readPhaseTasks(svc, projectId, phaseId);
+      if (phaseNow.tasks.length !== snapshot.length) {
+        throw fail(
+          `This draft covers ${snapshot.length} tasks but the phase now has ${phaseNow.tasks.length}. Update the draft so it matches, then approve it.`,
+        );
+      }
+      const currentById = new Map(phaseNow.tasks.map((task) => [task.id, task]));
+
+      // The dates are frozen onto the covered tasks in chunks, and the version it
+      // replaces stays approved and active until that has fully succeeded. Progress
+      // is kept on the version, so a timed-out approval resumes instead of starting
+      // over, and a failure rolls back the dates it wrote.
       const restore = [];
+      const toApply = snapshot.filter((item) => item.task_id && currentById.has(item.task_id));
+      let applied = 0;
       try {
-        for (const item of snapshot) {
-          if (!item.task_id) continue;
-          const covered = await getOne(svc.Task, item.task_id);
-          if (!covered) continue;
-          restore.push({
-            id: covered.id,
-            baseline_start: covered.baseline_start || null,
-            baseline_finish: covered.baseline_finish || null,
-            baseline_approval_status: covered.baseline_approval_status || null,
-            baseline_locked: covered.baseline_locked === true,
-            baseline_version_id: covered.baseline_version_id || null,
+        for (let i = 0; i < toApply.length; i += CHUNK) {
+          const chunk = toApply.slice(i, i + CHUNK);
+          const updates = [];
+          chunk.forEach((item) => {
+            const covered = currentById.get(item.task_id);
+            if (covered.baseline_version_id === version.id) return; // already written by an earlier attempt
+            restore.push({
+              id: covered.id,
+              baseline_start: covered.baseline_start || null,
+              baseline_finish: covered.baseline_finish || null,
+              baseline_approval_status: covered.baseline_approval_status || null,
+              baseline_locked: covered.baseline_locked === true,
+              baseline_version_id: covered.baseline_version_id || null,
+            });
+            updates.push({
+              id: covered.id,
+              baseline_start: item.baseline_start || null,
+              baseline_finish: item.baseline_finish || null,
+              baseline_approval_status: 'Approved',
+              baseline_locked: true,
+              baseline_version_id: version.id,
+            });
           });
-          await svc.Task.update(covered.id, {
-            baseline_start: item.baseline_start || null,
-            baseline_finish: item.baseline_finish || null,
-            baseline_approval_status: 'Approved',
-            baseline_locked: true,
-            baseline_version_id: version.id,
-          });
+          if (updates.length) await svc.Task.bulkUpdate(updates);
+          applied += chunk.length;
+          await svc.BaselineVersion.update(version.id, { apply_progress: applied });
         }
       } catch (error) {
-        for (const row of restore) {
-          await svc.Task.update(row.id, {
-            baseline_start: row.baseline_start,
-            baseline_finish: row.baseline_finish,
-            baseline_approval_status: row.baseline_approval_status,
-            baseline_locked: row.baseline_locked,
-            baseline_version_id: row.baseline_version_id,
-          });
+        for (let i = 0; i < restore.length; i += CHUNK) {
+          await svc.Task.bulkUpdate(restore.slice(i, i + CHUNK));
         }
         throw fail(
           `The revision could not be applied and was rolled back, so the previously approved baseline is still the active one. Nothing was superseded. (${error.message})`,
           500,
         );
       }
+      const coveredIds = new Set(toApply.map((item) => item.task_id));
 
       // Only now: the version being replaced is superseded (its snapshot stays
       // exactly as approved) and this version becomes the active one.
@@ -232,7 +253,6 @@ export default async function (req) {
           member_ids: memberIds,
         });
 
-        const coveredIds = new Set(restore.map((row) => row.id));
         const historyRows = snapshot
           .filter((item) => item.task_id && coveredIds.has(item.task_id))
           .map((item) => ({
@@ -259,14 +279,8 @@ export default async function (req) {
         for (const otherId of superseded) {
           await svc.BaselineVersion.update(otherId, { status: 'Approved' });
         }
-        for (const row of restore) {
-          await svc.Task.update(row.id, {
-            baseline_start: row.baseline_start,
-            baseline_finish: row.baseline_finish,
-            baseline_approval_status: row.baseline_approval_status,
-            baseline_locked: row.baseline_locked,
-            baseline_version_id: row.baseline_version_id,
-          });
+        for (let i = 0; i < restore.length; i += CHUNK) {
+          await svc.Task.bulkUpdate(restore.slice(i, i + CHUNK));
         }
         throw fail(
           `The revision could not be activated and was rolled back. The previously approved baseline is still the active one. (${error.message})`,
@@ -334,3 +348,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('baselineAction', handler);

@@ -1,3 +1,4 @@
+import DelayCategorySelect from '@/components/common/DelayCategorySelect';
 import React, { useEffect, useState } from 'react';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
@@ -31,6 +32,10 @@ export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSa
     }
     if (forecastChanged && !form.date_revision_reason.trim()) {
       setError('A forecast date change needs a date revision reason.');
+      return;
+    }
+    if (forecastChanged && !form.date_revision_category) {
+      setError('Choose the delay category for the date change.');
       return;
     }
     setSaving(true);
@@ -80,6 +85,9 @@ export default function QuickUpdateDialog({ task, open, onOpenChange, user, onSa
             onChange={(e) => setForm((f) => ({ ...f, current_forecast_finish: e.target.value }))}
           />
         </Field>
+        {forecastChanged && (
+          <DelayCategorySelect value={form.date_revision_category} onChange={(v) => setForm((f) => ({ ...f, date_revision_category: v }))} />
+        )}
         {forecastChanged && (
           <Field label="Date Revision Reason" required>
             <Input

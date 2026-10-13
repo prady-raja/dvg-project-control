@@ -133,3 +133,12 @@
     background: transparent;
   }
 }
+/* D-08: the villa statement prints as a clean A4 page — no menus, no buttons. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  aside, header.sticky, nav[aria-label='Quick'], nav[aria-label='Main'] { display: none !important; }
+  body { background: #fff !important; }
+  .lg\:pl-\[264px\] { padding-left: 0 !important; }
+  .statement { color: #000; }
+  .break-inside-avoid { break-inside: avoid; }
+}

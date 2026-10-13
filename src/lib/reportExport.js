@@ -1,4 +1,4 @@
-import { formatDateBlank } from '@/lib/format';
+import { formatDateBlank, todayIst } from '@/lib/format';
 
 /** Copy plain text to the clipboard, tolerating older browsers. */
 export async function copyText(text) {
@@ -47,4 +47,4 @@ export const ACTIVITY_COLUMNS = [
   { key: 'blocker', label: 'Blocker', value: (row) => row.blocker },
 ];
 
-export const todayStamp = () => new Date().toISOString().slice(0, 10);
+export const todayStamp = () => todayIst();

@@ -1,3 +1,4 @@
+import { todayIst } from '@/lib/format';
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import FormDialog from '@/components/common/FormDialog';
@@ -47,7 +48,7 @@ export default function DrawingDialog({ open, onOpenChange, floors = [], onSubmi
         floor_id: values.floor_id || null,
         revision: String(values.revision || '').trim() || null,
         revision_date: values.revision_date || null,
-        uploaded_date: new Date().toISOString().slice(0, 10),
+        uploaded_date: todayIst(),
         notes: String(values.notes || '').trim() || null,
         file_uri,
         file_name: file.name,

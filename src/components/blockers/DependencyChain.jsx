@@ -20,10 +20,11 @@ export default function DependencyChain({ chain }) {
         <span className="text-xs text-muted-foreground">{chain.root.villa} · {chain.root.discipline_name}</span>
         <Pill value={chain.root.status} />
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* A tree: each task that waits on another sits one step in from it. */}
+      <ul className="mt-3 space-y-1.5">
         {chain.nodes.map((node, index) => (
-          <React.Fragment key={`${node.id}-${index}`}>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          <li key={`${node.id}-${index}`} className="flex items-center gap-2" style={{ paddingLeft: `${Math.max((node.depth || 1) - 1, 0) * 20}px` }}>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <Link
               to={`/tasks/${node.id}`}
               className="rounded-lg border border-border px-2.5 py-1.5 text-xs hover:border-primary/40"
@@ -31,9 +32,9 @@ export default function DependencyChain({ chain }) {
               <span className="field-mono font-semibold">{node.ref}</span>
               <span className="ml-2 text-muted-foreground">{node.discipline_name}</span>
             </Link>
-          </React.Fragment>
+          </li>
         ))}
-      </div>
+      </ul>
       <p className="mt-3 text-[11px] text-muted-foreground">
         Drawn from {chain.nodes.length} recorded dependency link(s). Where no further link exists the chain ends here.
       </p>

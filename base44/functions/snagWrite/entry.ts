@@ -2,6 +2,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { activeMembers, canEditTasks, canManageProject, memberIdsOf, resolveRank } from '../../shared/access.ts';
 import { actorName, fail, getOne } from '../../shared/records.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveKindPrefix } from '../../shared/taskRef.ts';
+import { withLog } from '../../shared/log.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
+import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 
 /**
  * The guarded path for snags.
@@ -32,7 +35,7 @@ const text = (value, max = 2000) => {
 
 const isDate = (value) => DATE.test(String(value || ''));
 
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -77,6 +80,19 @@ export default async function (req) {
       if (task && task.project_id !== projectId) throw fail('That task belongs to a different project.');
       if (task && !payload.location_id) payload.location_id = task.location_id || null;
 
+      // Where in the villa the defect is, checked against the villa's own floors and rooms.
+      const scope = payload.location_id
+        ? await resolveTaskScope(svc, {
+          projectId,
+          locationId: payload.location_id,
+          floorId: body?.snag?.floor_id,
+          areaIds: body?.snag?.area_ids,
+        })
+        : null;
+      payload.floor_id = scope?.floor_id || null;
+      payload.area_ids = scope?.area_ids || [];
+      payload.area_label = scope?.area_label || null;
+
       const photos = (Array.isArray(body?.snag?.photo_uris) ? body.snag.photo_uris : [])
         .filter((uri) => typeof uri === 'string' && uri.trim())
         .map((uri) => uri.trim().slice(0, 500))
@@ -93,7 +109,7 @@ export default async function (req) {
       const created = await svc.Snag.create({
         ...payload,
         snag_ref: claim.ref,
-        raised_date: isDate(body?.snag?.raised_date) ? body.snag.raised_date : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10),
+        raised_date: isDate(body?.snag?.raised_date) ? body.snag.raised_date : todayIst(),
         raised_by_id: user.id,
         raised_by_name: actorName(user),
         photo_uris: photos,
@@ -129,7 +145,7 @@ export default async function (req) {
     if (patch.reinspection_date && !isDate(patch.reinspection_date)) throw fail('Use a valid reinspection date.');
 
     if (patch.status === 'Closed') {
-      patch.closed_date = isDate(body?.snag?.closed_date) ? body.snag.closed_date : new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+      patch.closed_date = isDate(body?.snag?.closed_date) ? body.snag.closed_date : todayIst();
       patch.closed_by_name = actorName(user);
     } else if (patch.status && patch.status !== 'Closed') {
       patch.closed_date = null;
@@ -149,3 +165,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('snagWrite', handler);

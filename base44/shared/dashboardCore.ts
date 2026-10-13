@@ -20,6 +20,10 @@
  *    execution figures and reported separately instead of being hidden.
  */
 
+import { isStale, projectSettings, workingDaysBetween } from './calendar.ts';
+
+export { addWorkingDays, isStale, isWorkingDay, projectSettings, workingDaysBetween } from './calendar.ts';
+
 export const IST_OFFSET_MINUTES = 330;
 export const DAY_MS = 86400000;
 
@@ -50,7 +54,14 @@ export const isExecuting = (task) => EXECUTING_STATUSES.includes(task?.status);
 export const isAwaitingVerification = (task) => VERIFICATION_STATUSES.includes(task?.status);
 export const isAwaitingClosure = (task) => CLOSURE_STATUSES.includes(task?.status);
 export const isOutstanding = (task) => !!task && task.status !== 'Closed';
-export const isBlocked = (task) => task?.status === 'Blocked';
+/**
+ * Blocked means work that is still to be executed and either has the status
+ * Blocked or carries a recorded blocker. Every board uses this one reading, so
+ * the Villa page, the Blocker board, the Contractor board and the meeting report
+ * can never disagree (X-06). Finished work with a leftover blocker note is not blocked.
+ */
+export const isBlocked = (task) =>
+  !!task && isExecuting(task) && (task.status === 'Blocked' || !!String(task.blocker_description || '').trim());
 
 /** The one date the application schedules against. */
 export const finishDate = (task) => toDay(task?.current_forecast_finish) || toDay(task?.baseline_finish);
@@ -82,6 +93,82 @@ export const dueWithin = (task, asOf, days) => {
 export const isUnscheduled = (task) =>
   isOutstanding(task) && !toDay(task?.baseline_finish) && !toDay(task?.current_forecast_finish);
 
+/**
+ * Days the forecast is later (+) or earlier (-) than the approved baseline finish.
+ * Null when either date is missing, so a slip is never invented.
+ */
+export const slipDays = (task) => {
+  const baseline = toDay(task?.baseline_finish);
+  const forecast = toDay(task?.current_forecast_finish);
+  if (!baseline || !forecast) return null;
+  return daysBetween(baseline, forecast);
+};
+
+/** Predecessors still open for each task, from the recorded dependency links. */
+export function openPredecessorCounts(tasks, dependencies = []) {
+  const byId = new Map((tasks || []).map((t) => [t.id, t]));
+  const counts = new Map();
+  (dependencies || []).forEach((link) => {
+    if (!link || link.active === false) return;
+    const before = byId.get(link.predecessor_task_id);
+    const open = before ? !['Closed', 'Approved'].includes(before.status) : true;
+    if (open) counts.set(link.successor_task_id, (counts.get(link.successor_task_id) || 0) + 1);
+  });
+  return counts;
+}
+
+/**
+ * Schedule health, apart from status (P-01), in working days from the project calendar:
+ *  - Late: the finish date has passed and the work is still to be executed.
+ *  - At risk: due within the project's at-risk window and not on its way — no site
+ *    update for too long, a predecessor still open, or blocked.
+ *  - On track: has a finish date and none of the above.
+ * Work already executed, or with no finish date, has no health ('' — never guessed).
+ */
+export function healthOf(task, asOf, { settings, openPredecessors = 0, lastReportDay = '' } = {}) {
+  if (!isOutstanding(task) || !isExecuting(task)) return '';
+  const finish = finishDate(task);
+  if (!finish) return '';
+  if (finish < asOf) return 'Late';
+  const s = settings || projectSettings(null);
+  const window = workingDaysBetween(asOf, finish, s);
+  if (window > s.at_risk_window_days) return 'On track';
+  const stale = isStale(lastReportDay || task.latest_report_date || task.updated_date, asOf, s);
+  if (stale || openPredecessors > 0 || isBlocked(task)) return 'At risk';
+  return 'On track';
+}
+
+/** Health of a task using the project's calendar and the dependency links the index holds. */
+export const healthFor = (task, ix, asOf) =>
+  healthOf(task, asOf, {
+    settings: ix.settings(task.project_id),
+    openPredecessors: ix.openPredecessors ? ix.openPredecessors(task.id) : 0,
+    lastReportDay: ix.lastReportAt(task.id),
+  });
+
+/**
+ * Why forecasts moved, counted by category and ranked (a Pareto): how many
+ * tasks, and how many days of slip against the baseline, each cause explains.
+ */
+export function delayCauses(tasks) {
+  const groups = new Map();
+  (tasks || []).forEach((task) => {
+    const category = task.date_revision_category;
+    if (!category) return;
+    const entry = groups.get(category) || { category, tasks: 0, slip_days: 0 };
+    entry.tasks += 1;
+    entry.slip_days += Math.max(slipDays(task) || 0, 0);
+    groups.set(category, entry);
+  });
+  const rows = [...groups.values()].sort((a, b) => b.slip_days - a.slip_days || b.tasks - a.tasks);
+  const total = rows.reduce((sum, row) => sum + row.tasks, 0);
+  let running = 0;
+  return rows.map((row) => {
+    running += row.tasks;
+    return { ...row, cumulative_percent: total ? Math.round((running / total) * 100) : 0 };
+  });
+}
+
 /** Quantity progress, only when both sides of the measurement exist. */
 export const quantityProgress = (task) => {
   const planned = Number(task?.planned_quantity);
@@ -90,36 +177,45 @@ export const quantityProgress = (task) => {
   return Math.round((completed / planned) * 1000) / 10;
 };
 
+/** Progress as recorded: finished work counts as 100%, everything else only when it was measured. */
+export const measuredProgress = (task) => {
+  if (!task) return null;
+  if (['Approved', 'Closed'].includes(task.status)) return 100;
+  return typeof task.progress_percent === 'number' ? task.progress_percent : null;
+};
+
 /**
  * Weighted completion, only from measured progress.
  *
- * A percentage is produced only when EVERY outstanding task in the set carries
- * a measured progress value; otherwise the answer is null and the screens show
- * status counts instead. Nothing is averaged blindly and nothing is invented.
- * Weight is the task's estimated man-hours (1 when unset).
+ * A percentage is produced only when EVERY task in the set is measured —
+ * Approved and Closed work counts as 100% — otherwise the answer is null and the
+ * screens show status counts plus "N of M tasks measured" instead. Nothing is
+ * averaged blindly and nothing is invented. Weight is the task's estimated
+ * man-hours (1 when unset).
  */
 export function weightedProgress(tasks) {
-  const counted = (tasks || []).filter(isOutstanding);
-  const measured = counted.filter((task) => typeof task.progress_percent === 'number');
+  const counted = tasks || [];
+  const measured = counted.filter((task) => measuredProgress(task) !== null);
   let weight = 0;
   let acc = 0;
   measured.forEach((task) => {
     const w = Number(task.estimated_manhours) > 0 ? Number(task.estimated_manhours) : 1;
     weight += w;
-    acc += w * (Number(task.progress_percent) || 0);
+    acc += w * measuredProgress(task);
   });
   const reliable = counted.length > 0 && measured.length === counted.length;
   return {
     percent: reliable && weight > 0 ? Math.round((acc / weight) * 10) / 10 : null,
     measured: measured.length,
     total: counted.length,
+    measured_share: counted.length ? Math.round((measured.length / counted.length) * 100) : 0,
     reliable,
     basis: 'Estimated man-hours',
     reason: !counted.length
-      ? 'No outstanding task records in this scope'
+      ? 'No task records in this scope'
       : reliable
         ? ''
-        : `Measured progress exists for ${measured.length} of ${counted.length} outstanding tasks`,
+        : `Measured progress exists for ${measured.length} of ${counted.length} tasks`,
   };
 }
 
@@ -140,7 +236,8 @@ export function statusCounts(tasks, asOf) {
 
 /* -------------------------------------------------------------- reference index */
 
-export function buildIndex({ projects = [], phases = [], locations = [], contractors = [], disciplines = [], updates = [] } = {}) {
+export function buildIndex({ projects = [], phases = [], locations = [], contractors = [], disciplines = [], updates = [], tasks = [], dependencies = [] } = {}) {
+  const openPreds = openPredecessorCounts(tasks, dependencies);
   const projectMap = new Map(projects.map((p) => [p.id, p]));
   const phaseMap = new Map(phases.map((p) => [p.id, p]));
   const locationMap = new Map(locations.map((l) => [l.id, l]));
@@ -160,6 +257,8 @@ export function buildIndex({ projects = [], phases = [], locations = [], contrac
 
   return {
     project: (id) => projectMap.get(id) || null,
+    settings: (id) => projectSettings(projectMap.get(id)),
+    openPredecessors: (taskId) => openPreds.get(taskId) || 0,
     projectName: (id) => projectMap.get(id)?.name || '',
     phase: (id) => phaseMap.get(id) || null,
     phaseName: (id) => phaseMap.get(id)?.name || '',
@@ -179,17 +278,24 @@ export function buildIndex({ projects = [], phases = [], locations = [], contrac
 export const heldLocationIds = (locations = []) =>
   new Set(locations.filter((l) => l.active_status === 'On Hold').map((l) => l.id));
 
-/** The single filter used by every dashboard screen. */
+/**
+ * The one exclusion filter every dashboard screen uses (X-06): archived rows,
+ * villa-work parents (assignment holders, never work) and demo records are left
+ * out of every figure. Villas on hold are handled by splitHeld, so their work is
+ * reported separately rather than hidden.
+ */
+export const isCountable = (task, { includeDemo = false } = {}) =>
+  !!task && !isArchived(task) && !isParentRow(task) && (includeDemo || !isDemoTask(task));
+
 export function scopeTasks(tasks, options = {}) {
   const { projectId, phaseId, locationId, contractorId, discipline, includeDemo = false } = options;
   return (tasks || []).filter((task) => {
-    if (!task || isArchived(task) || isParentRow(task)) return false;
+    if (!isCountable(task, { includeDemo })) return false;
     if (projectId && task.project_id !== projectId) return false;
     if (phaseId && task.phase_id !== phaseId) return false;
     if (locationId && task.location_id !== locationId) return false;
     if (contractorId && task.contractor_id !== contractorId) return false;
     if (discipline && task.discipline !== discipline) return false;
-    if (!includeDemo && isDemoTask(task)) return false;
     return true;
   });
 }
@@ -213,7 +319,7 @@ export function taskRow(task, ix, asOf) {
   if (task.access_status === 'Pending') decisions.push('Owner access pending');
   if (task.selection_status === 'Pending Selection') decisions.push('Client selection pending');
   if (['To Order', 'Ordered'].includes(task.procurement_status)) decisions.push(`${task.procurement_status} material`);
-  if (isBlocked(task) || task.blocker_description) decisions.push('Blocker to clear');
+  if (isBlocked(task)) decisions.push('Blocker to clear');
 
   return {
     id: task.id,
@@ -249,7 +355,15 @@ export function taskRow(task, ix, asOf) {
     finish,
     finish_source: finishSource(task),
     overdue_days: overdue,
+    slip_days: slipDays(task),
+    health: healthOf(task, asOf, {
+      settings: ix.settings(task.project_id),
+      openPredecessors: ix.openPredecessors ? ix.openPredecessors(task.id) : 0,
+      lastReportDay: ix.lastReportAt(task.id),
+    }),
+    delay_category: task.date_revision_category || '',
     due_in_days: dueInDays(task, asOf),
+    blocked: isBlocked(task),
     blocked_since: toDay(task.blocked_since),
     blocked_days: task.blocked_since ? daysBetween(task.blocked_since, asOf) : null,
     blocker: task.blocker_description || '',
@@ -262,6 +376,24 @@ export function taskRow(task, ix, asOf) {
     is_demo: isDemoTask(task),
     is_parent: isParentRow(task),
   };
+}
+
+/** Who has to act on this: the contractor, DVG, or the villa owner. Read from recorded state only. */
+export function actorFor(row) {
+  if (row.status === 'Execution Complete' || row.status === 'Under Inspection' || row.status === 'Approved') return 'DVG';
+  if (row.blocker_category === 'DVG Approval') return 'DVG';
+  if (['Owner Access Pending', 'Client Selection Pending'].includes(row.blocker_category)) return 'Villa owner';
+  if (row.decisions?.some((d) => /owner access|client selection/i.test(d))) return 'Villa owner';
+  return 'Contractor';
+}
+
+/** Red / amber / green for a phase from its own counts — thresholds are stated on the dashboard. */
+export const RAG_RULES = { red_overdue_share: 0.15, red_blocked_share: 0.1 };
+export function ragOf({ open = 0, overdue = 0, blocked = 0, at_risk = 0 }) {
+  if (!open) return 'green';
+  if (overdue / open >= RAG_RULES.red_overdue_share || blocked / open >= RAG_RULES.red_blocked_share) return 'red';
+  if (overdue > 0 || blocked > 0 || at_risk > 0) return 'amber';
+  return 'green';
 }
 
 /** One line of "what to do about it" per task, derived from recorded state only. */
@@ -304,23 +436,22 @@ export const compareFinish = (a, b) => {
 export function metricTasks(tasks, metric, asOf, options = {}) {
   const locations = options.locations || [];
   const heldIds = options.heldIds || new Set();
-  const staleBefore = shiftDay(asOf, -7);
+  const settingsFor = options.settingsFor || (() => projectSettings(null));
   const villaOf = new Map(locations.map((l) => [l.id, l]));
   // The list behind a headline figure is scoped exactly like the figure itself:
-  // same project, same phase, same demo rule.
-  const scoped = (tasks || []).filter((t) => {
-    if (!t || isArchived(t) || isParentRow(t)) return false;
-    if (options.projectId && t.project_id !== options.projectId) return false;
-    if (options.phaseId && t.phase_id !== options.phaseId) return false;
-    if (!options.includeDemo && isDemoTask(t)) return false;
-    return true;
-  });
+  // same project, same phase, same exclusion filter.
+  const scoped = scopeTasks(tasks, { projectId: options.projectId, phaseId: options.phaseId, includeDemo: options.includeDemo });
   const active = scoped.filter((t) => !t.location_id || !heldIds.has(t.location_id));
   switch (metric) {
+    case 'all_tasks': return active;
     case 'open': return active.filter(isOutstanding);
     case 'executing': return active.filter(isExecuting);
     case 'overdue': return active.filter((t) => isOverdue(t, asOf));
     case 'blocked': return active.filter(isBlocked);
+    case 'at_risk': {
+      const preds = openPredecessorCounts(active, options.dependencies);
+      return active.filter((t) => healthOf(t, asOf, { settings: settingsFor(t.project_id), openPredecessors: preds.get(t.id) || 0 }) === 'At risk');
+    }
     case 'awaiting_verification': return active.filter(isAwaitingVerification);
     case 'awaiting_closure': return active.filter(isAwaitingClosure);
     case 'due_7': return active.filter((t) => dueWithin(t, asOf, 7));
@@ -335,8 +466,8 @@ export function metricTasks(tasks, metric, asOf, options = {}) {
     case 'stale_updates':
       return active.filter((t) => {
         if (!isOutstanding(t)) return false;
-        const last = t.last_report_at || t.updated_date || '';
-        return !last || String(last).slice(0, 10) < staleBefore;
+        const last = t.last_report_at || t.latest_report_date || t.updated_date || '';
+        return isStale(last, asOf, settingsFor(t.project_id));
       });
     default: return active.filter(isOutstanding);
   }

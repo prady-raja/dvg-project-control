@@ -35,7 +35,7 @@ const empty = {
 /**
  * One Villa Work activity across one, several or all active villas of a phase.
  * Every villa gets its own independently editable task; on-hold villas are left
- * out unless a Project Manager explicitly includes them.
+ * out unless a Project Editor explicitly includes them.
  */
 export default function VillaWorkDialog({ open, onOpenChange, cat, projectId, phaseId, onCreated }) {
   const navigate = useNavigate();
@@ -254,7 +254,7 @@ export default function VillaWorkDialog({ open, onOpenChange, cat, projectId, ph
             {onHoldVillas.length > 0 && !includeOnHold
               ? ` ${onHoldVillas.length} on-hold villa(s) (${onHoldVillas
                   .map((v) => v.villa_code)
-                  .join(', ')}) excluded${canIncludeOnHold ? '.' : ' — only a Project Manager can include them.'}`
+                  .join(', ')}) excluded${canIncludeOnHold ? '.' : ' — only a Project Editor can include them.'}`
               : ''}
           </p>
           {canIncludeOnHold && onHoldVillas.length > 0 && (

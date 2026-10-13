@@ -80,4 +80,25 @@ export default [
       ],
     },
   },
+  {
+    // X-07: "today" is the calendar day in Asia/Kolkata, never the browser's or
+    // the server's UTC day. Use todayIst() (src/lib/format.js, base44/shared/dashboardCore.ts).
+    files: ["src/**/*.{js,jsx}", "base44/**/*.ts"],
+    ignores: ["src/components/ui/**/*"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.property.name='slice'][callee.object.callee.property.name='toISOString'][callee.object.callee.object.type='NewExpression'][callee.object.callee.object.arguments.length=0][arguments.0.value=0][arguments.1.value=10]",
+          message: "Use todayIst() for today's date: new Date().toISOString().slice(0, 10) is the UTC day.",
+        },
+      ],
+    },
+  },
 ];

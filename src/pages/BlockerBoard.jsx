@@ -11,6 +11,8 @@ import DataCaveats from '@/components/common/DataCaveats';
 import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import BlockerTable from '@/components/blockers/BlockerTable';
+import BlockerOwnerGroups from '@/components/blockers/BlockerOwnerGroups';
+import { useInvalidateWork } from '@/hooks/useDashboardQuery';
 import DependencyChain from '@/components/blockers/DependencyChain';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +29,11 @@ export default function BlockerBoard() {
   const [error, setError] = useState('');
   const [drill, setDrill] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const invalidateWork = useInvalidateWork();
+  const changed = async () => {
+    await invalidateWork();
+    setRefresh((n) => n + 1);
+  };
 
   useEffect(() => {
     if (cat.loading || projectId || !cat.projects.length) return;
@@ -107,7 +114,8 @@ export default function BlockerBoard() {
             <StatTile label="With a blocker recorded" value={counts.with_blocker_recorded ?? 0} />
             <StatTile label="Blocked by another party" value={counts.blocked_by_another_party ?? 0} hint="Responsible party differs from the assigned contractor" />
             <StatTile label="Overdue and blocked" value={counts.overdue_and_blocked ?? 0} tone="danger" />
-            <StatTile label="Past expected resolution" value={counts.resolution_overdue ?? 0} tone="warning" />
+            <StatTile label="Past the date owners gave" value={counts.past_due ?? counts.resolution_overdue ?? 0} tone="warning" />
+            <StatTile label="No owner or date" value={counts.without_owner ?? 0} hint="Cannot be chased until someone owns it" />
             <StatTile label="Recorded dependency links" value={counts.dependency_links ?? 0} />
             <StatTile label="Holding up other work" value={counts.tasks_with_downstream ?? 0} />
             <StatTile
@@ -126,6 +134,13 @@ export default function BlockerBoard() {
               ))}
             </div>
           )}
+
+          <BoardSection
+            title="Who must clear them"
+            description="Blockers grouped by owner, those past their date first. Owner-access blockers are grouped by villa."
+          >
+            <BlockerOwnerGroups groups={data.by_owner || []} onChanged={changed} />
+          </BoardSection>
 
           <BoardSection
             title="Blocker register"

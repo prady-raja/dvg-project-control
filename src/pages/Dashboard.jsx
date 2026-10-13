@@ -12,10 +12,34 @@ import DataCaveats from '@/components/common/DataCaveats';
 import EmptyState from '@/components/common/EmptyState';
 import DashboardFilters from '@/components/dashboard/DashboardFilters';
 import PriorityList from '@/components/dashboard/PriorityList';
+import HeadlineTiles from '@/components/dashboard/HeadlineTiles';
+import PhaseHealthStrip from '@/components/dashboard/PhaseHealthStrip';
+import DelayCauses from '@/components/dashboard/DelayCauses';
+import { saveHomePreference } from '@/lib/navigation';
 import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
+
+const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
+
+/** The priority list split by who has to act: the contractor, DVG or the villa owner. */
+function PriorityGroups({ rows }) {
+  const [actor, setActor] = React.useState('');
+  const counts = Object.fromEntries(ACTORS.map((a) => [a, rows.filter((r) => r.act_by === a).length]));
+  const shown = actor ? rows.filter((r) => r.act_by === actor) : rows;
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Button size="sm" variant={actor === '' ? 'default' : 'outline'} onClick={() => setActor('')}>Everyone · {rows.length}</Button>
+        {ACTORS.map((a) => (
+          <Button key={a} size="sm" variant={actor === a ? 'default' : 'outline'} onClick={() => setActor(a)}>{a} · {counts[a]}</Button>
+        ))}
+      </div>
+      <PriorityList rows={shown} />
+    </div>
+  );
+}
 
 /**
  * Stage A / 2 — Executive portfolio dashboard.
@@ -89,8 +113,8 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="Executive portfolio"
-        title="Dashboard"
+        eyebrow="Executive overview"
+        title="Overview"
         description="Villas, outstanding works, delays and blockers for the reporting date you choose. Every figure opens the records behind it."
         actions={
           <>
@@ -100,6 +124,7 @@ export default function Dashboard() {
             <Button asChild size="sm" variant="outline">
               <Link to="/planning">Planning</Link>
             </Button>
+            <Button size="sm" variant="ghost" onClick={() => saveHomePreference('overview')} title="Open the Overview when I sign in">Make this my home</Button>
           </>
         }
       />
@@ -129,6 +154,38 @@ export default function Dashboard() {
         <div className="mt-5 space-y-5">
           <DataCaveats items={data.warnings} tone={metrics.demo_view ? 'warning' : 'info'} />
 
+          <HeadlineTiles metrics={metrics} change={data.change_since_last_week} onOpen={open} />
+
+          <button
+            type="button"
+            onClick={() => open('handed_over_open_works', 'Handed-over villas with open works', 'Possession is handed over but construction work is still open on these villas.')}
+            className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm text-amber-950 transition-colors hover:bg-amber-100"
+          >
+            <span className="font-semibold">Handed over with open works:</span>{' '}
+            {metrics.handed_over_open_works ?? 0} villa{metrics.handed_over_open_works === 1 ? '' : 's'}, {metrics.handed_over_open_tasks ?? 0} task{metrics.handed_over_open_tasks === 1 ? '' : 's'}, {metrics.handed_over_waiting_on_owner ?? 0} waiting on owner access.
+            <span className="ml-2 text-xs underline">Open the villas</span>
+          </button>
+
+          <BoardSection title="Phase health" description="Red, amber or green per phase, from the same counts as the tiles above." dense>
+            <PhaseHealthStrip phases={data.phase_health || []} />
+          </BoardSection>
+
+          <BoardSection
+            title="What to push, and who must act"
+            description="Ranked from recorded facts: delay, blockage and priority. Grouped by who has to move."
+          >
+            <PriorityGroups rows={data.priorities || []} />
+          </BoardSection>
+
+          <BoardSection title="Why forecasts moved" description="Delay causes, counted from the category chosen with every forecast change." dense>
+            <DelayCauses causes={data.delay_causes || []} />
+          </BoardSection>
+
+          <details className="rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer px-5 py-4 font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Data details — inventory, every count and completion
+            </summary>
+            <div className="space-y-5 p-4">
           <BoardSection
             title="Villa and unit inventory"
             description="Registered units, what is active, what is on hold, and villas already handed over that still carry open works."
@@ -174,13 +231,6 @@ export default function Dashboard() {
                 <StatTile label="Blocked on held villas" value={metrics.held_blocked_tasks ?? 0} />
               </div>
             )}
-          </BoardSection>
-
-          <BoardSection
-            title="Management priorities"
-            description="Ranked from recorded facts: delay, blockage, priority and whether the work is holding up anything else."
-          >
-            <PriorityList rows={data.priorities || []} />
           </BoardSection>
 
           <div className="grid gap-5 lg:grid-cols-3">
@@ -229,6 +279,9 @@ export default function Dashboard() {
               )}
             </BoardSection>
           </div>
+
+            </div>
+          </details>
 
           {Object.keys(data.counts_by_status || {}).length > 0 && (
             <p className="text-xs text-muted-foreground">

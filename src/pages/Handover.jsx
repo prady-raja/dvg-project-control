@@ -165,6 +165,9 @@ export default function Handover() {
                           <Button asChild size="sm" variant="ghost">
                             <Link to={`/locations/${row.location_id}/execution`}>Open</Link>
                           </Button>
+                          <Button asChild size="sm" variant="ghost">
+                            <Link to={`/villas/${row.location_id}/statement`}>Statement</Link>
+                          </Button>
                           {canEdit && (
                             <Button size="sm" variant="outline" onClick={() => setSnagFor(row)}>
                               Raise snag

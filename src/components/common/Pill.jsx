@@ -1,18 +1,11 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import StatusPill from '@/components/common/StatusPill';
+import { STATUS_TOKENS } from '@/lib/tokens';
 
 const TONES = {
-  'Not Started': 'bg-slate-100 text-slate-700 border-slate-200',
-  'In Progress': 'bg-sky-50 text-sky-700 border-sky-200',
-  Blocked: 'bg-red-50 text-red-700 border-red-200',
-  'Execution Complete': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'Under Inspection': 'bg-violet-50 text-violet-700 border-violet-200',
-  Approved: 'bg-teal-50 text-teal-700 border-teal-200',
-  Closed: 'bg-slate-900 text-slate-50 border-slate-900',
   'Handed Over': 'bg-emerald-50 text-emerald-700 border-emerald-200',
   'Not Handed Over': 'bg-amber-50 text-amber-800 border-amber-200',
-  Active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'On Hold': 'bg-red-50 text-red-700 border-red-200',
   Critical: 'bg-red-50 text-red-700 border-red-200',
   High: 'bg-orange-50 text-orange-700 border-orange-200',
   Medium: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -28,6 +21,7 @@ const TONES = {
 
 export default function Pill({ value, className, dot = false }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
+  if (STATUS_TOKENS[value] || value === 'On Hold' || value === 'Active') return <StatusPill status={value} className={className} />;
   const tone = TONES[value] || 'bg-slate-100 text-slate-700 border-slate-200';
   return (
     <span

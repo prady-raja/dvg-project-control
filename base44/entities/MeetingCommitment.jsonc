@@ -28,6 +28,10 @@
       "type": "string",
       "description": "What was promised, in the contractor's own words"
     },
+    "responsible_user_id": {
+      "type": "string",
+      "description": "The DVG team member who follows this commitment up (T-01)"
+    },
     "responsible_person": {
       "type": "string"
     },

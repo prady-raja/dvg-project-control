@@ -1,3 +1,6 @@
+import DataState from '@/components/common/DataState';
+import TruncationBanner from '@/components/common/TruncationBanner';
+import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, MapPin } from 'lucide-react';
@@ -25,6 +28,8 @@ export default function Locations() {
   });
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -32,30 +37,34 @@ export default function Locations() {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
+      setLoadError('');
       const query = {};
       if (filters.project_id) query.project_id = filters.project_id;
       if (filters.phase_id) query.phase_id = filters.phase_id;
       if (filters.location_type) query.location_type = filters.location_type;
       if (filters.possession_status) query.possession_status = filters.possession_status;
       if (filters.active_status) query.active_status = filters.active_status;
-      const res = await base44.entities.Location.filter(query, { sort: 'villa_code', limit: 500 });
-      if (!cancelled) {
-        setLocations(items(res));
-        setLoading(false);
+      try {
+        const res = await base44.entities.Location.filter(query, { sort: 'villa_code', limit: 500 });
+        if (!cancelled) setLocations(items(res));
+      } catch (e) {
+        if (!cancelled) setLoadError(errorMessageOf(e, 'The villa list could not be loaded.'));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => {
       cancelled = true;
     };
-  }, [filters, cat.locations.length]);
+  }, [filters, cat.locations.length, reloadKey]);
 
   const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
     <>
       <PageHeader
-        eyebrow="Imagine Villas · Birdie Residences"
+        eyebrow={cat.projects.map((p) => p.name).join(' · ') || 'Villas & locations'}
         title="Villas & Locations"
         description="Physical villas, common areas and infrastructure. Plot references are kept separate from the villa ID."
         actions={
@@ -107,7 +116,9 @@ export default function Locations() {
         />
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <DataState error={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : loading ? (
         <Skeleton className="h-72 rounded-xl" />
       ) : locations.length === 0 ? (
         <div className="rounded-xl border border-border bg-card">
@@ -120,6 +131,7 @@ export default function Locations() {
       ) : (
         <>
           <p className="mb-3 text-xs text-muted-foreground">{locations.length} records</p>
+          {locations.length >= 500 && <TruncationBanner shown={locations.length} noun="locations" className="mb-3" />}
           <LocationTable locations={locations} cat={cat} />
         </>
       )}

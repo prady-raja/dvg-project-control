@@ -3,8 +3,8 @@ import { Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Completion is shown only when it is real: every outstanding task in the set
- * must carry measured progress. Otherwise the screen shows status counts and
+ * Completion is shown only when it is real: every task in the set must carry
+ * measured progress (approved and closed work counts as 100%). Otherwise the screen shows status counts and
  * says why, rather than publishing an average of unrelated percentages.
  */
 export default function ProgressNote({ progress, counts, label = 'Measured completion', className }) {
@@ -19,7 +19,7 @@ export default function ProgressNote({ progress, counts, label = 'Measured compl
         <>
           <p className="field-mono mt-1 text-2xl font-semibold tnum">{progress.percent}%</p>
           <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
-            Weighted by {progress.basis?.toLowerCase() || 'estimated man-hours'} · {progress.measured} of {progress.total} outstanding tasks measured
+            Weighted by {progress.basis?.toLowerCase() || 'estimated man-hours'} · {progress.measured} of {progress.total} tasks measured ({progress.measured_share ?? 100}%)
           </p>
         </>
       ) : (

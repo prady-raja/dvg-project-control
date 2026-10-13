@@ -7,29 +7,14 @@
  * ("admin") sits above them.
  */
 
-export const ROLE_RANK = {
-  Viewer: 0,
-  Supervisor: 1,
-  'Site Engineer': 1,
-  // The operational permission level: every site, MEP, procurement, planning and
-  // management user works at this one level, whatever their designation says.
-  'Project Editor': 2,
-  // Legacy levels, kept so records written before Project Editor still resolve.
-  'Project Manager': 2,
-  'Project Admin': 3,
-};
+import { APP_ADMIN_RANK, MEMBERSHIP_ROLES, ROLE_RANK } from './enums.ts';
+import { makeDb } from './dbCore.ts';
 
-/**
- * The one list of project roles a membership may carry. Project Editor (the
- * default for every invite) leads; the legacy roles stay valid until they are
- * migrated to Project Editor or Viewer.
- */
-export const MEMBERSHIP_ROLES = ['Project Editor', 'Viewer', 'Project Admin', 'Project Manager', 'Site Engineer', 'Supervisor'];
+export { APP_ADMIN_RANK, MEMBERSHIP_ROLES, ROLE_RANK };
 
 export const isMembershipRole = (role) => MEMBERSHIP_ROLES.includes(String(role || ''));
 
-/** Application administrator — set by the app owner in App Users, never by the app itself. */
-export const APP_ADMIN_RANK = 4;
+/* Application administrator rank (APP_ADMIN_RANK) is set by the app owner in App Users, never by the app itself. */
 
 export const rankForRole = (role) =>
   Object.prototype.hasOwnProperty.call(ROLE_RANK, role) ? ROLE_RANK[role] : -1;
@@ -85,14 +70,18 @@ export async function resolveRole(base44, projectId, user) {
 }
 
 export async function activeMembers(base44, projectId) {
-  const res = await base44.asServiceRole.entities.ProjectMembership.filter(
+  // Read to the end: this list feeds the member_ids mirror, so a short read would lock people out.
+  const { items } = await makeDb({ entities: base44.asServiceRole.entities }).readAll(
+    'ProjectMembership',
     { project_id: projectId, active: true },
-    { limit: 200 },
   );
-  return (res?.items || res || []).map((m) => ({
+  return items.map((m) => ({
     user_id: m.user_id,
     role: m.role,
     email: m.user_email,
+    name: m.user_name || '',
+    phone: m.phone || '',
+    initials: m.initials || '',
   }));
 }
 

@@ -5,6 +5,7 @@ import {
   rankForRole,
   syncProjectMemberIds,
 } from '../../shared/access.ts';
+import { withLog } from '../../shared/log.ts';
 
 /**
  * The signed-in user's own access: their application role and the project roles
@@ -14,7 +15,7 @@ import {
  * Also claims any membership recorded against the user's email before they had
  * signed in, and mirrors the project's member list onto its records.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -46,7 +47,7 @@ export default async function (req) {
 
     return Response.json({
       app_admin: appAdmin,
-      user: { id: user.id, email: user.email, full_name: user.full_name || '', role: user.role || 'user' },
+      user: { id: user.id, email: user.email, full_name: user.full_name || '', role: user.role || 'user', designation: user.designation || '' },
       memberships,
       claimed: claim.linked,
     });
@@ -54,3 +55,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('getMyAccess', handler);

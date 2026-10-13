@@ -40,6 +40,7 @@ export function aiUpdatePayload(form, date) {
   if (form.forecast) {
     payload.current_forecast_finish = form.forecast;
     payload.date_revision_reason = String(form.date_revision_reason || '').trim();
+    payload.source = 'ai';
   }
   return payload;
 }

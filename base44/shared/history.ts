@@ -10,10 +10,10 @@ export const TASK_FIELDS = [
   // Where inside the villa the work is, and what "acceptable" means for it.
   'floor_id', 'area_ids', 'area_label', 'scope_type', 'acceptance_criterion',
   'name', 'description', 'priority', 'status',
-  'contractor_id', 'responsible_engineer',
+  'contractor_id', 'responsible_engineer', 'assignee_user_id', 'watcher_ids',
   'progress_percent', 'planned_quantity', 'completed_quantity', 'measurement_unit',
   'baseline_start', 'baseline_finish', 'baseline_approval_status',
-  'current_forecast_finish', 'actual_start', 'actual_finish', 'date_revision_reason',
+  'current_forecast_finish', 'actual_start', 'actual_finish', 'date_revision_reason', 'date_revision_category',
   'planned_manpower', 'actual_manpower', 'estimated_manhours', 'actual_manhours',
   'supplied_by', 'selection_status', 'procurement_status', 'expected_delivery_date',
   'owner_access_required', 'access_status',

@@ -1,5 +1,7 @@
+import { todayIst } from '@/lib/format';
 import { base44 } from '@/api/base44Client';
 import { buildWorkbookFromSheets, buildWorkbookTemplate } from '@/lib/xlsxImport';
+import { mergePreviews, mergeResults, restrictToRows, splitIntoChunks } from '@shared/importChunks.ts';
 
 /**
  * The client half of the CSV work import: the downloadable template, a file
@@ -69,7 +71,8 @@ export const IMPORT_EXAMPLE_ROWS = [
   ['Imagine', 'B', 'Plots 5 & 6', 'Villa Work', 'ELEC', 'Concealed wiring', '', '', 'Entire Villa', 'Concealed electrical wiring through the villa', '', '', 'High', 'Not Started', '', '', '', '', '', '', '', '', '', 'IMG-EX-003'],
 ];
 
-export const MAX_FILE_BYTES = 1500000;
+/** Files go to the server in chunks, so the whole file can be much larger than one call takes. */
+export const MAX_FILE_BYTES = 8000000;
 
 /** Same file contents in, same fingerprint out — used to warn on a re-upload. */
 export function checksumOf(text) {
@@ -166,7 +169,7 @@ export function reconciliationCsv(result) {
 
 export const downloadReconciliation = (result) =>
   download(
-    `import-reconciliation-${result.batch_ref || new Date().toISOString().slice(0, 10)}.csv`,
+    `import-reconciliation-${result.batch_ref || todayIst()}.csv`,
     reconciliationCsv(result),
     'text/csv;charset=utf-8',
   );
@@ -196,4 +199,66 @@ export async function runWorkImport(payload) {
       'The import request was refused.';
     throw new Error(message);
   }
+}
+
+/**
+ * Run a preview or a commit over a whole file, a chunk of rows at a time
+ * (I-01). Every chunk is a small file of its own with the file's real row numbers;
+ * decisions and corrections are keyed by row number, so each chunk only receives
+ * its own. A commit keeps one ImportBatch across chunks. If a chunk fails the
+ * error names the batch and how many chunks were already written — running the
+ * import again recognises those rows as already on the register.
+ */
+export async function runChunkedImport({ action, file, params = {}, onProgress }) {
+  const chunks = splitIntoChunks(file.text, { rowNumbers: file.rowNumbers || [] });
+  const total = chunks.length;
+  const rowsInFile = chunks.reduce((sum, chunk) => sum + chunk.rowNumbers.length, 0);
+  const results = [];
+  let batchId = '';
+  let batchRef = '';
+
+  for (let index = 0; index < total; index += 1) {
+    const chunk = chunks[index];
+    onProgress?.({ index, total, rows: Math.min((index + 1) * 250, rowsInFile), rowsInFile });
+    const keyed = (map) => restrictToRows(map, chunk.rowNumbers);
+    const payload = {
+      ...params,
+      action,
+      file_name: file.name,
+      source_sheet: file.sheet || '',
+      checksum: file.checksum,
+      file_text: chunk.text,
+      row_numbers: chunk.rowNumbers,
+      overrides: keyed(params.overrides),
+      links: keyed(params.links),
+      ...(action === 'commit'
+        ? {
+          decisions: keyed(params.decisions),
+          reasons: keyed(params.reasons),
+          edits: keyed(params.edits),
+          expected: keyed(params.expected),
+          batch_id: batchId,
+          chunk_index: index,
+          chunk_total: total,
+          total_rows: rowsInFile,
+        }
+        : {}),
+    };
+    try {
+      const result = await runWorkImport(payload);
+      results.push(result);
+      if (action === 'commit') {
+        batchId = result.batch_id || batchId;
+        batchRef = result.batch_ref || batchRef;
+      }
+    } catch (error) {
+      if (action === 'commit' && index > 0) {
+        throw new Error(
+          `${error.message} Chunks 1–${index} of ${total} were already written under batch ${batchRef}; run the import again and those rows will show as already on the register.`,
+        );
+      }
+      throw error;
+    }
+  }
+  return action === 'commit' ? mergeResults(results) : mergePreviews(results);
 }

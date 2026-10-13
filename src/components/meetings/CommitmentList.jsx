@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import Pill from '@/components/common/Pill';
 import { Button } from '@/components/ui/button';
-import { formatDate } from '@/lib/format';
+import { formatDate, todayIst } from '@/lib/format';
 
 /** Every promise on record, newest first — nothing is overwritten. */
 export default function CommitmentList({ rows = [], canEdit = false, onUpdate, emptyLabel = 'No commitment has been recorded for this filter yet.' }) {
@@ -14,7 +14,7 @@ export default function CommitmentList({ rows = [], canEdit = false, onUpdate, e
   return (
     <div className="space-y-3">
       {rows.map((row) => {
-        const overdue = row.status === 'Open' && row.promised_date && row.promised_date < new Date().toISOString().slice(0, 10);
+        const overdue = row.status === 'Open' && row.promised_date && row.promised_date < todayIst();
         return (
           <article key={row.id} className="rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">

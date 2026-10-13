@@ -8,6 +8,8 @@ import {
 } from '../../shared/access.ts';
 import { allocateTaskRefs, attachTaskRefs, resolveRefCollisions } from '../../shared/taskRef.ts';
 import { actorName, fail, getOne, listAll } from '../../shared/records.ts';
+import { withLog } from '../../shared/log.ts';
+import { assigneeFor } from '../../shared/assignees.ts';
 
 const WORK_FIELDS = [
   'description', 'priority', 'work_package', 'contractor_id', 'responsible_engineer',
@@ -34,10 +36,10 @@ const historyRow = (task, projectId, memberIds, user, label) => ({
 /**
  * One Villa Work activity across several villas: a single parent assignment
  * plus one independently editable child task per villa. On-hold villas are
- * excluded unless a Project Manager explicitly includes them, and a retry with
+ * excluded unless a Project Editor explicitly includes them, and a retry with
  * the same key returns the work already created instead of duplicating it.
  */
-export default async function (req) {
+async function handler(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -64,7 +66,7 @@ export default async function (req) {
     }
     const manager = canManageProject(rank);
     if (includeOnHold && !manager) {
-      throw fail('Only a Project Manager or an administrator can include on-hold villas.', 403);
+      throw fail('Only a Project Editor or an administrator can include on-hold villas.', 403);
     }
 
     // Retry safety: the same key never creates a second set of work.
@@ -121,7 +123,8 @@ export default async function (req) {
 
     if (!targets.length) throw fail('No villas match that selection.');
 
-    const memberIds = memberIdsOf(await activeMembers(base44, projectId));
+    const members = await activeMembers(base44, projectId);
+    const memberIds = memberIdsOf(members);
     // One block of permanent references: the assignment and every villa under it.
     const claims = await allocateTaskRefs(base44.asServiceRole, projectId, phaseId, targets.length + 1, {
       memberIds,
@@ -172,6 +175,14 @@ export default async function (req) {
         archived: false,
         member_ids: memberIds,
         ...Object.fromEntries(WORK_FIELDS.map((field) => [field, clean(work[field])])),
+        // Each villa's own engineer takes the work unless one was chosen for all.
+        ...assigneeFor({
+          requested: work.assignee_user_id,
+          members,
+          location,
+          isCreate: true,
+          typedName: String(work.responsible_engineer || '').trim(),
+        }),
       }));
 
     const children = rows.length ? listAll(await svc.Task.bulkCreate(rows)) : [];
@@ -221,3 +232,5 @@ export default async function (req) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }
+
+export default withLog('villaWorkCreate', handler);

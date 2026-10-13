@@ -1,0 +1,46 @@
+{
+  "name": "TaskConstraint",
+  "type": "object",
+  "description": "What is holding a task up, who must clear it and by when (F-02). One open row per blocker; the task's own blocker fields are kept in step as a summary. Written only by the constraintWrite function.",
+  "properties": {
+    "project_id": { "type": "string" },
+    "phase_id": { "type": "string" },
+    "location_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "task_ref": { "type": "string" },
+    "category": {
+      "type": "string",
+      "enum": ["Previous Work Incomplete", "Materials Pending", "Client Selection Pending", "Owner Access Pending", "Drawing / Design Clarification", "Contractor Manpower", "DVG Approval", "External Utility / Authority", "Other"]
+    },
+    "description": { "type": "string" },
+    "owner_type": { "type": "string", "enum": ["Contractor", "DVG", "Villa owner", "Consultant", "Authority"] },
+    "owner_id": { "type": "string", "description": "Contractor id or user id when the owner is one of those; blank otherwise" },
+    "owner_name": { "type": "string", "description": "Who must clear it, as shown: a contractor, a DVG member, the villa owner, a consultant or an authority" },
+    "due_date": { "type": "string", "format": "date" },
+    "status": { "type": "string", "enum": ["Open", "Cleared"], "default": "Open" },
+    "raised_by_name": { "type": "string" },
+    "raised_at": { "type": "string", "format": "date-time" },
+    "cleared_at": { "type": "string", "format": "date-time" },
+    "cleared_by_name": { "type": "string" },
+    "clear_note": { "type": "string" },
+    "last_chased_at": { "type": "string", "format": "date-time" },
+    "chase_count": { "type": "number", "default": 0 },
+    "member_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "App users with active membership on this project. Maintained server-side."
+    }
+  },
+  "required": ["project_id", "task_id", "category", "status"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.member_ids": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "server-only" } },
+    "update": { "user_condition": { "role": "server-only" } },
+    "delete": false
+  }
+}

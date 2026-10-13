@@ -1,4 +1,5 @@
 import React from 'react';
+import FloorRoomPicker from '@/components/villa/FloorRoomPicker';
 import { Check } from 'lucide-react';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
@@ -146,51 +147,17 @@ export default function AiProposalAction({
           <Field label="Work package">
             <Input value={draft.work_package ?? ''} onChange={(e) => set({ work_package: e.target.value })} />
           </Field>
-          <Field label="Floor" hint="Registered floors of this villa only.">
-            <EnumSelect
-              value={draft.floor_id ?? ''}
-              onChange={(value) => set({ floor_id: value, area_ids: [] })}
-              options={[{ value: '', label: 'Whole villa' }, ...villaFloors.map((f) => ({ value: f.id, label: f.floor_name }))]}
-            />
-          </Field>
           <Field label="Forecast finish">
             <Input type="date" value={draft.forecast ?? ''} onChange={(e) => set({ forecast: e.target.value })} />
           </Field>
-          <div className="sm:col-span-2">
-            <Field label="Rooms/areas" hint="Tick every room this one task covers — several rooms stay one task.">
-              {shownAreas.length ? (
-                <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
-                  {shownAreas.map((area) => {
-                    const checked = (draft.area_ids || []).includes(area.id);
-                    return (
-                      <label key={area.id} className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(value) =>
-                            set({
-                              area_ids: value === true
-                                ? [...(draft.area_ids || []), area.id]
-                                : (draft.area_ids || []).filter((id) => id !== area.id),
-                            })
-                          }
-                        />
-                        <span className="min-w-0 truncate">{area.area_name}</span>
-                        {!!area.floor_id && (
-                          <span className="text-[11px] text-muted-foreground">
-                            {villaFloors.find((f) => f.id === area.floor_id)?.floor_name || ''}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  No rooms are registered for {review.villa} yet — add them on the villa page, or leave the task at villa level.
-                </p>
-              )}
-            </Field>
-          </div>
+          <FloorRoomPicker
+            floors={villaFloors}
+            areas={shownAreas}
+            floorId={draft.floor_id ?? ''}
+            areaIds={draft.area_ids || []}
+            onChange={(patch) => set(patch)}
+            villaLabel={review.villa}
+          />
           <div className="sm:col-span-2">
             <Field label="Remarks">
               <Textarea rows={2} value={draft.remarks ?? ''} onChange={(e) => set({ remarks: e.target.value })} />

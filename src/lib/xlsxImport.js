@@ -26,8 +26,8 @@ export const EXCEL_EXTENSION = /\.xlsx$/i;
 export const EXCEL_REFUSED = /\.(xls|xlsm|xlsb|xlt|xltm|xltx|ods|numbers|gsheet)$/i;
 export const IMPORT_ACCEPT = '.xlsx,.csv,.txt';
 
-/** Kept in step with the server's own row limit. */
-export const MAX_WORKS_ROWS = 500;
+/** The server takes 250 rows a call; the browser sends bigger files in chunks. */
+export const MAX_WORKS_ROWS = 5000;
 
 let loader = null;
 /** The workbook library is fetched only when a spreadsheet is actually used. */

@@ -47,7 +47,7 @@ export default function DashboardFilters({
           />
         </div>
         <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Reporting date</Label>
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Measure overdue against</Label>
           <Input type="date" className="mt-1.5" value={date} onChange={(e) => onDate(e.target.value)} />
         </div>
         {children}

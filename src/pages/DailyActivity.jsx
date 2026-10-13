@@ -1,3 +1,7 @@
+import { data } from '@/api/data';
+import DataState from '@/components/common/DataState';
+import TruncationBanner from '@/components/common/TruncationBanner';
+import { errorMessageOf } from '@/lib/clientErrors';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -5,12 +9,11 @@ import { items } from '@/lib/dataHelpers';
 import { todayIst } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useAccess } from '@/lib/AccessContext';
+import { useQuickActions } from '@/components/layout/QuickActions';
 import PageHeader from '@/components/common/PageHeader';
 import EnumSelect from '@/components/common/EnumSelect';
 import EmptyState from '@/components/common/EmptyState';
 import DailyUpdateCard from '@/components/daily/DailyUpdateCard';
-import TaskPickerDialog from '@/components/daily/TaskPickerDialog';
-import DailyUpdateDialog from '@/components/daily/DailyUpdateDialog';
 import AiUpdatePanel from '@/components/ai/AiUpdatePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,15 +33,16 @@ const Stat = ({ label, value }) => (
 export default function DailyActivity() {
   const cat = useCatalogs();
   const access = useAccess();
+  const quick = useQuickActions();
   const [projectId, setProjectId] = useState('');
   const [date, setDate] = useState(todayIst());
   const [scope, setScope] = useState('All');
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ updates: 0, blockers: 0, manpower: 0 });
   const [loading, setLoading] = useState(true);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [reportTask, setReportTask] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const [loadError, setLoadError] = useState('');
+  const [loadingAll, setLoadingAll] = useState(false);
 
   useEffect(() => {
     if (projectId || cat.loading || !cat.projects.length) return;
@@ -49,27 +53,47 @@ export default function DailyActivity() {
   const load = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
-    const query = { project_id: projectId, update_date: date };
+    setLoadError('');
+    const query = { project_id: projectId, update_date: date, voided: { $ne: true } };
     if (scope !== 'All') query.work_scope = scope;
 
-    const [listRes, updateCount, blockerCount, agg] = await Promise.all([
-      base44.entities.DailyUpdate.filter(query, { sort: '-reported_at', limit: 200 }),
-      base44.entities.DailyUpdate.count(query),
-      base44.entities.DailyUpdate.count({ ...query, blocker_reported: true }),
-      base44.entities.DailyUpdate.aggregate({ query, sum: 'manpower_total' }),
-    ]);
+    try {
+      const [listRes, updateCount, blockerCount, agg] = await Promise.all([
+        base44.entities.DailyUpdate.filter(query, { sort: '-reported_at', limit: 200 }),
+        base44.entities.DailyUpdate.count(query),
+        base44.entities.DailyUpdate.count({ ...query, blocker_reported: true }),
+        base44.entities.DailyUpdate.aggregate({ query, sum: 'manpower_total' }),
+      ]);
 
-    setRows(items(listRes));
-    setSummary({
-      updates: Number(updateCount) || 0,
-      blockers: Number(blockerCount) || 0,
-      manpower: (agg?.rows || []).reduce(
-        (sum, row) => sum + (Number(row?.sum_manpower_total ?? row?.manpower_total ?? 0) || 0),
-        0,
-      ),
-    });
-    setLoading(false);
-  }, [projectId, date, scope, refresh]);
+      setRows(items(listRes));
+      setSummary({
+        updates: Number(updateCount) || 0,
+        blockers: Number(blockerCount) || 0,
+        manpower: (agg?.rows || []).reduce(
+          (sum, row) => sum + (Number(row?.sum_manpower_total ?? row?.manpower_total ?? 0) || 0),
+          0,
+        ),
+      });
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The daily activity could not be loaded.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, date, scope, refresh, quick.version]);
+
+  const loadAllUpdates = async () => {
+    setLoadingAll(true);
+    try {
+      const query = { project_id: projectId, update_date: date, voided: { $ne: true } };
+      if (scope !== 'All') query.work_scope = scope;
+      const all = await data.readAll('DailyUpdate', query, { sort: '-reported_at', max: 5000 });
+      setRows(all.items);
+    } catch (e) {
+      setLoadError(errorMessageOf(e, 'The full list could not be loaded.'));
+    } finally {
+      setLoadingAll(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -124,7 +148,7 @@ export default function DailyActivity() {
         description="Everything reported on site for one day, villa by villa, with site-wide works alongside."
         actions={
           canReport && (
-            <Button size="sm" className="gap-2" onClick={() => setPickerOpen(true)}>
+            <Button size="sm" className="gap-2" onClick={() => quick.openLogUpdate({})}>
               <Plus className="h-4 w-4" /> Report update
             </Button>
           )
@@ -181,7 +205,9 @@ export default function DailyActivity() {
       </div>
 
       <div className="mt-6">
-        {loading ? (
+        {loadError ? (
+          <DataState error={loadError} onRetry={load} />
+        ) : loading ? (
           <Skeleton className="h-56 rounded-xl" />
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-border bg-card">
@@ -197,6 +223,7 @@ export default function DailyActivity() {
           </div>
         ) : (
           <div className="space-y-8">
+            <TruncationBanner shown={rows.length} total={summary.updates} noun="updates for this day" onLoadAll={loadAllUpdates} loading={loadingAll} />
             {groups.map((phase) => (
               <section key={phase.key} className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -226,25 +253,7 @@ export default function DailyActivity() {
         )}
       </div>
 
-      <TaskPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        projectId={projectId}
-        onPick={(task) => {
-          setPickerOpen(false);
-          setReportTask(task);
-        }}
-      />
 
-      <DailyUpdateDialog
-        task={reportTask}
-        open={!!reportTask}
-        onOpenChange={(v) => !v && setReportTask(null)}
-        onSaved={() => {
-          setReportTask(null);
-          setRefresh((n) => n + 1);
-        }}
-      />
     </>
   );
 }

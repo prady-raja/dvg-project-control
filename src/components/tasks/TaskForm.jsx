@@ -78,7 +78,7 @@ export default function TaskForm({ initial, prefill, cat, user, onSaved, onCance
     <div className="space-y-5">
       {initial?.baseline_locked && (
         <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          This task is covered by an approved baseline. Baseline dates can only be changed by a Project Manager or an
+          This task is covered by an approved baseline. Baseline dates can only be changed by a Project Editor or an
           administrator, or by approving a new baseline version — every other change saves normally.
         </p>
       )}

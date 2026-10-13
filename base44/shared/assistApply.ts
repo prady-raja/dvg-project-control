@@ -23,7 +23,8 @@ const callFor = (action) => {
   const payload = action.payload || {};
   switch (action.type) {
     case 'record_progress':
-      return ['dailyUpdate', payload];
+      // Confirmed from a site message: the delay category is read from the reason, not chosen.
+      return ['dailyUpdate', { ...payload, source: 'ai' }];
     case 'create_task':
       return ['taskWrite', { action: 'create', changes: payload.changes || {} }];
     case 'raise_snag':

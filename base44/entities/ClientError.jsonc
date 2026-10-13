@@ -1,0 +1,24 @@
+{
+  "name": "ClientError",
+  "type": "object",
+  "description": "Errors caught in the browser (a screen crash, an unhandled failure), so problems are seen without an outside error-tracking vendor. Any signed-in user can add one; only administrators read them.",
+  "properties": {
+    "message": { "type": "string" },
+    "stack": { "type": "string" },
+    "url": { "type": "string" },
+    "source": { "type": "string", "description": "boundary, window or promise" },
+    "project_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "user_email": { "type": "string" },
+    "user_agent": { "type": "string" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "user_note": { "type": "string", "description": "What the person said they were doing, from Report a problem" }
+  },
+  "required": ["message"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": {},
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

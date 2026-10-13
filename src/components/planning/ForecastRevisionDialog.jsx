@@ -1,3 +1,4 @@
+import DelayCategorySelect from '@/components/common/DelayCategorySelect';
 import React, { useEffect, useState } from 'react';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
@@ -13,6 +14,7 @@ import { forecastOf } from '@/lib/taskForm';
 export default function ForecastRevisionDialog({ task, open, onOpenChange, user, onSaved }) {
   const [date, setDate] = useState(() => forecastOf(task));
   const [reason, setReason] = useState('');
+  const [category, setCategory] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +23,7 @@ export default function ForecastRevisionDialog({ task, open, onOpenChange, user,
     if (!open) return;
     setDate(forecastOf(task));
     setReason('');
+    setCategory('');
     setError('');
   }, [open, task?.id]);
 
@@ -35,10 +38,14 @@ export default function ForecastRevisionDialog({ task, open, onOpenChange, user,
       setError('A reason is required for every forecast date change.');
       return;
     }
+    if (!category) {
+      setError('Choose the delay category.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await updateTask(task.id, { current_forecast_finish: date, date_revision_reason: reason.trim() }, user);
+      await updateTask(task.id, { current_forecast_finish: date, date_revision_reason: reason.trim(), date_revision_category: category }, user);
       onSaved();
     } catch (e) {
       setError(e?.message || 'Could not revise the forecast date.');
@@ -61,11 +68,12 @@ export default function ForecastRevisionDialog({ task, open, onOpenChange, user,
       <Field label="New forecast finish" required>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
+      <DelayCategorySelect value={category} onChange={setCategory} />
       <Field label="Reason for the change" required hint="Recorded in the task history against this revision.">
         <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why the finish date is moving" />
       </Field>
       <p className="text-xs text-muted-foreground">
-        The approved baseline finish ({task.baseline_finish || 'not set'}) is never changed here. Only a Project Manager or an
+        The approved baseline finish ({task.baseline_finish || 'not set'}) is never changed here. Only a Project Editor or an
         administrator may move a baseline, and only through the baseline process.
       </p>
     </FormDialog>

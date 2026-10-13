@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Camera, ImagePlus, Loader2, X } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
+import { MAX_PHOTOS } from '@/lib/constants';
+import { uploadPhotos } from '@/lib/photoUpload';
 
 /**
  * Site photos are optional on every report. A chosen file uploads straight away
@@ -13,6 +14,7 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
   const galleryRef = useRef(null);
   const [busy, setBusyState] = useState(false);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState(null);
 
   // The report must not be saved while a photo is still on its way up.
   const setBusy = (value) => {
@@ -26,30 +28,28 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
     if (!files.length) return;
     setBusy(true);
     setError('');
-    const added = [];
-    for (const file of files.slice(0, 6)) {
-      try {
-        const res = await base44.integrations.Core.UploadPrivateFile({ file });
-        const file_uri = res?.file_uri || res?.data?.file_uri;
-        if (file_uri) added.push({ file_uri, preview: URL.createObjectURL(file) });
-      } catch {
-        setError('A photo did not upload. The update can still be saved without it.');
-      }
-    }
+    const room = Math.max(MAX_PHOTOS - (photos || []).length, 0);
+    if (files.length > room) setError(`A report holds up to ${MAX_PHOTOS} photos, so ${files.length - room} were left out.`);
+    const { photos: added, failed } = await uploadPhotos(files.slice(0, room), {
+      onProgress: ({ done, total }) => setProgress({ done, total }),
+    });
+    if (failed.length) setError(`${failed.length} photo${failed.length === 1 ? '' : 's'} did not upload (${failed.slice(0, 2).join(', ')}). The update can still be saved without ${failed.length === 1 ? 'it' : 'them'}.`);
     if (added.length) onChange([...(photos || []), ...added]);
+    setProgress(null);
     setBusy(false);
   };
 
   const list = photos || [];
+  const full = list.length >= MAX_PHOTOS;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy} onClick={() => cameraRef.current?.click()}>
+        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy || full} onClick={() => cameraRef.current?.click()}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
           Camera
         </Button>
-        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy} onClick={() => galleryRef.current?.click()}>
+        <Button type="button" variant="outline" size="sm" className="gap-2" disabled={busy || full} onClick={() => galleryRef.current?.click()}>
           <ImagePlus className="h-4 w-4" /> Gallery
         </Button>
       </div>
@@ -61,11 +61,17 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
         <div className="flex flex-wrap gap-2">
           {list.map((photo, index) => (
             <div key={`${photo.file_uri}-${index}`} className="relative">
-              <Image
-                src={photo.preview}
-                alt="Site photo"
-                className="h-16 w-16 rounded-lg border border-border object-cover"
-              />
+              {photo.preview ? (
+                <Image
+                  src={photo.preview}
+                  alt="Site photo"
+                  className="h-16 w-16 rounded-lg border border-border object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground" title="Uploaded earlier">
+                  <Camera className="h-5 w-5" />
+                </div>
+              )}
               <button
                 type="button"
                 aria-label="Remove photo"
@@ -79,8 +85,9 @@ export default function PhotoUploader({ photos, onChange, onBusy }) {
         </div>
       )}
 
+      {progress && <p className="text-xs text-muted-foreground" role="status">Uploading {progress.done} of {progress.total}…</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {list.length > 0 && <p className="text-[11px] text-muted-foreground">{list.length} photo{list.length === 1 ? '' : 's'} attached.</p>}
+      {list.length > 0 && <p className="text-[11px] text-muted-foreground">{list.length} of {MAX_PHOTOS} photos attached.</p>}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useQuickActions } from '@/components/layout/QuickActions';
 import React from 'react';
 import { CalendarClock, MapPin, Zap } from 'lucide-react';
 import Pill from '@/components/common/Pill';
@@ -5,7 +6,8 @@ import ProgressMeter from '@/components/tasks/ProgressMeter';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format';
 
-export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
+export default function TaskCard({ task, cat, onOpen }) {
+  const quick = useQuickActions();
   const location = cat.locationById(task.location_id);
   const phase = cat.phaseById(task.phase_id);
   return (
@@ -27,6 +29,11 @@ export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
           <span>{cat.disciplineName(task.discipline)}</span>
           {task.work_package && <span className="truncate">{task.work_package}</span>}
         </div>
+        {location?.location_type === 'Villa' && (
+          <p className="mt-1.5 truncate text-xs text-muted-foreground">
+            {task.area_label || (task.scope_type === 'Entire Villa' ? 'Entire villa' : 'Scope not stated')}
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <ProgressMeter value={task.progress_percent} />
           <span className="field-mono inline-flex items-center gap-1 text-xs text-foreground">
@@ -39,14 +46,14 @@ export default function TaskCard({ task, cat, onOpen, onQuickUpdate }) {
           {task.responsible_engineer || 'No engineer'}
         </p>
       </button>
-      {onQuickUpdate && (
+      {quick.canReport && !['Approved', 'Closed', 'Under Inspection'].includes(task.status) && !task.is_villa_work_parent && (
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onQuickUpdate(task)}
+          onClick={() => quick.openLogUpdate({ taskId: task.id })}
           className="mt-3 w-full gap-2"
         >
-          <Zap className="h-3.5 w-3.5" /> Quick update
+          <Zap className="h-3.5 w-3.5" /> Log update
         </Button>
       )}
     </div>
