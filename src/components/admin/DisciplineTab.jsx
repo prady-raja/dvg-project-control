@@ -9,6 +9,7 @@ import Field from '@/components/common/Field';
 import { createRecord, updateRecord } from '@/lib/recordService';
 import { parseTemplateText, templateFor } from '@/lib/shared/checklists.ts';
 import { Textarea } from '@/components/ui/textarea';
+import StackTable from '@/components/common/StackTable';
 
 const empty = { name: '', code: '', sort_order: '', active: true, checklist: '' };
 
@@ -72,7 +73,7 @@ export default function DisciplineTab({ cat }) {
       </div>
 
       <div className="scroll-slim overflow-x-auto rounded-xl border border-border bg-card">
-        <Table className="min-w-[520px]">
+        <StackTable><Table className="min-w-[520px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Discipline</TableHead>
@@ -99,7 +100,7 @@ export default function DisciplineTab({ cat }) {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </Table></StackTable>
       </div>
 
       <FormDialog

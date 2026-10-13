@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, formatDateTime } from '@/lib/format';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import StackTable from '@/components/common/StackTable';
 
 const FIELD_LABELS = {
   baseline_start: 'Start',
@@ -186,7 +187,7 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
 
           {(draft.changes || []).length > 0 ? (
             <div className="mt-3 overflow-hidden rounded-md border border-border">
-              <table className="w-full text-xs">
+              <StackTable><table className="w-full text-xs">
                 <thead className="bg-muted/50 text-left text-muted-foreground">
                   <tr>
                     <th className="px-2 py-1.5 font-medium">Task</th>
@@ -211,7 +212,7 @@ export default function BaselineSection({ projectId, phaseId, canManage, onChang
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></StackTable>
               {draft.changes.length > 12 && (
                 <p className="px-2 py-1.5 text-xs text-muted-foreground">
                   {draft.changes.length - 12} further change(s) not shown.

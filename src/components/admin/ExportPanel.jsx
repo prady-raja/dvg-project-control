@@ -4,6 +4,7 @@ import { Database, Download, FileJson, Lock } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { EXPORT_ENTITIES, NOT_EXPORTED_YET, RELATIONSHIPS } from '@/lib/exportSchema';
 import { Button } from '@/components/ui/button';
+import StackTable from '@/components/common/StackTable';
 
 const PAGE = 500;
 
@@ -144,7 +145,7 @@ export default function ExportPanel() {
       </section>
 
       <section className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="w-full text-sm">
+        <StackTable><table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">Entity</th>
@@ -179,7 +180,7 @@ export default function ExportPanel() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></StackTable>
       </section>
 
       <section className="rounded-xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground">

@@ -9,6 +9,7 @@ import { loadDashboard } from '@/lib/dashboardService';
 import { useCatalogs } from '@/lib/CatalogContext';
 import EnumSelect from '@/components/common/EnumSelect';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import StackTable from '@/components/common/StackTable';
 
 /**
  * Data health for the administrator: the one-off backfills (dry run first, then
@@ -101,14 +102,14 @@ function AdoptionPanel() {
         {v && (
           <>
             <p className="text-sm"><strong>{v.villas_reported_today}</strong> of {v.villas_total} villas reported today · {v.reports_today} report{v.reports_today === 1 ? '' : 's'} today.</p>
-            <table className="mt-3 w-full text-sm">
+            <StackTable><table className="mt-3 w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="py-1">Person</th><th>Reports</th><th>Per working day</th><th>Days reported</th></tr></thead>
               <tbody>
                 {v.rows.map((r) => (
                   <tr key={r.user_id} className="border-t border-border/60"><td className="py-1.5">{r.name}</td><td className="tnum">{r.total}</td><td className="tnum">{r.per_working_day}</td><td className="tnum">{r.days_reported} of {v.working_days}</td></tr>
                 ))}
               </tbody>
-            </table>
+            </table></StackTable>
           </>
         )}
       </DataState>

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EnumSelect from '@/components/common/EnumSelect';
 import { cn } from '@/lib/utils';
+import StackTable from '@/components/common/StackTable';
 
 const STATE_TONE = {
   new: 'border-emerald-300 bg-emerald-50 text-emerald-900',
@@ -156,7 +157,7 @@ export default function BulkDrawingSheet({ open, onOpenChange, location, floors 
 
         {rows.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[820px] text-sm">
+            <StackTable><table className="w-full min-w-[820px] text-sm">
               <thead><tr className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-2 py-2">File</th><th className="px-2">Number</th><th className="px-2">Title</th><th className="px-2">Rev</th><th className="px-2">Type</th><th className="px-2">Belongs to</th><th className="px-2">Check</th>
               </tr></thead>
@@ -178,7 +179,7 @@ export default function BulkDrawingSheet({ open, onOpenChange, location, floors 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></StackTable>
           </div>
         )}
 

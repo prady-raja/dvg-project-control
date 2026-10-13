@@ -199,7 +199,7 @@ export default function Planning() {
             description="Task reference, villa, work, discipline, contractor, engineer, baseline and forecast dates, status and any blocker."
           >
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
+              <TabsList className="h-auto w-full flex-wrap justify-start sm:w-auto">
                 {BUCKETS.map((bucket) => (
                   <TabsTrigger key={bucket.key} value={bucket.key} className={cn(bucket.tone === 'danger' && 'text-destructive')}>
                     {bucket.label} ({counts[bucket.key] ?? 0})

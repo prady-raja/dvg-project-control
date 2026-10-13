@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import NoProjectState from '@/components/common/NoProjectState';
 import { useScopeState } from '@/lib/ScopeContext';
 import { useUrlState } from '@/lib/useUrlFilters';
+import StackTable from '@/components/common/StackTable';
 
 /** Stage A / 8 — handover and snagging. */
 export default function Handover() {
@@ -128,7 +129,7 @@ export default function Handover() {
             description="Handed-over villas with work or snags outstanding are listed first — possession never hides a defect or an open work."
           >
             <div className="scroll-slim overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-sm">
+              <StackTable><table className="w-full min-w-[1000px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 text-left">Villa</th>
@@ -161,8 +162,8 @@ export default function Handover() {
                       <td className="field-mono py-2.5 tnum">{row.open_snags}</td>
                       <td className="field-mono py-2.5 tnum">{row.snags_awaiting_reinspection}</td>
                       <td className="py-2.5 text-xs">{row.handover_stage}</td>
-                      <td className="py-2.5 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td data-keep className="py-2.5 text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <Button asChild size="sm" variant="ghost">
                             <Link to={`/locations/${row.location_id}?tab=overview`}>Open</Link>
                           </Button>
@@ -179,7 +180,7 @@ export default function Handover() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></StackTable>
             </div>
           </BoardSection>
 
