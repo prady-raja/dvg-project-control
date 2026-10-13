@@ -30,7 +30,7 @@ const FIELDS = {
   Project: [
     'name', 'code', 'location', 'status', 'enabled_disciplines', 'planned_villa_count', 'notes',
     'working_days', 'holidays', 'stale_days', 'at_risk_window_days', 'backdate_limit_days',
-    'report_cutoff_time', 'site_lat', 'site_lng',
+    'report_cutoff_time', 'site_lat', 'site_lng', 'owner_signoff',
   ],
   Phase: ['project_id', 'name', 'code', 'planned_villa_count', 'status', 'sort_order', 'notes'],
   Location: [

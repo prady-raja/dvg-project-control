@@ -14,13 +14,14 @@ import * as serverImport from '../base44/shared/workImport.ts';
 import * as serverAttention from '../base44/shared/attention.ts';
 import * as serverCommitments from '../base44/shared/commitments.ts';
 import * as serverOwnerAccess from '../base44/shared/ownerAccess.ts';
+import * as serverSignoff from '../base44/shared/ownerSignoff.ts';
 
 const copies = import.meta.glob('../src/lib/shared/*.ts', { eager: true });
 const servers = {
   'enums.ts': serverEnums, 'calendar.ts': serverCalendar, 'constraints.ts': serverConstraints,
   'attentionActions.ts': serverAttentionActions, 'assignees.ts': serverAssignees,
   'villaAreas.ts': serverAreas, 'drawingIntake.ts': serverDrawings, 'importChunks.ts': serverChunks,
-  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'ownerAccess.ts': serverOwnerAccess,
+  'villaViews.ts': serverViews, 'workImport.ts': serverImport, 'attention.ts': serverAttention, 'commitments.ts': serverCommitments, 'ownerAccess.ts': serverOwnerAccess, 'ownerSignoff.ts': serverSignoff,
 };
 const nameOf = (path) => path.split('/').pop();
 
@@ -107,6 +108,26 @@ describe('copied functions give the same answers', () => {
     const c = { status: 'Open', promised_date: '2026-03-01' };
     ['2026-02-28', '2026-03-01', '2026-03-02'].forEach((d) => same('commitments.ts', 'commitmentState', c, d));
     same('commitments.ts', 'commitmentSummary', [c, { status: 'Fulfilled', promised_date: '2026-01-01' }], '2026-03-02');
+  });
+
+  it('the statement text', () => {
+    const view = {
+      villa: { code: 'B-05', plots: '12', project: 'Imagine', phase: 'A', possession_status: 'Handed Over', possession_date: '2026-01-05' }, as_of: '2026-03-10',
+      forecast: { date: '2026-04-01', label: 'Pending works complete by', undated: 1 }, groups: [{ floor: 'Ground', items: [{ room: 'Hall', what: 'Paint', ref: 'T-1', trade: 'Paint', status: 'In progress', expected: '2026-03-20', holding: '' }] }],
+      snags: [], needed_from_owner: [], completed_recently: [{}], totals: { open_tasks: 1, open_snags: 0, percent: null },
+      awaiting_signoff: [{ room: 'Kitchen', what: 'Tiles' }], signed_off: [{}],
+    };
+    same('villaViews.ts', 'statementText', view);
+    same('villaViews.ts', 'statementText', view, { includeRefs: true });
+  });
+
+  it('owner sign-off', () => {
+    const loc = { possession_status: 'Handed Over' };
+    same('ownerSignoff.ts', 'needsAck', { location: loc, project: { owner_signoff: 'Required' } });
+    same('ownerSignoff.ts', 'needsAck', { location: loc, project: { owner_signoff: 'Optional' } });
+    same('ownerSignoff.ts', 'signoffState', { owner_ack_date: '2026-03-01' }, { location: loc });
+    same('ownerSignoff.ts', 'signoffState', {}, { location: loc });
+    same('ownerSignoff.ts', 'signoffState', {}, { location: { possession_status: 'Not Handed Over' } });
   });
 
   it('owner access', () => {

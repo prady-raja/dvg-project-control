@@ -26,6 +26,8 @@ import { withLog } from '../../shared/log.ts';
 import { assigneeFor, checkWatchers } from '../../shared/assignees.ts';
 import { clearOpenConstraints } from '../../shared/constraints.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
+import { todayIst } from '../../shared/dashboardCore.ts';
+import { ackInput, needsAck } from '../../shared/ownerSignoff.ts';
 
 /**
  * The only path that creates or changes a task. Permissions are decided here
@@ -252,15 +254,30 @@ async function handler(req) {
 
       if (!entries.length) return Response.json({ task, changed: 0 });
 
+      // Closing work in a handed-over villa carries the owner's acknowledgement (Q-08).
+      let ack = null;
+      if (entries.some((e) => e.field_changed === 'status' && e.new_value === 'Closed')) {
+        if (body?.owner_ack) {
+          ack = { ...ackInput(body.owner_ack, { today: todayIst() }), owner_ack_by_name: actorName(user) };
+        } else {
+          const location = task.location_id ? await getOne(svc.Location, task.location_id) : null;
+          const project = await getOne(svc.Project, task.project_id);
+          if (needsAck({ location, project })) throw fail("This villa has been handed over. Record the owner's acknowledgement before closing this work.");
+        }
+      }
+
       const patch = {};
       entries.forEach((entry) => {
         patch[entry.field_changed] = entry.new_value;
       });
+      if (ack) Object.assign(patch, ack);
 
       // Server-owned stamps, and the separation of duties, travel with the change.
       const effects = deriveTaskEffects({ task, entries, user });
       Object.assign(patch, effects.patch);
-      const derived = effects.derived;
+      const derived = ack
+        ? [...effects.derived, { change_type: 'Owner Sign-off', field_changed: 'owner_ack', old_value: '', new_value: `${ack.owner_ack_name} · ${ack.owner_ack_date} · ${ack.owner_ack_method}`, note: 'Owner acknowledgement recorded when the work was closed' }]
+        : effects.derived;
 
       const forecastEntry = entries.find((e) => e.field_changed === 'current_forecast_finish');
 

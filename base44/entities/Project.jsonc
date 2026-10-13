@@ -42,6 +42,7 @@
       "items": { "type": "string", "format": "date" },
       "description": "Non-working dates (festivals, site closures)"
     },
+    "owner_signoff": { "type": "string", "enum": ["Optional", "Required"], "default": "Optional", "description": "Whether closing work in a handed-over villa needs the owner's acknowledgement (Q-08)" },
     "stale_days": {
       "type": "number",
       "description": "Working days without a site report before work is called stale"

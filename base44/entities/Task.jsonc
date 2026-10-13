@@ -232,6 +232,11 @@
       ],
       "default": "No"
     },
+    "owner_ack_name": { "type": "string", "description": "The villa owner who accepted this item (Q-08)" },
+    "owner_ack_date": { "type": "string", "format": "date" },
+    "owner_ack_method": { "type": "string", "enum": ["Signed sheet (photo)", "WhatsApp confirmation (screenshot)", "Told to the engineer"] },
+    "owner_ack_evidence_uri": { "type": "string", "description": "Private storage reference of the signed sheet or screenshot" },
+    "owner_ack_by_name": { "type": "string", "description": "Who at DVG recorded it" },
     "access_status": {
       "type": "string",
       "enum": [

@@ -7,6 +7,8 @@ import { useCatalogs } from '@/lib/CatalogContext';
 import { useSignedUrls } from '@/lib/useSignedUrls';
 import ContactChip from '@/components/common/ContactChip';
 import PhotoLightbox from '@/components/common/PhotoLightbox';
+import OwnerAckDialog from '@/components/common/OwnerAckDialog';
+import { needsAck } from '@/lib/shared/ownerSignoff.ts';
 
 /**
  * The snag register. A snag never changes a task by itself: closing it is its
@@ -38,6 +40,10 @@ function SnagThumbs({ uris, captions = {} }) {
 
 export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyLabel = 'No snag recorded for this villa.' }) {
   const cat = useCatalogs();
+  const [asking, setAsking] = React.useState(null);
+  const close = (row) => (needsAck({ location: cat.locationById(row.location_id), project: cat.projectById(row.project_id) })
+    ? setAsking(row)
+    : onAdvance(row, { status: 'Closed' }));
   if (!rows.length) {
     return <p className="px-1 py-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>;
   }
@@ -78,7 +84,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
                   Ready for reinspection
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => onAdvance(row, { status: 'Closed' })}>
+              <Button size="sm" variant="outline" onClick={() => close(row)}>
                 Close snag
               </Button>
               {(row.photo_uris || []).length === 0 && (
@@ -90,6 +96,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
           )}
         </article>
       ))}
+      <OwnerAckDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)} onSubmit={async (ack) => { const row = asking; setAsking(null); await onAdvance(row, { status: 'Closed', owner_ack: ack }); }} />
     </div>
   );
 }

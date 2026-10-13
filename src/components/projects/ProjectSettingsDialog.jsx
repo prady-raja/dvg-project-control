@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { updateRecord } from '@/lib/recordService';
 import { projectSettings, settingsProblems } from '@/lib/shared/calendar.ts';
+import EnumSelect from '@/components/common/EnumSelect';
 
 const WEEKDAYS = [
   [1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [7, 'Sun'],
@@ -21,6 +22,7 @@ const formFor = (project) => {
     report_cutoff_time: s.report_cutoff_time,
     site_lat: s.site_lat ?? '',
     site_lng: s.site_lng ?? '',
+    owner_signoff: project?.owner_signoff || 'Optional',
   };
 };
 
@@ -50,6 +52,7 @@ export default function ProjectSettingsDialog({ open, onOpenChange, project, onS
       report_cutoff_time: form.report_cutoff_time,
       site_lat: form.site_lat === '' ? null : Number(form.site_lat),
       site_lng: form.site_lng === '' ? null : Number(form.site_lng),
+      owner_signoff: form.owner_signoff,
     };
     const problems = settingsProblems(payload);
     if (problems.length) {
@@ -108,6 +111,9 @@ export default function ProjectSettingsDialog({ open, onOpenChange, project, onS
       </Field>
       <Field label="Daily report cut-off (IST)">
         <Input type="time" value={form.report_cutoff_time} onChange={(e) => set({ report_cutoff_time: e.target.value })} />
+      </Field>
+      <Field label="Owner sign-off on handed-over villas" hint="Required: closing work or a snag in a handed-over villa needs the owner's acknowledgement.">
+        <EnumSelect value={form.owner_signoff} onChange={(v) => set({ owner_signoff: v })} options={['Optional', 'Required']} />
       </Field>
       <Field label="Site latitude">
         <Input type="number" step="any" value={form.site_lat} onChange={(e) => set({ site_lat: e.target.value })} />

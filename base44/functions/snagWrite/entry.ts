@@ -6,6 +6,7 @@ import { withLog } from '../../shared/log.ts';
 import { todayIst } from '../../shared/dashboardCore.ts';
 import { resolveTaskScope } from '../../shared/scopeResolve.ts';
 import { cleanPhotoMeta } from '../../shared/photoMeta.ts';
+import { ackInput, needsAck } from '../../shared/ownerSignoff.ts';
 
 /**
  * The guarded path for snags.
@@ -146,6 +147,16 @@ async function handler(req) {
     if (patch.target_date !== undefined && patch.target_date && !isDate(patch.target_date)) throw fail('Use a valid target date.');
     if (patch.reinspection_date && !isDate(patch.reinspection_date)) throw fail('Use a valid reinspection date.');
 
+    if (patch.status === 'Closed' && existing.status !== 'Closed') {
+      // In a handed-over villa the owner's acknowledgement goes with the closing (Q-08).
+      if (body?.owner_ack) {
+        Object.assign(patch, ackInput(body.owner_ack, { today: todayIst() }), { owner_ack_by_name: actorName(user) });
+      } else {
+        const location = existing.location_id ? await getOne(svc.Location, existing.location_id) : null;
+        const project = await getOne(svc.Project, existing.project_id);
+        if (needsAck({ location, project })) throw fail("This villa has been handed over. Record the owner's acknowledgement before closing this snag.");
+      }
+    }
     if (patch.status === 'Closed') {
       patch.closed_date = isDate(body?.snag?.closed_date) ? body.snag.closed_date : todayIst();
       patch.closed_by_name = actorName(user);

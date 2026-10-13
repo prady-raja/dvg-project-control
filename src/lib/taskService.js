@@ -27,7 +27,9 @@ export async function createTask(payload) {
 }
 
 export async function updateTask(id, changes, options = {}) {
-  const data = await invoke('taskWrite', { action: 'update', id, changes });
+  // The owner's acknowledgement travels beside the change, not inside it (Q-08).
+  const { owner_ack: ownerAck, ...rest } = changes;
+  const data = await invoke('taskWrite', { action: 'update', id, changes: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
   return data.task || null;
 }
 

@@ -20,6 +20,10 @@ async function call(payload) {
 
 export const createSnag = (snag) => call({ action: 'create', snag });
 
-export const updateSnag = (id, snag) => call({ action: 'update', id, snag });
+export const updateSnag = (id, snag) => {
+  // The owner's acknowledgement travels beside the change, not inside it (Q-08).
+  const { owner_ack: ownerAck, ...rest } = snag;
+  return call({ action: 'update', id, snag: rest, ...(ownerAck ? { owner_ack: ownerAck } : {}) });
+};
 
 export const deleteSnag = (id) => call({ action: 'delete', id });

@@ -10,6 +10,11 @@ import DataState from '@/components/common/DataState';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
+import OwnerAckDialog from '@/components/common/OwnerAckDialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { errorMessageOf } from '@/lib/clientErrors';
+import { useAccess } from '@/lib/AccessContext';
+import { data } from '@/api/data';
 
 function SnagPhoto({ uri }) {
   const { urls } = useSignedUrls(uri ? [uri] : []);
@@ -28,12 +33,35 @@ export default function VillaStatement() {
   const { locationId } = useParams();
   const { toast } = useToast();
   const [refs, setRefs] = useState(false);
+  const access = useAccess();
+  const [picked, setPicked] = useState({});
+  const [asking, setAsking] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState('');
   const params = { locationId, date: todayIst() };
   const { data: view, isLoading, error, refetch } = useDashboardQuery('statement', params, { enabled: !!locationId });
 
   useEffect(() => {
     document.title = view ? `Pending works — ${view.villa.code}` : 'Pending works';
   }, [view]);
+
+  const canSign = !!view && access.can(view.villa.project_id, 'edit_tasks');
+  const record = async (ack) => {
+    setSigning(true);
+    setSignError('');
+    try {
+      const chosen = Object.entries(picked).filter(([, on]) => on).map(([key]) => key.split(':'));
+      const out = await data.invoke('ownerSignoff', { location_id: locationId, ack, task_ids: chosen.filter(([k]) => k === 'task').map(([, id]) => id), snag_ids: chosen.filter(([k]) => k === 'snag').map(([, id]) => id) });
+      toast({ description: `Owner sign-off recorded on ${out.signed} item${out.signed === 1 ? '' : 's'}.` });
+      setPicked({});
+      setAsking(false);
+      await refetch();
+    } catch (e) {
+      setSignError(errorMessageOf(e, 'The sign-off could not be saved.'));
+    } finally {
+      setSigning(false);
+    }
+  };
 
   const text = () => statementText(view, { includeRefs: refs });
 
@@ -157,6 +185,35 @@ export default function VillaStatement() {
               </section>
             )}
 
+            {(view.awaiting_signoff || []).length > 0 && (
+              <section className="mt-6 break-inside-avoid">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Done — waiting for the owner's sign-off</h2>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {view.awaiting_signoff.map((o) => (
+                    <li key={`${o.kind}-${o.id}`} className="flex items-start gap-2">
+                      {canSign && <Checkbox className="mt-0.5 print:hidden" checked={!!picked[`${o.kind}:${o.id}`]} onCheckedChange={(c) => setPicked((p) => ({ ...p, [`${o.kind}:${o.id}`]: !!c }))} aria-label={`Select ${o.what}`} />}
+                      <span>{o.room ? `${o.room}: ` : ''}{o.what}{refs && o.ref && <span className="field-mono ml-2 text-xs text-muted-foreground">{o.ref}</span>}</span>
+                    </li>
+                  ))}
+                </ul>
+                {canSign && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
+                    <Button size="sm" variant="outline" onClick={() => setPicked(Object.fromEntries(view.awaiting_signoff.map((o) => [`${o.kind}:${o.id}`, true])))}>Select all</Button>
+                    <Button size="sm" disabled={!Object.values(picked).some(Boolean)} onClick={() => setAsking(true)}>Record owner sign-off ({Object.values(picked).filter(Boolean).length})</Button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {(view.signed_off || []).length > 0 && (
+              <section className="mt-6 break-inside-avoid">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Signed off by the owner</h2>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {view.signed_off.map((o) => <li key={`${o.kind}-${o.id}`}>• {o.what} <span className="text-xs text-muted-foreground">— {o.name}, {formatDate(o.date)}</span></li>)}
+                </ul>
+              </section>
+            )}
+
             {view.completed_recently.length > 0 && (
               <section className="mt-6 break-inside-avoid">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Completed in the last 30 days</h2>
@@ -168,6 +225,7 @@ export default function VillaStatement() {
           </article>
         )}
       </DataState>
+      <OwnerAckDialog open={asking} onOpenChange={setAsking} title="Record the owner's sign-off" description="Applies to every item you ticked. Nothing is closed by this." submitLabel="Record sign-off" submitting={signing} error={signError} onSubmit={record} />
     </>
   );
 }

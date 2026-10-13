@@ -268,12 +268,29 @@ export function villaStatementView({ location, tasks = [], snags = [], floors = 
       : 'A selection by the owner',
   }));
 
+  // Owner sign-off (Q-08): finished work in a handed-over villa that the owner has not yet accepted, and what they have.
+  const handedOver = location.possession_status === 'Handed Over';
+  const doneTasks = mine.filter((t) => ['Execution Complete', 'Under Inspection', 'Approved', 'Closed'].includes(t.status));
+  const closedSnags = snags.filter((s) => s.location_id === location.id && s.status === 'Closed');
+  const item = (kind, row, what) => ({ kind, id: row.id, ref: row.task_ref || row.snag_ref || '', what, room: row.area_label || '' });
+  const awaitingSignoff = !handedOver ? [] : [
+    ...doneTasks.filter((t) => !t.owner_ack_date).map((t) => item('task', t, t.name)),
+    ...closedSnags.filter((s) => !s.owner_ack_date).map((s) => item('snag', s, s.title)),
+  ].slice(0, 200);
+  const signedOff = [
+    ...mine.filter((t) => t.owner_ack_date).map((t) => ({ ...item('task', t, t.name), name: t.owner_ack_name || '', date: toDay(t.owner_ack_date), method: t.owner_ack_method || '' })),
+    ...snags.filter((s) => s.location_id === location.id && s.owner_ack_date).map((s) => ({ ...item('snag', s, s.title), name: s.owner_ack_name || '', date: toDay(s.owner_ack_date), method: s.owner_ack_method || '' })),
+  ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 200);
+
   const progress = weightedProgress(mine);
   const forecast = villaForecast(location, open);
   return {
     as_of: asOf,
+    awaiting_signoff: awaitingSignoff,
+    signed_off: signedOff,
     villa: {
       id: location.id,
+      project_id: location.project_id,
       code: location.villa_code,
       plots: location.plot_numbers || '',
       phase: ix.phaseName(location.phase_id),
@@ -332,6 +349,14 @@ export function statementText(view, { includeRefs = false } = {}) {
     lines.push('NEEDED FROM YOU');
     view.needed_from_owner.forEach((o) => lines.push(`• ${o.need}: ${o.what}`));
     lines.push('');
+  }
+  if ((view.awaiting_signoff || []).length) {
+    lines.push('DONE — WAITING FOR YOUR SIGN-OFF');
+    view.awaiting_signoff.forEach((o) => lines.push(`• ${o.room ? `${o.room}: ` : ''}${o.what}`));
+    lines.push('');
+  }
+  if ((view.signed_off || []).length) {
+    lines.push(`SIGNED OFF BY YOU: ${view.signed_off.length}`);
   }
   if (view.completed_recently.length) {
     lines.push(`COMPLETED IN THE LAST 30 DAYS: ${view.completed_recently.length}`);
