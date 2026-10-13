@@ -20,6 +20,7 @@ import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
+import ShareMenu from '@/components/common/ShareMenu';
 
 const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
 
@@ -121,6 +122,15 @@ export default function Dashboard() {
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </Button>
+            <ShareMenu
+              title="Overview"
+              text={() => [
+                `DVG overview — ${date}`,
+                `Open tasks: ${metrics.open_tasks ?? 0}`, `Overdue: ${metrics.overdue_tasks ?? 0}`, `Blocked: ${metrics.blocked_tasks ?? 0}`,
+                `Due in 7 days: ${metrics.due_within_7 ?? 0}`, `Awaiting verification: ${metrics.awaiting_verification ?? 0}`,
+                `Handed-over villas with open works: ${metrics.handed_over_open_works ?? 0} (${metrics.handed_over_open_tasks ?? 0} tasks)`,
+              ].join('\n')}
+            />
             <Button asChild size="sm" variant="outline">
               <Link to="/planning">Planning</Link>
             </Button>

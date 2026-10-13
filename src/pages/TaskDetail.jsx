@@ -20,6 +20,7 @@ import TaskHistoryPanel from '@/components/tasks/TaskHistoryPanel';
 import VillaWorkChildren from '@/components/tasks/VillaWorkChildren';
 import TaskApprovalActions from '@/components/tasks/TaskApprovalActions';
 import DailyUpdateFeed from '@/components/daily/DailyUpdateFeed';
+import ContactChip from '@/components/common/ContactChip';
 
 const Section = ({ title, children }) => (
   <section className="rounded-xl border border-border bg-card p-5">
@@ -181,7 +182,7 @@ export default function TaskDetail() {
         <Section title="Responsibility">
           <DetailList
             items={[
-              { label: 'Assigned contractor', value: contractor?.name },
+              { label: 'Assigned contractor', value: contractor ? <ContactChip name={contractor.name} phone={contractor.phone} label={`${task.task_ref} ${task.name}`} /> : '' },
               { label: 'Contractor type', value: contractor?.classification },
               { label: 'Responsible site engineer', value: task.responsible_engineer },
               { label: 'Created by', value: task.created_by_name },

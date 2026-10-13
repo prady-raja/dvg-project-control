@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
+import ShareMenu from '@/components/common/ShareMenu';
 
 /** Stage A / 5 — Daily and weekly planning. */
 const BUCKETS = [
@@ -108,9 +110,21 @@ export default function Planning() {
         title="Planning"
         description="What is due today, tomorrow, this week and this fortnight, what is late, and what has no reliable date. Dates are shown in Asia/Kolkata."
         actions={
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </Button>
+          <>
+            <ShareMenu
+              title={`Planning — ${tab}`}
+              filename={`planning-${tab}`}
+              rows={(tab === 'at_risk' ? data?.at_risk : data?.buckets?.[tab]) || []}
+              columns={ACTIVITY_COLUMNS}
+              text={() => {
+                const list = (tab === 'at_risk' ? data?.at_risk : data?.buckets?.[tab]) || [];
+                return [`DVG planning — ${tab} (${list.length})`, ...list.slice(0, 25).map((r) => `• ${r.ref} ${r.villa || ''} ${r.name || ''}`.trim()), list.length > 25 ? `…and ${list.length - 25} more` : ''].filter(Boolean).join('\n');
+              }}
+            />
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setRefresh((n) => n + 1)}>
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </Button>
+          </>
         }
       />
 

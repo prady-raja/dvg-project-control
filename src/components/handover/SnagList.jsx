@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useSignedUrls } from '@/lib/useSignedUrls';
+import ContactChip from '@/components/common/ContactChip';
 
 /**
  * The snag register. A snag never changes a task by itself: closing it is its
@@ -59,7 +60,7 @@ export default function SnagList({ rows = [], canEdit = false, onAdvance, emptyL
           <p className="mt-2 text-sm font-medium">{row.title}</p>
           {row.description && <p className="mt-1 text-xs text-muted-foreground">{row.description}</p>}
           <p className="mt-1 text-xs text-muted-foreground">
-            {row.contractor_id ? `Contractor: ${cat.contractorById(row.contractor_id)?.name || 'unknown'}` : 'No contractor assigned'}
+            {row.contractor_id ? <>Contractor: <ContactChip name={cat.contractorById(row.contractor_id)?.name || 'unknown'} phone={cat.contractorById(row.contractor_id)?.phone} label={`snag ${row.snag_ref || ''} — ${row.title}`} /></> : 'No contractor assigned'}
             {row.target_date ? ` · target ${formatDate(row.target_date)}` : ''}
             {row.reinspection_date ? ` · reinspection ${formatDate(row.reinspection_date)}` : ''}
             {(row.photo_uris || []).length ? ` · ${row.photo_uris.length} photo(s) on file` : ' · no photographs'}

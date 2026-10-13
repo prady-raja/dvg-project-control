@@ -48,9 +48,16 @@ export function chaseMessage({ constraint, task, villa = '', link = '' }) {
 
 /** A wa.me link with the message ready; without a phone number the caller copies the text instead. */
 export function whatsappLink(phone, message) {
-  const digits = String(phone || '').replace(/\D/g, '');
+  const digits = dialDigits(phone);
   const text = encodeURIComponent(message);
-  return digits.length >= 8 ? `https://wa.me/${digits}?text=${text}` : '';
+  return digits ? `https://wa.me/${digits}?text=${text}` : '';
+}
+
+/** Digits to dial: a bare 10-digit Indian mobile number gets the 91 country code. */
+export function dialDigits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (digits.length === 10) return `91${digits}`;
+  return digits.length >= 8 ? digits : '';
 }
 
 /**

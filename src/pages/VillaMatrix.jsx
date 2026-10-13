@@ -15,6 +15,7 @@ import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import ShareMenu from '@/components/common/ShareMenu';
 
 const CELL_TONE = {
   Stuck: 'border-red-300 bg-red-50 text-red-900',
@@ -74,7 +75,7 @@ export default function VillaMatrix() {
         eyebrow="Home"
         title="Villa matrix"
         description="Every villa and every trade on one screen. Each cell opens the tasks behind it; dates shown are the latest recorded finish, never an estimate."
-        actions={view && <Button variant="outline" size="sm" className="gap-2" onClick={exportExcel}><Download className="h-4 w-4" /> Export to Excel</Button>}
+        actions={view && (<><ShareMenu title="Villa matrix" /><Button variant="outline" size="sm" className="gap-2" onClick={exportExcel}><Download className="h-4 w-4" /> Export to Excel</Button></>)}
       />
 
       <DashboardFilters
