@@ -16,17 +16,23 @@ import LocationDialog from '@/components/locations/LocationDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ACTIVE_STATUSES, LOCATION_TYPES, POSSESSION_STATUSES } from '@/lib/constants';
+import { countActive, forgetRemembered, loadRemembered, saveRemembered } from '@/lib/rememberedFilters';
+import { useAuth } from '@/lib/AuthContext';
+import FilterBar from '@/components/common/FilterBar';
+
+const BLANK = { project_id: '', phase_id: '', location_type: '', possession_status: '', active_status: '', mine: false, overdue: false, blocked: false };
 
 export default function Locations() {
   const cat = useCatalogs();
   const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState({
-    project_id: searchParams.get('project') || '',
-    phase_id: searchParams.get('phase') || '',
-    location_type: '',
-    possession_status: '',
-    active_status: '',
-  });
+  const { user } = useAuth();
+  // With nothing in the address, the list opens as this person last left it.
+  const [filters, setFilters] = useState(() => ({
+    ...BLANK,
+    ...(searchParams.get('project') || searchParams.get('phase') ? {} : loadRemembered('villas', user?.id) || {}),
+    ...(searchParams.get('project') ? { project_id: searchParams.get('project') } : {}),
+    ...(searchParams.get('phase') ? { phase_id: searchParams.get('phase') } : {}),
+  }));
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -46,6 +52,7 @@ export default function Locations() {
       if (filters.location_type) query.location_type = filters.location_type;
       if (filters.possession_status) query.possession_status = filters.possession_status;
       if (filters.active_status) query.active_status = filters.active_status;
+      if (filters.mine && user?.id) query.assigned_engineer_user_id = user.id;
       try {
         const res = await base44.entities.Location.filter(query, { sort: 'villa_code', limit: 500 });
         if (!cancelled) setLocations(items(res));
@@ -62,6 +69,7 @@ export default function Locations() {
   }, [filters, cat.locations.length, reloadKey]);
 
   const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
+  React.useEffect(() => { saveRemembered('villas', user?.id, filters); }, [filters, user?.id]);
 
   return (
     <>
@@ -82,7 +90,18 @@ export default function Locations() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 rounded-xl border border-border bg-card p-3 sm:grid-cols-3 lg:grid-cols-5 sm:p-4">
+      <FilterBar
+        className="mb-4"
+        chips={mode === 'health' ? [
+          { key: 'mine', label: 'Mine', active: filters.mine, onClick: () => set({ mine: !filters.mine }) },
+          { key: 'overdue', label: 'Overdue', active: filters.overdue, onClick: () => set({ overdue: !filters.overdue }) },
+          { key: 'blocked', label: 'Blocked', active: filters.blocked, onClick: () => set({ blocked: !filters.blocked }) },
+        ] : []}
+        moreCount={countActive(filters, ['mine', 'overdue', 'blocked'])}
+        totalActive={countActive(filters)}
+        onClear={() => { setFilters(BLANK); forgetRemembered('villas', user?.id); }}
+      >
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
         <EnumSelect
           value={filters.project_id}
           onChange={(v) => set({ project_id: v, phase_id: '' })}
@@ -116,7 +135,8 @@ export default function Locations() {
           options={ACTIVE_STATUSES}
           placeholder="Active or on hold"
         />
-      </div>
+        </div>
+      </FilterBar>
 
       <div className="mb-3 flex gap-2" role="tablist" aria-label="View">
         {[['health', 'Health'], ['register', 'Register']].map(([key, label]) => (

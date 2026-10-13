@@ -176,6 +176,7 @@ export function villaListView({ tasks = [], locations = [], snags = [], ix, asOf
         active_status: l.active_status || 'Active',
         on_hold: heldIds.has(l.id),
         engineer: l.assigned_engineer || '',
+        engineer_user_id: l.assigned_engineer_user_id || '',
         total: mine.length,
         open: counts.open,
         blocked: counts.blocked,

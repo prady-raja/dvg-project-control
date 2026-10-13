@@ -18,13 +18,13 @@ import DataState from '@/components/common/DataState';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { escapeRegex } from '@/lib/taskForm';
 import { useAuth } from '@/lib/AuthContext';
-import ViewPresets from '@/components/tasks/ViewPresets';
 import { useToast } from '@/components/ui/use-toast';
 import { todayIst } from '@/lib/format';
 import { downloadBlob } from '@/lib/workImportService';
 import { WORKS_SHEET, buildWorkbookFromSheets } from '@/lib/xlsxImport';
 import { registerRows, EDITABLE_NOTE } from '@/lib/registerExport';
 import { data } from '@/api/data';
+import { forgetRemembered, loadRemembered, saveRemembered } from '@/lib/rememberedFilters';
 
 const PAGE_SIZE = 50;
 
@@ -37,8 +37,12 @@ export default function TaskRegister() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const fromUrl = ['project', 'phase', 'location', 'discipline', 'contractor', 'status', 'assignee', 'q'].some((k) => searchParams.get(k));
+  // With nothing in the address, the list opens as this person last left it.
+  const remembered = !fromUrl ? loadRemembered('work', user?.id) : null;
   const initial = {
     ...EMPTY_TASK_FILTERS,
+    ...(remembered || {}),
     project_id: searchParams.get('project') || '',
     phase_id: searchParams.get('phase') || '',
     location_id: searchParams.get('location') || '',
@@ -92,8 +96,9 @@ export default function TaskRegister() {
 
   const filterKey = JSON.stringify(filters);
 
-  // What is on screen is in the address, so a link opens the same view.
+  // What is on screen is in the address, so a link opens the same view; and it is remembered for next time.
   useEffect(() => {
+    saveRemembered('work', user?.id, filters);
     setSearchParams((prev) => {
       const out = new URLSearchParams(prev);
       const map = { project: filters.project_id, phase: filters.phase_id, location: filters.location_id, discipline: filters.discipline, contractor: filters.contractor_id, status: filters.status, assignee: filters.assignee, q: filters.search.trim() };
@@ -188,8 +193,13 @@ export default function TaskRegister() {
         }
       />
 
-      <ViewPresets filters={draft} apply={(patch) => setDraft((f) => ({ ...f, ...patch }))} />
-      <TaskFilters filters={draft} setFilters={setDraft} cat={cat} />
+      <TaskFilters
+        filters={draft}
+        setFilters={setDraft}
+        cat={cat}
+        onClear={() => { setDraft(EMPTY_TASK_FILTERS); forgetRemembered('work', user?.id); }}
+        overdueTo={`/planning?tab=overdue${draft.project_id ? `&project=${draft.project_id}` : ''}${draft.phase_id ? `&phase=${draft.phase_id}` : ''}`}
+      />
 
       <div className="mt-4 mb-3 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
