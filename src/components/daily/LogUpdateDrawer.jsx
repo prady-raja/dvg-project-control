@@ -150,7 +150,7 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
     || form.note.trim() || form.photos.length);
 
   /* ------------------------------------------------------------------ save */
-  const save = useCallback(async () => {
+  const save = useCallback(async (andNext = false) => {
     if (!task) return;
     setSaving(true);
     setError('');
@@ -195,14 +195,22 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         ) : undefined,
       });
       onSaved?.(result);
-      setForm(EMPTY);
-      onOpenChange(false);
+      // Save & next keeps the villa, the day and the photos and moves to the next open task of the villa.
+      const index = tasks.findIndex((t) => t.id === task.id);
+      const next = andNext && !correcting ? tasks.slice(index + 1).find((t) => t.id !== task.id) : null;
+      if (andNext && !next) toast({ description: 'That was the last open task here.' });
+      if (next) {
+        setForm({ ...EMPTY, locationId: form.locationId, taskId: next.id, status: next.status, progress: next.progress_percent ?? '', photos: form.photos, floor_id: form.floor_id, area_ids: form.area_ids });
+      } else {
+        setForm(EMPTY);
+        onOpenChange(false);
+      }
     } catch (e) {
       setError(errorMessageOf(e, 'The update could not be saved.'));
     } finally {
       setSaving(false);
     }
-  }, [task, form, villaScope, toast, onSaved, onOpenChange, reportDate, correcting]);
+  }, [task, tasks, form, villaScope, toast, onSaved, onOpenChange, reportDate, correcting]);
 
   const discard = () => { clearDraft(); setForm(EMPTY); setRestored(false); };
 
@@ -341,10 +349,15 @@ export default function LogUpdateDrawer({ open, onOpenChange, scope, onSaved, on
         </div>
 
         <DrawerFooter className="border-t border-border bg-background">
-          <Button size="lg" className="h-12 gap-2 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={save}>
+          <Button size="lg" className="h-12 gap-2 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={() => save(false)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             {saving ? 'Saving…' : busyPhoto ? 'Uploading photo…' : 'Save update'}
           </Button>
+          {!correcting && (
+            <Button size="lg" variant="outline" className="h-12 text-base" disabled={!task || saving || busyPhoto || !changed} onClick={() => save(true)}>
+              Save &amp; next task
+            </Button>
+          )}
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

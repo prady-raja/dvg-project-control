@@ -117,6 +117,9 @@ export default function LocationDetail() {
                 <Link to={`/villas/${location.id}/statement`}>Pending works statement</Link>
               </Button>
             )}
+            {canEdit && location.location_type === 'Villa' && (
+              <Button variant="outline" size="sm" onClick={() => quick.openDaySheet({ locationId: location.id })}>Day sheet</Button>
+            )}
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>

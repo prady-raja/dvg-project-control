@@ -85,23 +85,15 @@ async function restoreVoided(svc, taken) {
   await svc.DailyUpdate.update(original.id, { voided: false, voided_at: null, voided_by_name: null });
 }
 
-async function handler(req) {
+/**
+ * One daily report, start to finish: checks, the task write, the report, the trail.
+ * Returns the payload; throws a status error. A correction that fails after the
+ * original was taken back puts the original back exactly as it was.
+ */
+async function submitReport(base44, svc, user, body) {
   let taken = null;
   let restoreWith = null;
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const body = await req.json().catch(() => ({}));
-    const svc = base44.asServiceRole.entities;
-
-    /* ------------------------------------------- taking back your own report today */
-    if (body?.action === 'void') {
-      const { original } = await voidReport(base44, svc, user, String(body?.report_id || ''));
-      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
-    }
-
     // A correction: the original is taken back only once the replacement has passed
     // its checks, and put back exactly as it was if the replacement then fails.
     const replacesId = String(body?.replaces_report_id || '');
@@ -364,7 +356,7 @@ async function handler(req) {
       });
     }
 
-    return Response.json({
+    return {
       update: report,
       task: updatedTask || task,
       changed: entries.length,
@@ -372,12 +364,49 @@ async function handler(req) {
       message: historyOnly
         ? `Saved as history. A newer report (${latestReportDate}) already set this task, so its status, progress and forecast were not changed.`
         : '',
-    });
+    };
   } catch (error) {
     if (taken && restoreWith) {
-      // The replacement failed after the original was taken back: put the original back.
       await restoreVoided(restoreWith, taken).catch(() => {});
     }
+    throw error;
+  }
+}
+
+/** Up to 25 tasks of one villa and day in one call: a result per row, so one refusal never blocks the rest. */
+async function submitBatch(base44, svc, user, body) {
+  const rows = (Array.isArray(body?.rows) ? body.rows : []).slice(0, 25);
+  if (!rows.length) throw fail('There is nothing to save.');
+  const results = [];
+  for (const row of rows) {
+    const clientRef = String(row?.client_ref || row?.task_id || '');
+    try {
+      const out = await submitReport(base44, svc, user, { ...row, update_date: body.update_date, site_area: body.site_area });
+      results.push({ client_ref: clientRef, ok: true, update: out.update, history_only: out.history_only, message: out.message || '' });
+    } catch (e) {
+      results.push({ client_ref: clientRef, ok: false, error: e?.message || 'Could not save this row.', status: e?.status || 500 });
+    }
+  }
+  return { results, saved: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length };
+}
+
+async function handler(req) {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json().catch(() => ({}));
+    const svc = base44.asServiceRole.entities;
+
+    /* ------------------------------------------- taking back your own report today */
+    if (body?.action === 'void') {
+      const { original } = await voidReport(base44, svc, user, String(body?.report_id || ''));
+      return Response.json({ ok: true, voided: original.id, task_id: original.task_id });
+    }
+    if (body?.action === 'batch') return Response.json(await submitBatch(base44, svc, user, body));
+    return Response.json(await submitReport(base44, svc, user, body));
+  } catch (error) {
     return Response.json({ error: error.message }, { status: error?.status || 500 });
   }
 }

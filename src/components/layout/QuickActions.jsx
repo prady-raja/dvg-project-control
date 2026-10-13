@@ -7,6 +7,8 @@ import { useAccess } from '@/lib/AccessContext';
 import LogUpdateDrawer from '@/components/daily/LogUpdateDrawer';
 import SnagDialog from '@/components/handover/SnagDialog';
 import BlockerSheet from '@/components/daily/BlockerSheet';
+import VillaDaySheet from '@/components/daily/VillaDaySheet';
+import { todayIst } from '@/lib/format';
 import { useInvalidateWork } from '@/hooks/useDashboardQuery';
 
 const QuickActionsContext = createContext(null);
@@ -33,6 +35,7 @@ export function QuickActionsProvider({ children }) {
   const [logFor, setLogFor] = useState(null);
   const [snagFor, setSnagFor] = useState(null);
   const [blockFor, setBlockFor] = useState(null);
+  const [dayFor, setDayFor] = useState(null);
   // Bumped after any save, so a page showing the work can reload itself.
   const [version, setVersion] = useState(0);
 
@@ -43,6 +46,7 @@ export function QuickActionsProvider({ children }) {
     openLogUpdate: (scope = {}) => { setMenuOpen(false); setLogFor({ ...here, ...scope }); },
     openSnag: (scope = {}) => { setMenuOpen(false); setSnagFor({ ...here, ...scope }); },
     openBlocker: (task) => setBlockFor(task),
+    openDaySheet: (scope = {}) => { setMenuOpen(false); setDayFor({ date: todayIst(), ...scope }); },
     tellDvg: () => { setMenuOpen(false); navigate('/ai'); },
     canReport: access.canAnywhere('edit_tasks'),
     version,
@@ -100,6 +104,7 @@ export function QuickActionsProvider({ children }) {
         onSaved={() => { setSnagFor(null); afterSave(); }}
       />
       <BlockerSheet task={blockFor} onClose={() => setBlockFor(null)} onSaved={afterSave} />
+      <VillaDaySheet open={!!dayFor} onOpenChange={(v) => !v && setDayFor(null)} locationId={dayFor?.locationId} date={dayFor?.date || todayIst()} onSaved={afterSave} />
     </QuickActionsContext.Provider>
   );
 }

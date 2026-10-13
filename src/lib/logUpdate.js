@@ -103,3 +103,21 @@ export const clearDraft = () => {
     // Nothing to clear.
   }
 };
+/* --------------------------------------------------------------- day sheet */
+
+/** What the Villa Day Sheet sends: only the rows a person changed, in the shape the batch action takes. */
+export function daySheetRows(edits, tasks) {
+  return tasks
+    .map((task) => ({ task, edit: edits[task.id] }))
+    .filter(({ task, edit }) => edit && (
+      (edit.status && edit.status !== task.status)
+      || (edit.progress !== undefined && edit.progress !== '' && String(edit.progress) !== String(task.progress_percent ?? ''))
+      || String(edit.note || '').trim()))
+    .map(({ task, edit }) => ({
+      client_ref: task.id,
+      task_id: task.id,
+      status: edit.status || task.status,
+      ...(edit.progress === undefined || edit.progress === '' ? {} : { progress_percent: Number(edit.progress) }),
+      work_done: String(edit.note || '').trim(),
+    }));
+}

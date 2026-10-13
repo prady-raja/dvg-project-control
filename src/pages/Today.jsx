@@ -149,7 +149,10 @@ export default function Today() {
                       <p className="mt-0.5 text-xs">{v.reported_today ? (v.reported_by_me ? 'You reported today' : 'Reported today') : 'Not reported today'}</p>
                       <p className="text-xs text-muted-foreground">{v.open} open{v.overdue ? ` · ${v.overdue} overdue` : ''}{v.blocked ? ` · ${v.blocked} blocked` : ''}</p>
                       {!v.reported_today && quick.canReport && (
-                        <Button size="sm" className="mt-2 h-7 w-full" onClick={() => quick.openLogUpdate({ locationId: v.id })}>Log update</Button>
+                        <div className="mt-2 flex gap-1.5">
+                          <Button size="sm" className="h-9 flex-1" onClick={() => quick.openLogUpdate({ locationId: v.id })}>Log update</Button>
+                          <Button size="sm" variant="outline" className="h-9 flex-1" onClick={() => quick.openDaySheet({ locationId: v.id })}>Day sheet</Button>
+                        </div>
                       )}
                     </div>
                   ))}
