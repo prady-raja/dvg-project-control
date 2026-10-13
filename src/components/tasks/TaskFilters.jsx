@@ -92,6 +92,7 @@ export default function TaskFilters({ filters, setFilters, cat }) {
                   discipline: '',
                   contractor_id: '',
                   status: '',
+                  assignee: '',
                 })
               }
             >
@@ -112,6 +113,7 @@ export const EMPTY_TASK_FILTERS = {
   discipline: '',
   contractor_id: '',
   status: '',
+  assignee: '',
 };
 
 export { PROJECT_ALL };

@@ -19,13 +19,14 @@ import TaskDrilldownDialog from '@/components/dashboard/TaskDrilldownDialog';
 import { ACTIVITY_COLUMNS } from '@/lib/reportExport';
 import ShareMenu from '@/components/common/ShareMenu';
 import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 6 — Blockers and dependency chains. */
 export default function BlockerBoard() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

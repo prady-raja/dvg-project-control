@@ -12,15 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import NoProjectState from '@/components/common/NoProjectState';
 import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 4 — Contractor dashboard. */
 export default function ContractorBoard() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
   const [locationId, setLocationId] = useState('');
-  const [discipline, setDiscipline] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [discipline, setDiscipline] = useUrlState('discipline', '');
+  const [date, setDate] = useUrlState('date', todayIst());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

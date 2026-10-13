@@ -20,15 +20,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import NoProjectState from '@/components/common/NoProjectState';
 import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** Stage A / 7 and Stage B / 13 — contractor meeting reports and commitments. */
 export default function Meetings() {
   const cat = useCatalogs();
   const access = useAccess();
   const { toast } = useToast();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [contractorId, setContractorId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [contractorId, setContractorId] = useUrlState('contractor', '');
   const [meetingDate, setMeetingDate] = useState(todayIst());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);

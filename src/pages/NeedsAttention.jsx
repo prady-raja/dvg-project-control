@@ -18,6 +18,8 @@ import { FixDialog, DismissDialog } from '@/components/attention/AttentionDialog
 import ResolveScopeDialog from '@/components/tasks/ResolveScopeDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 const PAGE = 100;
 
@@ -40,10 +42,9 @@ const Stat = ({ label, value, tone = '' }) => (
  */
 export default function NeedsAttention() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
-  const [code, setCode] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
+  const [code, setCode] = useUrlState('code', '');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

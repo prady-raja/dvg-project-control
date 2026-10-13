@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { useQuickActions } from '@/components/layout/QuickActions';
 import { cn } from '@/lib/utils';
 import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
 
 const REASON_TONE = {
   overdue: 'border-red-300 bg-red-50 text-red-800',
@@ -70,7 +71,7 @@ export default function Today() {
   const access = useAccess();
   const { user } = useAuth();
   const quick = useQuickActions();
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useScopeState();
   const [all, setAll] = useState(false);
   const asOf = todayIst();
 

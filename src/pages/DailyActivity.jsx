@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 /** What the site did on one day, project-wide, grouped by phase and then villa. */
 const SCOPES = ['All', 'Villa', 'Site-wide'];
@@ -35,8 +37,8 @@ export default function DailyActivity() {
   const cat = useCatalogs();
   const access = useAccess();
   const quick = useQuickActions();
-  const [projectId, setProjectId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [scope, setScope] = useState('All');
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ updates: 0, blockers: 0, manpower: 0 });

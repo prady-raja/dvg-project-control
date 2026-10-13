@@ -10,12 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Bot } from 'lucide-react';
 import NoProjectState from '@/components/common/NoProjectState';
 import SearchSelect from '@/components/common/SearchableSelect';
+import { useScopeState } from '@/lib/ScopeContext';
 
 /** Stage B / 10 and 12 — Ask DVG AI and the daily management brief. */
 export default function AskDvgAi() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
   const [date, setDate] = useState(todayIst());
   const [status, setStatus] = useState(null);
 

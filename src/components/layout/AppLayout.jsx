@@ -4,6 +4,8 @@ import { Menu, LogOut } from 'lucide-react';
 import { CatalogProvider } from '@/lib/CatalogContext';
 import { AccessProvider, useAccess } from '@/lib/AccessContext';
 import { useCatalogs } from '@/lib/CatalogContext';
+import { ScopeProvider } from '@/lib/ScopeContext';
+import TopBar from '@/components/layout/TopBar';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import MobileTabBar from '@/components/layout/MobileTabBar';
 import { QuickActionsProvider } from '@/components/layout/QuickActions';
@@ -57,6 +59,7 @@ export default function AppLayout() {
   return (
     <AccessProvider>
       <CatalogProvider>
+        <ScopeProvider>
         <QuickActionsProvider>
         <div className="min-h-screen bg-background">
         <DesktopSidebar />
@@ -97,6 +100,7 @@ export default function AppLayout() {
           <div className="lg:pl-[264px]">
             <div className="mx-auto w-full max-w-[1500px] px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
               <LoadBanners />
+              <TopBar />
               <ErrorBoundary resetKey={routerLocation.pathname}>
                 <Outlet />
               </ErrorBoundary>
@@ -105,6 +109,7 @@ export default function AppLayout() {
           <MobileTabBar onMore={() => setMenuOpen(true)} />
         </div>
         </QuickActionsProvider>
+        </ScopeProvider>
       </CatalogProvider>
     </AccessProvider>
   );

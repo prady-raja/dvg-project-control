@@ -21,6 +21,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
 import ShareMenu from '@/components/common/ShareMenu';
 import NoProjectState from '@/components/common/NoProjectState';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 const ACTORS = ['Contractor', 'DVG', 'Villa owner'];
 
@@ -52,9 +54,8 @@ function PriorityGroups({ rows }) {
 export default function Dashboard() {
   const cat = useCatalogs();
   const access = useAccess();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
   const [includeDemo, setIncludeDemo] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

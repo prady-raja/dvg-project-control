@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import ShareMenu from '@/components/common/ShareMenu';
+import { useScopeState } from '@/lib/ScopeContext';
+import { useUrlState } from '@/lib/useUrlFilters';
 
 const CELL_TONE = {
   Stuck: 'border-red-300 bg-red-50 text-red-900',
@@ -38,11 +40,10 @@ const forecastText = (f) => {
  */
 export default function VillaMatrix() {
   const cat = useCatalogs();
-  const [projectId, setProjectId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
-  const [date, setDate] = useState(todayIst());
-  const [possession, setPossession] = useState('');
-  const [contractorId, setContractorId] = useState('');
+  const [projectId, setProjectId, phaseId, setPhaseId] = useScopeState();
+  const [date, setDate] = useUrlState('date', todayIst());
+  const [possession, setPossession] = useUrlState('possession', '');
+  const [contractorId, setContractorId] = useUrlState('contractor', '');
   const [drill, setDrill] = useState(null);
 
   useEffect(() => {

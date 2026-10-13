@@ -17,6 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DataState from '@/components/common/DataState';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { escapeRegex } from '@/lib/taskForm';
+import { useAuth } from '@/lib/AuthContext';
+import ViewPresets from '@/components/tasks/ViewPresets';
 
 const PAGE_SIZE = 50;
 
@@ -25,7 +27,8 @@ export default function TaskRegister() {
   const access = useAccess();
   const quick = useQuickActions();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
 
   const initial = {
     ...EMPTY_TASK_FILTERS,
@@ -35,6 +38,8 @@ export default function TaskRegister() {
     discipline: searchParams.get('discipline') || '',
     contractor_id: searchParams.get('contractor') || '',
     status: searchParams.get('status') || '',
+    assignee: searchParams.get('assignee') || '',
+    search: searchParams.get('q') || '',
   };
 
   const [draft, setDraft] = useState(initial);
@@ -66,6 +71,7 @@ export default function TaskRegister() {
     if (filters.discipline) q.discipline = filters.discipline;
     if (filters.contractor_id) q.contractor_id = filters.contractor_id;
     if (filters.status) q.status = filters.status;
+    if (filters.assignee === 'me' && user?.id) q.assignee_user_id = user.id;
     const search = escapeRegex(filters.search.trim());
     if (search) {
       q.$or = [
@@ -78,6 +84,16 @@ export default function TaskRegister() {
   }, [filters]);
 
   const filterKey = JSON.stringify(filters);
+
+  // What is on screen is in the address, so a link opens the same view.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const out = new URLSearchParams(prev);
+      const map = { project: filters.project_id, phase: filters.phase_id, location: filters.location_id, discipline: filters.discipline, contractor: filters.contractor_id, status: filters.status, assignee: filters.assignee, q: filters.search.trim() };
+      Object.entries(map).forEach(([k, v]) => { if (v) out.set(k, v); else out.delete(k); });
+      return out;
+    }, { replace: true });
+  }, [filters, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +162,7 @@ export default function TaskRegister() {
         }
       />
 
+      <ViewPresets filters={draft} apply={(patch) => setDraft((f) => ({ ...f, ...patch }))} />
       <TaskFilters filters={draft} setFilters={setDraft} cat={cat} />
 
       <div className="mt-4 mb-3 flex items-center justify-between">
