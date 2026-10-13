@@ -190,6 +190,16 @@ async function handler(req) {
       payload.assigned_engineer = member.name || member.email || null;
     }
 
+    // The Floors & rooms import registers many records through this same path. It
+    // marks its calls, and a marked call is for an application administrator only;
+    // the rules for an unmarked call (a Project Editor adding one room) are unchanged.
+    if (body?.register_import === true) {
+      if (!appAdmin) throw fail('Only an application administrator can run the floors and rooms import.', 403);
+      if (action !== 'create' || (entityName !== 'VillaFloor' && entityName !== 'VillaArea')) {
+        throw fail('The floors and rooms import can only create floors and rooms.');
+      }
+    }
+
     const isProjectScoped = PROJECT_SCOPED.includes(entityName);
     if (isProjectScoped && projectId) {
       payload.member_ids = memberIdsOf(await activeMembers(base44, projectId));

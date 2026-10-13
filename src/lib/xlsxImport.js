@@ -192,6 +192,30 @@ export async function readExcelWorkbook(file) {
 }
 
 /**
+ * Named sheets of a workbook as rows of cell text, each with its worksheet row
+ * number. Only the sheets asked for are read; a missing one comes back as null.
+ * Same reader and same rules as the Works sheet: saved values only.
+ */
+export async function readWorkbookSheets(file, sheetNames) {
+  if (!file) throw new Error('Choose a workbook first.');
+  const XLSX = await xlsxLib();
+  const buffer = await file.arrayBuffer();
+  let book;
+  try {
+    book = XLSX.read(buffer, { type: 'array', cellDates: true, cellFormula: false, cellHTML: false, cellNF: true, cellStyles: false, sheetStubs: false });
+  } catch (error) {
+    throw new Error(explainReadFailure(error, new Uint8Array(buffer)));
+  }
+  const names = (book.SheetNames || []).map((name) => String(name));
+  const out = {};
+  sheetNames.forEach((wanted) => {
+    const found = names.find((name) => name.trim().toLowerCase() === wanted.toLowerCase());
+    out[wanted] = found ? rowsOf(XLSX, book.Sheets[found]).filter((row) => row.filled) : null;
+  });
+  return { sheets: out, names };
+}
+
+/**
  * A workbook built from the sheets the server prepared — the reconciled work list
  * and its review sheets. The layout is decided on the server, so the download is
  * exactly what the review screen showed; the browser only writes the cells.
