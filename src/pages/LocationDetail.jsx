@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Pencil, Zap, CalendarPlus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -36,11 +37,9 @@ export default function LocationDetail() {
   const access = useAccess();
   const navigate = useNavigate();
   const quick = useQuickActions();
-  const [tasks, setTasks] = useState([]);
-  const [loadingTasks, setLoadingTasks] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [taskTotal, setTaskTotal] = useState(null);
+  const [allTasks, setAllTasks] = useState(null);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [allError, setAllError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [tab, setTab] = useUrlState('tab', 'overview');
 
@@ -48,41 +47,39 @@ export default function LocationDetail() {
   const phase = location ? cat.phaseById(location.phase_id) : null;
   const project = location ? cat.projectById(location.project_id) : null;
 
-  const loadTasks = useCallback(async () => {
-    if (!locationId) return;
-    setLoadingTasks(true);
-    setLoadError('');
-    const query = { location_id: locationId, archived: { $ne: true } };
-    try {
+  // Read through the query cache (R-01): a report or a status change elsewhere refreshes this list.
+  const tasksQuery = useQuery({
+    queryKey: ['locationTasks', locationId],
+    enabled: !!locationId,
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const query = { location_id: locationId, archived: { $ne: true } };
       const [res, count] = await Promise.all([
         base44.entities.Task.filter(query, { sort: '-created_date', limit: 200 }),
         base44.entities.Task.count(query),
       ]);
-      setTasks(items(res));
-      setTaskTotal(Number(count) || 0);
-    } catch (e) {
-      setLoadError(errorMessageOf(e, 'The tasks for this villa could not be loaded.'));
-    } finally {
-      setLoadingTasks(false);
-    }
-  }, [locationId]);
+      return { items: items(res), total: Number(count) || 0 };
+    },
+  });
+  const tasks = allTasks || tasksQuery.data?.items || [];
+  const taskTotal = allTasks ? allTasks.length : (tasksQuery.data?.total ?? null);
+  const loadingTasks = tasksQuery.isPending;
+  const loadError = allError || (tasksQuery.isError ? errorMessageOf(tasksQuery.error, 'The tasks for this villa could not be loaded.') : '');
+  const loadTasks = () => { setAllTasks(null); setAllError(''); return tasksQuery.refetch(); };
 
   const loadAllTasks = async () => {
     setLoadingAll(true);
+    setAllError('');
     try {
       const all = await data.readAll('Task', { location_id: locationId, archived: { $ne: true } }, { sort: '-created_date', max: 5000 });
-      setTasks(all.items);
-      setTaskTotal(all.items.length);
+      setAllTasks(all.items);
     } catch (e) {
-      setLoadError(errorMessageOf(e, 'The full task list could not be loaded.'));
+      setAllError(errorMessageOf(e, 'The full task list could not be loaded.'));
     } finally {
       setLoadingAll(false);
     }
   };
-
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks, quick.version]);
 
   if (cat.loading) return <Skeleton className="h-96 rounded-xl" />;
 

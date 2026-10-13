@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { invokeFn } from '@/lib/invokeFn';
 import { toast } from '@/components/ui/use-toast';
 
 /**
@@ -7,18 +7,9 @@ import { toast } from '@/components/ui/use-toast';
  * needed; the page only decides which button to show.
  */
 export async function saveRecord(entity, action, data = {}, id = '') {
-  try {
-    const res = await base44.functions.invoke('saveRecord', { entity, action, data, id });
-    toast({ description: action === 'delete' ? 'Removed.' : action === 'create' ? 'Created.' : 'Saved.' });
-    return res?.data || {};
-  } catch (error) {
-    const message =
-      error?.response?.data?.error ||
-      error?.data?.error ||
-      (typeof error?.message === 'string' && !error.message.includes('SDK Error') ? error.message : '') ||
-      'The change was refused.';
-    throw new Error(message);
-  }
+  const res = await invokeFn('saveRecord', { entity, action, data, id }, 'The change was refused.');
+  toast({ description: action === 'delete' ? 'Removed.' : action === 'create' ? 'Created.' : 'Saved.' });
+  return res;
 }
 
 export const createRecord = (entity, data) => saveRecord(entity, 'create', data);

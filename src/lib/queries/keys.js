@@ -7,4 +7,4 @@ export const queryKeys = {
 };
 
 /** Everything that shows work, refreshed after any write to a task, report or constraint. */
-export const WORK_KEYS = ['myWork', 'navCounts', 'dashboard', 'blockers'];
+export const WORK_KEYS = ['myWork', 'navCounts', 'dashboard', 'blockers', 'task', 'locationTasks'];

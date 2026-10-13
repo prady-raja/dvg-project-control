@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { invokeFn } from '@/lib/invokeFn';
 
 /**
  * Every task write goes through the server, which decides permission from the
@@ -6,19 +6,7 @@ import { base44 } from '@/api/base44Client';
  * a task record directly.
  */
 
-const invoke = async (name, payload) => {
-  try {
-    const res = await base44.functions.invoke(name, payload);
-    return res?.data || {};
-  } catch (error) {
-    const message =
-      error?.response?.data?.error ||
-      error?.data?.error ||
-      (typeof error?.message === 'string' && !error.message.includes('SDK Error') ? error.message : '') ||
-      'The action was refused.';
-    throw new Error(message);
-  }
-};
+const invoke = (name, payload) => invokeFn(name, payload, 'The action was refused.');
 
 export async function createTask(payload) {
   const data = await invoke('taskWrite', { action: 'create', changes: payload });
