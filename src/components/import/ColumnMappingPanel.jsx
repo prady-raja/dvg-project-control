@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Columns3 } from 'lucide-react';
-import { IMPORT_COLUMNS } from '@shared/workImport.ts';
+import { IMPORT_COLUMNS } from '@/lib/shared/workImport.ts';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Button } from '@/components/ui/button';
 

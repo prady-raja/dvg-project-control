@@ -4,7 +4,7 @@
  * action is re-checked on the server from the signed-in session.
  */
 
-import { APP_ADMIN_RANK, ROLE_RANK } from '@shared/enums.ts';
+import { APP_ADMIN_RANK, ROLE_RANK } from '@/lib/shared/enums.ts';
 
 export { APP_ADMIN_RANK, ROLE_RANK };
 

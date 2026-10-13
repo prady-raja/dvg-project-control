@@ -1,7 +1,7 @@
 import { todayIst } from '@/lib/format';
 import { base44 } from '@/api/base44Client';
 import { buildWorkbookFromSheets, buildWorkbookTemplate } from '@/lib/xlsxImport';
-import { mergePreviews, mergeResults, restrictToRows, splitIntoChunks } from '@shared/importChunks.ts';
+import { mergePreviews, mergeResults, restrictToRows, splitIntoChunks } from '@/lib/shared/importChunks.ts';
 
 /**
  * The client half of the CSV work import: the downloadable template, a file

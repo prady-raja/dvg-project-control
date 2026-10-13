@@ -5,7 +5,7 @@ import Pill from '@/components/common/Pill';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import EnumSelect from '@/components/common/EnumSelect';
-import { ASSIGNABLE_ROLES } from '@shared/enums.ts';
+import { ASSIGNABLE_ROLES } from '@/lib/shared/enums.ts';
 
 /** One section per project: who is on it, at what level, and whether access is live. */
 export default function MembershipList({ groups, canEdit = false, onToggleActive, onChangeRole, onAdd, onChanged }) {

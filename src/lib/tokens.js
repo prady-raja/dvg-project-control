@@ -1,4 +1,4 @@
-import { STATUS_CATEGORY, STATUS_HELP } from '@shared/enums.ts';
+import { STATUS_CATEGORY, STATUS_HELP } from '@/lib/shared/enums.ts';
 
 /**
  * Colour, icon and category for every status (U-01). A status is always shown

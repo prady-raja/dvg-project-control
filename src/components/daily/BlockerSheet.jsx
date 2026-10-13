@@ -3,7 +3,7 @@ import { data } from '@/api/data';
 import { clearBlocker, raiseBlocker } from '@/lib/constraintService';
 import { updateTask } from '@/lib/taskService';
 import { errorMessageOf } from '@/lib/clientErrors';
-import { BLOCKER_CATEGORIES, CONSTRAINT_OWNER_TYPES, defaultOwnerTypeFor } from '@shared/enums.ts';
+import { BLOCKER_CATEGORIES, CONSTRAINT_OWNER_TYPES, defaultOwnerTypeFor } from '@/lib/shared/enums.ts';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { useToast } from '@/components/ui/use-toast';
 import FormDialog from '@/components/common/FormDialog';

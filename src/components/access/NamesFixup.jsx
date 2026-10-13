@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { data } from '@/api/data';
 import { errorMessageOf } from '@/lib/clientErrors';
-import { matchMember } from '@shared/assignees.ts';
+import { matchMember } from '@/lib/shared/assignees.ts';
 import DataState from '@/components/common/DataState';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Button } from '@/components/ui/button';

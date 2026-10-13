@@ -4,7 +4,7 @@ import { createRecord } from '@/lib/recordService';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { todayIst } from '@/lib/format';
 import { uploadFiles } from '@/lib/photoUpload';
-import { DEFAULT_PATTERN, parseDrawingName, planDrawingIntake } from '@shared/drawingIntake.ts';
+import { DEFAULT_PATTERN, parseDrawingName, planDrawingIntake } from '@/lib/shared/drawingIntake.ts';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

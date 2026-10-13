@@ -11,7 +11,7 @@ import {
   PROGRESS_CHIPS, clearDraft, isRestorable, loadDraft, loadRecentVillas, nextProgress, orderTasks, rememberVilla, saveDraft, statusChips,
 } from '@/lib/logUpdate';
 import { REPORTABLE_STATUSES } from '@/lib/taskForm';
-import { areaLabelFor } from '@shared/villaAreas.ts';
+import { areaLabelFor } from '@/lib/shared/villaAreas.ts';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

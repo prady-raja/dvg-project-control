@@ -1,4 +1,4 @@
-import { applyHeaderMapping, headerFingerprint, unrecognisedHeadings } from '@shared/importChunks.ts';
+import { applyHeaderMapping, headerFingerprint, unrecognisedHeadings } from '@/lib/shared/importChunks.ts';
 
 /**
  * A file's own headings can be mapped to the app's columns once and remembered,

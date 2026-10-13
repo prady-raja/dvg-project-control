@@ -1,4 +1,4 @@
-import { allowedNextStatuses } from '@shared/enums.ts';
+import { allowedNextStatuses } from '@/lib/shared/enums.ts';
 
 /**
  * The pure parts of the Log update drawer: which statuses to offer, what the

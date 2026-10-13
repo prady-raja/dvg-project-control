@@ -3,7 +3,7 @@ import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
-import { ASSIGNABLE_ROLES } from '@shared/enums.ts';
+import { ASSIGNABLE_ROLES } from '@/lib/shared/enums.ts';
 import { createRecord } from '@/lib/recordService';
 
 export default function MembershipDialog({ open, onOpenChange, cat, user, onSaved }) {

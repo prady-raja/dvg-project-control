@@ -1,5 +1,5 @@
 import { toDateInput } from '@/lib/format';
-import { allowedNextStatuses, TASK_STATUSES } from '@shared/enums.ts';
+import { allowedNextStatuses, TASK_STATUSES } from '@/lib/shared/enums.ts';
 
 /**
  * Pure helpers behind the task edit dialogs. A dialog builds its form from the

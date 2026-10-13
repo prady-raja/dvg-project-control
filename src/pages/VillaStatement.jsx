@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, MessageCircle, Printer, Share2 } from 'lucide-react';
-import { statementText } from '@shared/villaViews.ts';
+import { statementText } from '@/lib/shared/villaViews.ts';
 import { useDashboardQuery } from '@/hooks/useDashboardQuery';
 import { useSignedUrls } from '@/lib/useSignedUrls';
 import { downloadText, toCsv } from '@/lib/reportExport';

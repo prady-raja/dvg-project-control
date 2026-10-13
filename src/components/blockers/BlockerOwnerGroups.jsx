@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarClock, CheckCircle2, MessageCircle, UserCog } from 'lucide-react';
-import { CONSTRAINT_OWNER_TYPES } from '@shared/enums.ts';
+import { CONSTRAINT_OWNER_TYPES } from '@/lib/shared/enums.ts';
 import { chaseOnWhatsApp, updateBlocker } from '@/lib/constraintService';
 import { errorMessageOf } from '@/lib/clientErrors';
 import { formatDate } from '@/lib/format';

@@ -1,5 +1,5 @@
 import { data } from '@/api/data';
-import { chaseMessage, whatsappLink } from '@shared/constraints.ts';
+import { chaseMessage, whatsappLink } from '@/lib/shared/constraints.ts';
 
 /** Raise, change, chase and clear a blocker — always through the server, which keeps the task and the board in step. */
 export const raiseBlocker = (payload) => data.invoke('constraintWrite', { action: 'raise', ...payload });

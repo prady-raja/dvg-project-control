@@ -4,7 +4,7 @@ import Field from '@/components/common/Field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { updateRecord } from '@/lib/recordService';
-import { projectSettings, settingsProblems } from '@shared/calendar.ts';
+import { projectSettings, settingsProblems } from '@/lib/shared/calendar.ts';
 
 const WEEKDAYS = [
   [1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [7, 'Sun'],

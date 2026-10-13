@@ -6,7 +6,7 @@ import FormDialog from '@/components/common/FormDialog';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Input } from '@/components/ui/input';
 import { createRecord } from '@/lib/recordService';
-import { ASSIGNABLE_ROLES } from '@shared/enums.ts';
+import { ASSIGNABLE_ROLES } from '@/lib/shared/enums.ts';
 
 /**
  * Invites a genuine application user and records their project membership at the

@@ -3,7 +3,7 @@ import { Wand2, Plus } from 'lucide-react';
 import { data } from '@/api/data';
 import { createRecord } from '@/lib/recordService';
 import { useAccess } from '@/lib/AccessContext';
-import { normalizeAreaName } from '@shared/villaAreas.ts';
+import { normalizeAreaName } from '@/lib/shared/villaAreas.ts';
 import { forgetVillaScope } from '@/components/villa/VillaScopePicker';
 import { Button } from '@/components/ui/button';
 import Field from '@/components/common/Field';

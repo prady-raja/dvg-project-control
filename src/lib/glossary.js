@@ -1,5 +1,5 @@
-import { STATUS_HELP } from '@shared/enums.ts';
-import { ATTENTION_CODES } from '@shared/attention.ts';
+import { STATUS_HELP } from '@/lib/shared/enums.ts';
+import { ATTENTION_CODES } from '@/lib/shared/attention.ts';
 
 /**
  * The words the app uses, explained once. The Help page shows them all; a "?"

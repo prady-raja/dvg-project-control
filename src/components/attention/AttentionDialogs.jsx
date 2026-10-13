@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { bulkFix, dismissItems } from '@/lib/attentionService';
 import { errorMessageOf } from '@/lib/clientErrors';
-import { SNOOZE_CHOICES } from '@shared/attentionActions.ts';
+import { SNOOZE_CHOICES } from '@/lib/shared/attentionActions.ts';
 import { useCatalogs } from '@/lib/CatalogContext';
 import FormDialog from '@/components/common/FormDialog';
 import Field from '@/components/common/Field';
