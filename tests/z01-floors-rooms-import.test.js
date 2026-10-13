@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BATCH_SIZE, executePlan, parseSheets, planRegistration, resultCsv, roomNotes, splitAliases,
+  PAUSE_MS, RATE_LIMIT_RETRIES, RATE_LIMIT_WAIT_MS, executePlan, parseSheets, planRegistration, resultCsv, roomNotes, splitAliases,
 } from '@/lib/floorsRoomsImport';
 import { normalizeAreaName as serverNormalize } from '../base44/shared/villaAreas.ts';
 import { normalizeAreaName as clientNormalize } from '@/lib/shared/villaAreas';
@@ -89,13 +89,40 @@ describe('execution', () => {
     expect(run).toMatchObject({ created_floors: 1, created_rooms: 2, failed: 1 });
     expect(resultCsv(p, run)).toMatch(/Failed,refused/);
   });
-  it('writes in batches of 25 and reports progress', async () => {
-    const rows = Array.from({ length: 60 }, (_, i) => ['T-01', '', `Room ${i} X${i}`, 'Room', '', '', 0, 'Yes', `P${i}`]);
-    const progress = [];
-    const run = await executePlan(plan(make([], rows)), { create: async () => ({ record: { id: 'x' } }), onProgress: (x) => progress.push(x.done) });
-    expect(BATCH_SIZE).toBe(25);
-    expect(progress).toEqual([25, 50, 60]);
-    expect(run.created_rooms).toBe(60);
+  it('writes one record at a time with a pause and reports progress', async () => {
+    const rows = Array.from({ length: 5 }, (_, i) => ['T-01', '', `Room ${i} X${i}`, 'Room', '', '', 0, 'Yes', `P${i}`]);
+    const progress = []; const sleeps = []; let active = 0; let overlap = false;
+    const create = async () => { active += 1; if (active > 1) overlap = true; await Promise.resolve(); active -= 1; return { record: { id: 'x' } }; };
+    const run = await executePlan(plan(make([], rows)), { create, sleep: async (ms) => { sleeps.push(ms); }, onProgress: (x) => progress.push(x.done) });
+    expect(overlap).toBe(false);
+    expect(progress).toEqual([1, 2, 3, 4, 5]);
+    expect(sleeps).toEqual(Array(5).fill(PAUSE_MS));
+    expect(run).toMatchObject({ created_rooms: 5, stopped: false, remaining: 0 });
+  });
+  it('waits 10 s and retries a rate-limited record, then carries on', async () => {
+    const rows = [['T-01', '', 'Alpha One', 'Room', '', '', 0, 'Yes', 'P1'], ['T-01', '', 'Beta Two', 'Room', '', '', 0, 'Yes', 'P2']];
+    let hits = 0; const sleeps = [];
+    const create = async (e, d) => { if (d.area_name === 'Alpha One' && hits++ < 2) throw new Error('429 rate limit exceeded'); return { record: { id: 'x' } }; };
+    const run = await executePlan(plan(make([], rows)), { create, sleep: async (ms) => { sleeps.push(ms); } });
+    expect(sleeps.filter((ms) => ms === RATE_LIMIT_WAIT_MS)).toHaveLength(2);
+    expect(run).toMatchObject({ created_rooms: 2, failed: 0, stopped: false });
+  });
+  it('stops after the retries, keeps what was saved, and reports what remains', async () => {
+    const rows = ['A One', 'B Two', 'C Three', 'D Four'].map((n, i) => ['T-01', '', n, 'Room', '', '', 0, 'Yes', `P${i}`]);
+    let calls = 0;
+    const create = async (e, d) => { calls += 1; if (d.area_name === 'C Three') throw new Error('Too many requests'); return { record: { id: 'x' } }; };
+    const p = plan(make([], rows));
+    const run = await executePlan(p, { create, sleep: async () => {} });
+    expect(run).toMatchObject({ created_rooms: 2, failed: 0, stopped: true, remaining: 2 });
+    expect(calls).toBe(2 + 1 + RATE_LIMIT_RETRIES); // C Three tried once plus each retry; D Four never tried
+    expect(resultCsv(p, run)).toMatch(/Four,not run/);
+  });
+  it('a refusal that is not a rate limit is skipped, not retried', async () => {
+    const rows = [['T-01', '', 'Alpha One', 'Room', '', '', 0, 'Yes', 'P1']];
+    let calls = 0;
+    const run = await executePlan(plan(make([], rows)), { create: async () => { calls += 1; throw new Error('already has an area'); }, sleep: async () => {} });
+    expect(calls).toBe(1);
+    expect(run).toMatchObject({ failed: 1, stopped: false });
   });
   it('a room whose floor failed is failed, not created without a floor', async () => {
     const run = await executePlan(plan(parsed), { create: async (e) => { if (e === 'VillaFloor') throw new Error('no'); return { record: { id: 'r' } }; } });
@@ -106,6 +133,11 @@ describe('execution', () => {
 describe('helpers and rules', () => {
   it('caps aliases at 20', () => expect(splitAliases(Array.from({ length: 25 }, (_, i) => `a${i}`).join(';')).aliases).toHaveLength(20));
   it('notes use DD-MMM-YY', () => expect(roomNotes('X', 'Ada', '2026-01-05')).toMatch(/on 05-Jan-26$/));
+  it('a room with no real plan ID is not described as registered from one', () => {
+    ['', 'Work list wording (no plan match)'].forEach((id) => {
+      expect(roomNotes(id, 'Ada', '2026-01-05')).toBe('Registered as written in Works, no plan match (location to be confirmed), confirmed by Ada on 05-Jan-26');
+    });
+  });
   it('uses the same name key as the server', () => ['Master  Bedroom!', 'The Bar Area'].forEach((v) => expect(clientNormalize(v)).toBe(serverNormalize(v))));
   it('a missing register sheet is reported', () => expect(parseSheets({ Floors_To_Register: null, Rooms_To_Register: null, Rooms_Need_Decision: null }).problems).toHaveLength(2));
 });

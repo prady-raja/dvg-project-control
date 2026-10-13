@@ -106,6 +106,19 @@ export default function FloorsRoomsImportTab() {
     }
   };
 
+  // After a rate-limit stop: re-read the register so the preview shows only what is left.
+  const checkAgain = async () => {
+    setError(''); setBusy('read');
+    try {
+      setPlan(await buildPlan());
+      setRun(null);
+    } catch (caught) {
+      setError(errorMessageOf(caught, 'The register could not be read.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
   const t = plan?.totals;
   const toCreate = t ? t.floors_create + t.rooms_create : 0;
   const shown = run?.plan || plan;
@@ -184,7 +197,12 @@ export default function FloorsRoomsImportTab() {
 
             {run && (
               <div role="status" className="rounded-xl border border-border bg-secondary/30 p-4 text-sm">
-                {run.created_floors + run.created_rooms === 0 && run.failed === 0 ? (
+                {run.stopped && (
+                  <p className="mb-1 font-medium text-destructive">
+                    Stopped by Base44's rate limit with {run.remaining} still to create. What was saved is kept. Run again to finish: wait a few minutes, then use "Check again".
+                  </p>
+                )}
+                {run.created_floors + run.created_rooms === 0 && run.failed === 0 && !run.stopped ? (
                   <p className="font-medium">Nothing to create: everything in this workbook is already registered.</p>
                 ) : (
                   <p className="font-medium">Created {run.created_floors} floors and {run.created_rooms} rooms. {run.failed} failed.</p>
@@ -203,6 +221,9 @@ export default function FloorsRoomsImportTab() {
             )}
 
             <div className="flex flex-wrap gap-2">
+              {run?.stopped && (
+                <Button onClick={checkAgain} disabled={!!busy}>Check again</Button>
+              )}
               <Button onClick={() => setConfirmOpen(true)} disabled={!!busy || toCreate === 0 || !!run}>
                 {toCreate === 0 ? 'Nothing to create' : `Create ${t.floors_create} floors and ${t.rooms_create} rooms`}
               </Button>
