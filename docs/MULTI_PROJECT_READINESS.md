@@ -8,10 +8,10 @@ Written for the MVP Gap Upgrade, step 5. Nothing in this report has been changed
 
 | Where | What | Effect on a new project |
 |---|---|---|
-| `src/lib/constants.js` | `SEED_PHASE_A_VILLAS`, `SEED_PHASE_B_VILLAS` (A-01…, B-01…, B-05-06), `SEED_COMMON_LOCATIONS` ("Imagine Common Area", "Imagine Infrastructure"), `SEED_CONTRACTORS`, `SEED_CONTRACTOR_DEFAULTS`, `SEED_WORK_PACKAGES` | **None today.** No screen or function imports them (only `SEED_DISCIPLINES` is a plain list). They are dead data and a trap if someone later builds "Load standard lists" and loads Imagine's villas into another project. |
+| `src/lib/constants.js` | `SEED_PHASE_A_VILLAS`, `SEED_PHASE_B_VILLAS` (A-01…, B-01…, B-05-06), `SEED_COMMON_LOCATIONS` ("Imagine Common Area", "Imagine Infrastructure"), `SEED_CONTRACTORS`, `SEED_CONTRACTOR_DEFAULTS`, `SEED_WORK_PACKAGES` | **None today.** No screen or function imports any `SEED_*` list. They are dead data and a trap if someone later builds "Load standard lists" and loads Imagine's villas into another project. |
 | `src/components/access/UsersPanel.jsx:116` | The invite dialog defaults to the project whose name matches `/imagine/i` | Cosmetic. Falls back to the first project. |
 | `src/lib/workImportService.js:69-71` | The sample rows in the import template read "Imagine / B / B-01 / Plots 5 & 6" | Cosmetic, but a new project's staff will see Imagine's rows in their template. |
-| `src/components/projects/ProjectDetail.jsx`, `PhaseDialog.jsx`, `ProjectDialog.jsx` | Placeholder text ("Add Phase A, Phase B", "e.g. Imagine Villas") | Cosmetic. |
+| `src/pages/ProjectDetail.jsx`, `src/components/projects/PhaseDialog.jsx`, `ProjectDialog.jsx` | Placeholder text ("Add Phase A, Phase B", "e.g. Imagine Villas") | Cosmetic. |
 | `src/components/admin/ExportPanel.jsx:130` | "Imagine records can be loaded…" | Cosmetic. |
 | `base44/shared/villaResolve.ts:235` | A bare number ("Villa 7") is tried as `<phase code>-7` | Works for any project whose phases have a code and whose villas are written `<phase code>-<number>`. A project that writes villas differently falls through to "not found" (it reports, it never guesses). |
 | Reference numbers (`base44/shared/taskRef.ts`) | `<project code>-<phase code>-0001` | Generic. A project without phases gets the prefix `<code>-GEN-`. |
