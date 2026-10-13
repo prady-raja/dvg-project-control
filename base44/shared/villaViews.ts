@@ -6,7 +6,7 @@
  */
 import {
   daysBetween, finishDate, heldLocationIds, isAwaitingClosure, isAwaitingVerification, isBlocked, isCountable,
-  isOutstanding, isOverdue, isUnscheduled, measuredProgress, shiftDay, statusCounts, taskRow, toDay, weightedProgress,
+  isOutstanding, isOverdue, isStale, isUnscheduled, measuredProgress, shiftDay, statusCounts, taskRow, toDay, weightedProgress,
 } from './dashboardCore.ts';
 
 /* ------------------------------------------------------------------ forecast */
@@ -135,6 +135,63 @@ export function villaMatrixView({ tasks = [], locations = [], ix, asOf, options 
         : '',
     ].filter(Boolean),
   };
+}
+
+/* ---------------------------------------------------------------------- list */
+
+/**
+ * One row per location for the Villas list (L-04): progress (only when measured),
+ * open, blocked, overdue and snag counts, possession, engineer, forecast with its
+ * slip, and the last report — red once it is older than the project's stale days.
+ * Sorted by risk, with handed-over villas that still have open works first.
+ */
+export function villaListView({ tasks = [], locations = [], snags = [], ix, asOf, options = {} }) {
+  const heldIds = heldLocationIds(locations);
+  const scoped = tasks.filter((t) => isCountable(t, { includeDemo: options.includeDemo === true }) && t.location_id
+    && (!options.projectId || t.project_id === options.projectId)
+    && (!options.phaseId || t.phase_id === options.phaseId));
+  const byLocation = new Map();
+  scoped.forEach((t) => byLocation.set(t.location_id, [...(byLocation.get(t.location_id) || []), t]));
+  const snagsBy = new Map();
+  snags.filter((s) => s.status !== 'Closed' && s.status !== 'Cancelled').forEach((s) => snagsBy.set(s.location_id, (snagsBy.get(s.location_id) || 0) + 1));
+
+  const rows = locations
+    .filter((l) => (!options.projectId || l.project_id === options.projectId) && (!options.phaseId || l.phase_id === options.phaseId))
+    .map((l) => {
+      const mine = byLocation.get(l.id) || [];
+      const open = mine.filter(isOutstanding);
+      const counts = statusCounts(mine, asOf);
+      const progress = weightedProgress(mine);
+      const settings = ix.settings(l.project_id);
+      const last = mine.map((t) => toDay(t.latest_report_date)).filter(Boolean).sort().pop() || '';
+      const stale = open.length > 0 && isStale(last, asOf, settings);
+      const handedOpen = l.possession_status === 'Handed Over' && open.length > 0;
+      return {
+        location_id: l.id,
+        villa: l.villa_code,
+        plot_numbers: l.plot_numbers || '',
+        location_type: l.location_type,
+        phase: ix.phaseName(l.phase_id),
+        possession_status: l.possession_status || 'Not Handed Over',
+        active_status: l.active_status || 'Active',
+        on_hold: heldIds.has(l.id),
+        engineer: l.assigned_engineer || '',
+        total: mine.length,
+        open: counts.open,
+        blocked: counts.blocked,
+        overdue: counts.overdue,
+        snags_open: snagsBy.get(l.id) || 0,
+        percent: progress.reliable ? progress.percent : null,
+        forecast: villaForecast(l, open),
+        last_report_date: last,
+        stale,
+        handed_over_open: handedOpen,
+        risk: counts.overdue * 3 + counts.blocked * 2 + (stale ? 2 : 0) + (handedOpen ? 5 : 0),
+      };
+    })
+    .sort((a, b) => b.risk - a.risk || a.villa.localeCompare(b.villa, undefined, { numeric: true }));
+
+  return { as_of: asOf, rows, totals: { locations: rows.length, handed_over_with_open_works: rows.filter((r) => r.handed_over_open).length } };
 }
 
 /* ----------------------------------------------------------------- statement */

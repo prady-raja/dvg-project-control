@@ -7,7 +7,7 @@ import { contractorBoardView, executiveView, planningView, villaExecutionView } 
 import { blockerBoardView, handoverBoardView, meetingReportView, siteWideView } from '../../shared/dashboardBoards.ts';
 import { attentionFor } from '../../shared/attention.ts';
 import { countsView, myWorkView } from '../../shared/myWork.ts';
-import { villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
+import { villaListView, villaMatrixView, villaStatementView } from '../../shared/villaViews.ts';
 import { adoptionView } from '../../shared/adoption.ts';
 import { activeMembers } from '../../shared/access.ts';
 import { loadProjectData, scopeFor, viewHeader } from '../../shared/projectData.ts';
@@ -32,7 +32,7 @@ const needsFor = (view) => ({
   updates: ['contractor', 'villa', 'handover', 'attention', 'blockers', 'meeting', 'myWork', 'adoption', 'coverage'].includes(view),
   dependencies: ['blockers', 'meeting', 'villa', 'attention', 'executive', 'planning', 'tasks', 'contractor', 'myWork', 'counts'].includes(view),
   commitments: ['meeting', 'myWork', 'executive'].includes(view),
-  snags: ['handover', 'villa', 'myWork', 'counts', 'statement'].includes(view),
+  snags: ['handover', 'villa', 'myWork', 'counts', 'statement', 'villaList'].includes(view),
   proposals: ['myWork'].includes(view),
   constraints: ['blockers', 'myWork'].includes(view),
   dismissals: ['attention', 'counts'].includes(view),
@@ -129,6 +129,8 @@ async function handler(req) {
           }),
         });
       }
+      case 'villaList':
+        return Response.json({ ...header, ...villaListView({ tasks: data.tasks, locations: data.locations, snags: data.snags, ix, asOf, options }) });
       case 'matrix':
         return Response.json({
           ...header,
