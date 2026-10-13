@@ -68,7 +68,7 @@ export default function ImportHistory() {
           </Button>
         }
       />
-      <div className="mb-4 max-w-xs">
+      <div className="mb-4 max-w-xs lg:hidden">
         <EnumSelect value={projectId} onChange={setProjectId} options={cat.projects.map((p) => ({ value: p.id, label: p.name }))} placeholder="Project" />
       </div>
       <DataState

@@ -26,7 +26,8 @@ export default function DashboardFilters({
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+        {/* On a desktop the top bar carries the project and phase for every screen (N-03), so they are not repeated here. */}
+        <div className="lg:hidden">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Project</Label>
           <EnumSelect
             className="mt-1.5"
@@ -36,7 +37,7 @@ export default function DashboardFilters({
             placeholder="Project"
           />
         </div>
-        <div>
+        <div className="lg:hidden">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Phase</Label>
           <EnumSelect
             className="mt-1.5"

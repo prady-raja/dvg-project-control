@@ -132,7 +132,7 @@ export default function NeedsAttention() {
 
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-4">
-          <div>
+          <div className="lg:hidden">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Project</p>
             <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
@@ -148,7 +148,7 @@ export default function NeedsAttention() {
               ))}
             </SearchSelect>
           </div>
-          <div>
+          <div className="lg:hidden">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Phase</p>
             <SearchSelect
               className="mt-1.5 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
