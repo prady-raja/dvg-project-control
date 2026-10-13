@@ -15,7 +15,9 @@ import { readWorkbookSheets } from '@/lib/xlsxImport';
 export const FLOORS_SHEET = 'Floors_To_Register';
 export const ROOMS_SHEET = 'Rooms_To_Register';
 export const DECISION_SHEET = 'Rooms_Need_Decision';
-export const BATCH_SIZE = 25;
+export const PAUSE_MS = 400;
+export const RATE_LIMIT_WAIT_MS = 10000;
+export const RATE_LIMIT_RETRIES = 3;
 export const MAX_ALIASES = 20;
 
 /** Mirrors the AREA_TYPES enum of VillaArea; anything else is saved as Room. */
@@ -130,8 +132,15 @@ export const dayLabel = (iso) => {
   return `${d}-${MONTHS[Number(m) - 1]}-${String(y).slice(2)}`;
 };
 
-export const roomNotes = (planId, adminName, iso) =>
-  `Registered from plan room ID ${planId || 'n/a'}, confirmed by ${adminName || 'administrator'} on ${dayLabel(iso)}`;
+/** A real plan room ID is one token such as B01-GF-04; free text is not an ID. */
+const isPlanId = (value) => /^\S+$/.test(String(value ?? '').trim());
+
+export const roomNotes = (planId, adminName, iso) => {
+  const by = `confirmed by ${adminName || 'administrator'} on ${dayLabel(iso)}`;
+  return isPlanId(planId)
+    ? `Registered from plan room ID ${String(planId).trim()}, ${by}`
+    : `Registered as written in Works, no plan match (location to be confirmed), ${by}`;
+};
 
 /**
  * What the workbook would do.
@@ -277,43 +286,65 @@ const sameCounts = (a, b) => ['floors_create', 'rooms_create'].every((k) => a.to
 /** True when a fresh plan promises what the previewed one promised. */
 export const plansAgree = sameCounts;
 
+/** Base44 answers a burst of writes with 429 / "rate limit" / "too many requests". */
+export const isRateLimit = (error) =>
+  /\b429\b|rate.?limit|too many requests/i.test(`${error?.status || ''} ${error?.message || ''}`);
+
+const wait = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 /**
- * Create the planned floors, then the planned rooms, 25 at a time, through
- * saveRecord. A refused record is skipped with its reason and the run carries on.
- * `create(entity, data)` defaults to the server call and is replaceable in tests.
+ * Create the planned floors, then the planned rooms, one record at a time with a
+ * short pause, through saveRecord. A refused record is skipped with its reason and
+ * the run carries on. A rate limit is waited out and retried; if it persists the
+ * run stops, keeps what was saved and reports `stopped` so it can be run again
+ * (the next preview skips everything already registered).
+ * `create` and `sleep` are replaceable in tests.
  */
-export async function executePlan(plan, { create = serverCreate, onProgress = () => {} } = {}) {
+export async function executePlan(plan, { create = serverCreate, onProgress = () => {}, sleep = wait } = {}) {
   const floorsToMake = plan.items.filter((i) => i.kind === 'floor' && i.outcome === 'create');
   const roomsToMake = plan.items.filter((i) => i.kind === 'room' && i.outcome === 'create');
   const total = floorsToMake.length + roomsToMake.length;
   const results = [];
   const floorIds = new Map();
   let done = 0;
+  let stopped = false;
+
+  /** One record, retrying only on a rate limit. Returns { ok, id } | { ok:false, reason } | { limited:true }. */
+  const attempt = async (entity, data) => {
+    for (let tries = 0; ; tries += 1) {
+      try {
+        const res = await create(entity, data);
+        return { ok: true, id: res?.record?.id || '' };
+      } catch (error) {
+        if (!isRateLimit(error)) return { ok: false, reason: error?.message || 'Refused' };
+        if (tries >= RATE_LIMIT_RETRIES) return { limited: true };
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(RATE_LIMIT_WAIT_MS);
+      }
+    }
+  };
 
   const run = async (list, entity, dataOf, afterOk) => {
-    for (let start = 0; start < list.length; start += BATCH_SIZE) {
-      const batch = list.slice(start, start + BATCH_SIZE);
-      // eslint-disable-next-line no-await-in-loop
-      const settled = await Promise.all(batch.map(async (item) => {
-        const data = dataOf(item);
-        if (data.error) return { item, ok: false, reason: data.error };
-        try {
-          const res = await create(entity, data);
-          return { item, ok: true, id: res?.record?.id || '' };
-        } catch (error) {
-          return { item, ok: false, reason: error?.message || 'Refused' };
-        }
-      }));
-      settled.forEach((r) => {
-        if (r.ok) afterOk(r);
-        results.push({ item: r.item, outcome: r.ok ? 'created' : 'failed', reason: r.ok ? '' : r.reason });
-      });
-      done += batch.length;
+    for (const item of list) {
+      if (stopped) return;
+      const data = dataOf(item);
+      let outcome;
+      if (data.error) outcome = { ok: false, reason: data.error };
+      else {
+        // eslint-disable-next-line no-await-in-loop
+        outcome = await attempt(entity, data);
+        if (outcome.limited) { stopped = true; return; }
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(PAUSE_MS);
+      }
+      if (outcome.ok) afterOk(item, outcome);
+      results.push({ item, outcome: outcome.ok ? 'created' : 'failed', reason: outcome.ok ? '' : outcome.reason });
+      done += 1;
       onProgress({ done, total });
     }
   };
 
-  await run(floorsToMake, 'VillaFloor', (item) => item.data, (r) => floorIds.set(r.item.key, r.id));
+  await run(floorsToMake, 'VillaFloor', (item) => item.data, (item, r) => floorIds.set(item.key, r.id));
   await run(roomsToMake, 'VillaArea', (item) => {
     const ref = item.floor_ref;
     if (!ref) return item.data;
@@ -329,6 +360,8 @@ export async function executePlan(plan, { create = serverCreate, onProgress = ()
     created_floors: created('floor'),
     created_rooms: created('room'),
     failed: results.filter((r) => r.outcome === 'failed').length,
+    stopped,
+    remaining: total - done,
   };
 }
 
