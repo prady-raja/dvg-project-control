@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, ClipboardList, Layers } from 'lucide-react';
+import { Plus, ClipboardList, Download, Layers } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCatalogs } from '@/lib/CatalogContext';
 import { items } from '@/lib/dataHelpers';
@@ -19,6 +19,12 @@ import { errorMessageOf } from '@/lib/clientErrors';
 import { escapeRegex } from '@/lib/taskForm';
 import { useAuth } from '@/lib/AuthContext';
 import ViewPresets from '@/components/tasks/ViewPresets';
+import { useToast } from '@/components/ui/use-toast';
+import { todayIst } from '@/lib/format';
+import { downloadBlob } from '@/lib/workImportService';
+import { WORKS_SHEET, buildWorkbookFromSheets } from '@/lib/xlsxImport';
+import { registerRows, EDITABLE_NOTE } from '@/lib/registerExport';
+import { data } from '@/api/data';
 
 const PAGE_SIZE = 50;
 
@@ -29,6 +35,7 @@ export default function TaskRegister() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const initial = {
     ...EMPTY_TASK_FILTERS,
@@ -124,6 +131,22 @@ export default function TaskRegister() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, reloadKey, quick.version]);
 
+  // The filtered register as an Excel sheet in the import template (I-03).
+  const [exporting, setExporting] = useState(false);
+  const exportForEditing = async () => {
+    setExporting(true);
+    try {
+      const all = await data.readAll('Task', buildQuery(), { sort: '-created_date', max: 5000 });
+      const { headers, rows } = registerRows(all.items, cat);
+      downloadBlob(`task-register-${todayIst()}.xlsx`, await buildWorkbookFromSheets({ [WORKS_SHEET]: [headers, ...rows] }));
+      toast({ description: `${rows.length} task${rows.length === 1 ? '' : 's'} exported. ${all.truncated ? 'The register is longer than 5,000 rows; narrow the filters to export the rest. ' : ''}${EDITABLE_NOTE}` });
+    } catch (e) {
+      toast({ description: errorMessageOf(e, 'The export did not work.'), variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const loadMore = async () => {
     setLoadingMore(true);
     try {
@@ -151,6 +174,9 @@ export default function TaskRegister() {
         actions={
           canEdit ? (
             <>
+              <Button variant="outline" className="gap-2" disabled={exporting} onClick={exportForEditing}>
+                <Download className="h-4 w-4" /> {exporting ? 'Exporting…' : 'Export for editing'}
+              </Button>
               <Button variant="outline" className="gap-2" onClick={() => setVillaOpen(true)}>
                 <Layers className="h-4 w-4" /> Villa work
               </Button>

@@ -215,6 +215,12 @@ function clarificationsFor({ row, match, task }) {
   if (match.confidence === 'unknown' && cleanText(row.values.task_ref)) {
     notes.push(match.reason);
   }
+  // A sheet exported for editing carries when each row was last updated: if the task
+  // has changed since, applying the sheet could overwrite someone's newer work (I-03).
+  const exportedAt = cleanText(row.values.exported_at);
+  if (task && exportedAt && task.updated_date && Date.parse(task.updated_date) > Date.parse(exportedAt)) {
+    notes.push(`${task.task_ref} was changed after this sheet was exported (${task.updated_date}). Export it again, or confirm that the sheet's values are still right.`);
+  }
   return [...new Set(notes)];
 }
 

@@ -54,9 +54,10 @@ export const IMPORT_COLUMNS = [
   // is turns the row into an agreed update of that task instead of a new one. A
   // reference that is not on the project is reported, never guessed at.
   { key: 'task_ref', label: 'Task reference', aliases: ['task reference', 'task ref', 'existing task reference', 'existing task ref'] },
+  { key: 'exported_at', label: 'Last updated (do not edit)', aliases: ['last updated (do not edit)', 'last updated', 'exported at', 'row last updated'], hidden: true },
 ];
 
-export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.map((column) => column.label);
+export const IMPORT_TEMPLATE_HEADERS = IMPORT_COLUMNS.filter((column) => !column.hidden).map((column) => column.label);
 
 export const MAX_IMPORT_ROWS = 500;
 export const MAX_IMPORT_TEXT = 1500000;
@@ -426,7 +427,7 @@ async function loadProjectData(base44, projectId) {
     db.readAll(
       'Task',
       { project_id: projectId },
-      { fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number'], max: 50000 },
+      { fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number', 'updated_date'], max: 50000 },
     ),
   ]);
 
