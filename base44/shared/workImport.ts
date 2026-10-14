@@ -427,7 +427,7 @@ async function loadProjectData(base44, projectId) {
     db.readAll(
       'Task',
       { project_id: projectId },
-      { fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number', 'updated_date'], max: 50000 },
+      { fields: ['id', 'task_ref', 'name', 'discipline', 'location_id', 'phase_id', 'status', 'archived', 'is_villa_work_parent', 'source_reference', 'import_source_file', 'import_row_number', 'import_batch_id', 'updated_date'], max: 50000 },
     ),
   ]);
 

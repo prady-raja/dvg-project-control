@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import Pill from '@/components/common/Pill';
 import EnumSelect from '@/components/common/EnumSelect';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ImportRowFix from '@/components/import/ImportRowFix';
 import ImportProposal from '@/components/import/ImportProposal';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ export default function ImportRowTable({
   onOverrideMany,
   onClearOverride,
   onDecision,
+  onDecisionMany,
   onReason,
   onEdit,
   onLink,
@@ -66,6 +68,7 @@ export default function ImportRowTable({
   const [filter, setFilter] = useState('All rows');
   const [openRow, setOpenRow] = useState(0);
   const [limit, setLimit] = useState(PAGE);
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   const shown = useMemo(() => {
     const list = rows || [];
@@ -82,6 +85,19 @@ export default function ImportRowTable({
     return key ? list.filter((row) => row.reconcile?.outcome === key) : list;
   }, [rows, filter]);
   const visible = shown.slice(0, limit);
+
+  // Same rows the single "Same task, no change" button is offered on: a matched task
+  // and nothing to change. Only a decision is set; nothing is written until import.
+  const bulkRows = useMemo(
+    () => (filter === 'POSSIBLE DUPLICATE'
+      ? shown.filter((row) => !row.blocking && !(row.reconcile?.changes || []).length && row.reconcile?.match?.task_id)
+      : []),
+    [shown, filter],
+  );
+  const applyBulk = () => {
+    onDecisionMany?.(bulkRows.map((row) => [row.row_number, 'link', row.reconcile.match.task_id]));
+    setConfirmBulk(false);
+  };
 
   const renderDecision = (row, decision, rec, changes, open) => (
     <>
@@ -200,8 +216,24 @@ export default function ImportRowTable({
         <p className="text-xs text-muted-foreground">
           {shown.length} of {rows.length} row(s) shown · nothing is written until you confirm the import
         </p>
-        <EnumSelect value={filter} onChange={(value) => { setFilter(value); setLimit(PAGE); }} options={FILTERS} size="sm" className="w-[240px]" />
+        <div className="flex flex-wrap items-center gap-2">
+          {bulkRows.length > 0 && onDecisionMany && (
+            <Button size="sm" variant="outline" onClick={() => setConfirmBulk(true)}>
+              Same task, no change for all shown
+            </Button>
+          )}
+          <EnumSelect value={filter} onChange={(value) => { setFilter(value); setLimit(PAGE); }} options={FILTERS} size="sm" className="w-[240px]" />
+        </div>
       </div>
+      <ConfirmDialog
+        open={confirmBulk}
+        onOpenChange={setConfirmBulk}
+        title={`Apply to ${bulkRows.length} rows?`}
+        description="Sets “Same task, no change” on the rows shown. Nothing is written until you confirm the import, and you can change any row's decision before then."
+        confirmLabel="Apply"
+        destructive={false}
+        onConfirm={applyBulk}
+      />
 
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <div className="overflow-x-auto">
@@ -278,7 +310,17 @@ export default function ImportRowTable({
                             ))}
                           </ul>
                         )}
-                        {row.duplicate && !rec.clarifications?.length && (
+                        {rec.match?.via === 'already_imported' && (
+                          <p className="mb-1 flex items-start gap-1 text-xs text-muted-foreground">
+                            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>
+                              Already imported as <span className="field-mono">{rec.match.task_ref}</span> · batch{' '}
+                              <span className="field-mono">{rec.match.batch_ref || rec.match.batch_id}</span>
+                              {rec.match.batch_ref && rec.match.batch_id ? <> (<span className="field-mono">{rec.match.batch_id}</span>)</> : null}
+                            </span>
+                          </p>
+                        )}
+                        {row.duplicate && !rec.clarifications?.length && rec.match?.via !== 'already_imported' && (
                           <p className="mb-1 flex items-start gap-1 text-xs text-amber-600">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
                             <span>
@@ -288,7 +330,7 @@ export default function ImportRowTable({
                           </p>
                         )}
                         <IssueList issues={row.issues} />
-                        {!row.issues.length && !row.duplicate && !rec.clarifications?.length && (
+                        {!row.issues.length && !row.duplicate && !rec.clarifications?.length && rec.match?.via !== 'already_imported' && (
                           <p className="flex items-center gap-1 text-xs text-emerald-600">
                             <CheckCircle2 className="h-3 w-3" /> Ready
                           </p>
@@ -335,6 +377,11 @@ export default function ImportRowTable({
               </p>
               {changes.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
+              )}
+              {rec.match?.via === 'already_imported' && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Already imported as <span className="field-mono">{rec.match.task_ref}</span> · batch <span className="field-mono">{rec.match.batch_ref || rec.match.batch_id}</span>
+                </p>
               )}
               <div className="mt-2"><IssueList issues={row.issues} /></div>
               <div className="mt-3">{renderDecision(row, decision, rec, changes, open)}</div>

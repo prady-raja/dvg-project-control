@@ -190,6 +190,32 @@ export function matchFor({ row, ctx, linkedTaskId, byRef }) {
   };
 }
 
+/**
+ * A row this very file already wrote on an earlier (possibly unfinished) run.
+ *
+ * Every condition has to hold: the task sits in this project, carries the import
+ * batch of the same file fingerprint (ctx.alreadyImported, built by the caller),
+ * was written from this source row number, and the row has no other candidate,
+ * no repeat inside the file and no field that differs. Anything less stays a
+ * decision for a person.
+ */
+function alreadyImportedFor({ row, ctx, match, linkedTaskId, clarifications }) {
+  const prior = ctx.alreadyImported?.get(row.row_number);
+  if (!prior || prior.ambiguous || row.blocking || clarifications.length) return null;
+  const task = ctx.tasks.find((item) => item.id === prior.task_id);
+  if (!task || task.archived === true || task.import_batch_id !== prior.batch_id) return null;
+  if (task.project_id && ctx.project?.id && task.project_id !== ctx.project.id) return null;
+  if (row.issues.some((issue) => issue.code === 'duplicate_in_file' || issue.code === 'repeated_in_file')) return null;
+  const dup = row.duplicate;
+  if (dup && (dup.in_file || dup.task_id !== task.id || (dup.others || []).length)) return null;
+  const stated = cleanText(row.values.task_ref);
+  if (stated && looseKey(stated) !== looseKey(task.task_ref)) return null;
+  if (linkedTaskId && linkedTaskId !== task.id) return null;
+  if (match.task && match.task.id !== task.id) return null;
+  if (changeSetFor(row, task).length) return null;
+  return { task, prior };
+}
+
 /** Why a row cannot be decided yet, stated so the person knows what to fix. */
 function clarificationsFor({ row, match, task }) {
   const notes = [];
@@ -264,11 +290,21 @@ export function reconcileRows({ rows, ctx, links = {}, byRef }) {
 
   const reconciled = (rows || []).map((row) => {
     const linkedTaskId = String(links[row.row_number] || '');
-    const match = matchFor({ row, ctx, linkedTaskId, byRef: referenceIndex });
+    let match = matchFor({ row, ctx, linkedTaskId, byRef: referenceIndex });
+    const firstClarifications = clarificationsFor({ row, match, task: match.task });
+    const already = alreadyImportedFor({ row, ctx, match, linkedTaskId, clarifications: firstClarifications });
+    if (already) {
+      match = {
+        task: already.task,
+        via: 'already_imported',
+        confidence: 'confirmed',
+        reason: `Already imported: row ${row.row_number} of this file was written to ${already.task.task_ref} in batch ${already.prior.batch_ref || already.prior.batch_id}.`,
+      };
+    }
     const task = match.task;
     const taskWithVilla = task ? { ...task, villaLabel: ctx.locationCodeById.get(task.location_id) || 'Site-wide' } : null;
 
-    const clarifications = clarificationsFor({ row, match: { ...match, villaLabel: taskWithVilla?.villaLabel }, task });
+    const clarifications = already ? [] : clarificationsFor({ row, match: { ...match, villaLabel: taskWithVilla?.villaLabel }, task });
     const changes = task && !row.blocking ? changeSetFor(row, task) : [];
     const missing = [];
     if (!row.resolved.contractor_id) missing.push('Contractor');
@@ -278,7 +314,8 @@ export function reconcileRows({ rows, ctx, links = {}, byRef }) {
     if (row.resolved.scope_unassigned) missing.push('Room/area not in the register');
 
     let outcome;
-    if (row.blocking || clarifications.length) outcome = 'clarify';
+    if (already) outcome = 'unchanged';
+    else if (row.blocking || clarifications.length) outcome = 'clarify';
     else if (!task) outcome = row.duplicate?.in_file ? 'duplicate' : 'create';
     else if (match.confidence !== 'confirmed') outcome = 'duplicate';
     else if (changes.length) outcome = 'update';
@@ -303,6 +340,7 @@ export function reconcileRows({ rows, ctx, links = {}, byRef }) {
             reason: match.reason,
             updated_date: task.updated_date || '',
             baseline_locked: task.baseline_locked === true,
+            ...(already ? { batch_id: already.prior.batch_id, batch_ref: already.prior.batch_ref || '' } : {}),
           }
           : { task_id: '', task_ref: '', confidence: match.confidence, via: match.via, reason: match.reason },
         changes: changes.map((change) => ({

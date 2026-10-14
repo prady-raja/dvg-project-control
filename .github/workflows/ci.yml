@@ -19,5 +19,9 @@ jobs:
       - run: npm run build
       - run: npm run check:bundle
       - run: npm test
-      # `npm run typecheck` is not run here yet: the existing checkJs baseline has
-      # hundreds of unrelated errors. Turn it on once that baseline is cleared.
+      - run: npm run typecheck
+      # Phone layout: no sideways scrolling, wide tables stack into cards. Uses a real browser.
+      - run: npm i --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+      - run: npm run check:phone
+        env:
+          PLAYWRIGHT_MODULES: ${{ github.workspace }}/node_modules/

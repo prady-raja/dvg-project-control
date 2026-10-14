@@ -20,6 +20,7 @@ import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
 import { loadAiSettings, providerFor, usageToday } from '../../shared/ai.ts';
 import { withLog } from '../../shared/log.ts';
 import { addCounts } from '../../shared/importChunks.ts';
+import { bulkCreateOnce, withBackoff } from '../../shared/writeRetry.ts';
 
 /**
  * Work import — Excel or CSV in, reconciled and reviewed changes out.
@@ -66,7 +67,10 @@ const batchRefFor = (date) => {
  */
 async function reconcileWithDetails({ svc, validated, ctx, links }) {
   const first = reconcileRows({ rows: validated.rows, ctx, links });
-  const ids = [...new Set(first.rows.map((row) => row.reconcile.match.task_id).filter(Boolean))];
+  const ids = [...new Set([
+    ...first.rows.map((row) => row.reconcile.match.task_id).filter(Boolean),
+    ...[...(ctx.alreadyImported?.values() || [])].map((prior) => prior.task_id),
+  ])];
   if (!ids.length) return first;
 
   const full = [];
@@ -76,6 +80,29 @@ async function reconcileWithDetails({ svc, validated, ctx, links }) {
   const byId = new Map(full.map((task) => [task.id, task]));
   ctx.tasks = ctx.tasks.map((task) => byId.get(task.id) || task);
   return reconcileRows({ rows: validated.rows, ctx, links });
+}
+
+/**
+ * Tasks written by earlier batches of the same file fingerprint, by source row.
+ * A row that two different tasks claim is marked ambiguous and never auto-matched.
+ */
+async function priorRowsOf(svc, ctx, projectId, checksum) {
+  const prior = new Map();
+  if (!checksum) return prior;
+  const batches = listAll(await svc.ImportBatch.filter({ project_id: projectId, source_checksum: checksum }, { limit: 200 }));
+  const batchRefById = new Map(batches.map((batch) => [batch.id, batch.batch_ref]));
+  ctx.tasks.forEach((task) => {
+    if (!task.import_batch_id || !batchRefById.has(task.import_batch_id)) return;
+    const rowNumber = Number(task.import_row_number);
+    if (!Number.isFinite(rowNumber) || rowNumber <= 0) return;
+    const existing = prior.get(rowNumber);
+    if (existing && existing.task_id !== task.id) {
+      existing.ambiguous = true;
+      return;
+    }
+    prior.set(rowNumber, { task_id: task.id, batch_id: task.import_batch_id, batch_ref: batchRefById.get(task.import_batch_id) });
+  });
+  return prior;
 }
 
 async function handler(req) {
@@ -133,6 +160,10 @@ async function handler(req) {
     if (file.total > MAX_IMPORT_ROWS) {
       throw fail(`That file has ${file.total} rows. One import takes up to ${MAX_IMPORT_ROWS}.`);
     }
+
+    // Work an earlier run of this same file (same project, same fingerprint) already
+    // wrote, keyed by source row. Read-only: it only lets a repeat run recognise it.
+    ctx.alreadyImported = await priorRowsOf(svc, ctx, projectId, checksum);
 
     const validated = validateImportRows({ rows: file.rows, ctx, overrides, fileName });
     const reconciled = await reconcileWithDetails({ svc, validated, ctx, links });
@@ -236,8 +267,9 @@ async function handler(req) {
     // A row that already holds the information needs no decision; a row that would
     // change an existing task is only written when a person accepts it.
     const plan = reconciled.rows.map((row) => {
-      const asked = decisionOf(decisions[row.row_number]);
       const outcome = row.reconcile.outcome;
+      // Written by an earlier run of this file: never written again, whatever was asked.
+      const asked = row.reconcile.match?.via === 'already_imported' ? 'unchanged' : decisionOf(decisions[row.row_number]);
       const fallback = outcome === 'create' ? 'import' : outcome === 'unchanged' ? 'unchanged' : '';
       return { row, decision: asked || fallback, outcome };
     });
@@ -477,7 +509,14 @@ async function handler(req) {
             }),
           );
 
-          const created = listAll(await svc.Task.bulkCreate(payloads));
+          // Rate limits are waited out; a retry first looks for rows already stored
+          // under this batch, so nothing is written twice.
+          const created = listAll(await bulkCreateOnce({
+            create: (remaining) => svc.Task.bulkCreate(remaining),
+            findStored: async () => listAll(await svc.Task.filter({ project_id: projectId, import_batch_id: batch.id }, { limit: 500 })),
+            payloads,
+            keyOf: (item) => item.import_row_number,
+          }));
           const byRef = new Map(created.map((task) => [task.task_ref, task]));
 
           await attachTaskRefs(
@@ -496,7 +535,7 @@ async function handler(req) {
             user,
             note: `Imported from ${fileName} (batch ${batchRef})`,
           });
-          if (createdRows.length) await svc.TaskHistory.bulkCreate(createdRows);
+          if (createdRows.length) await withBackoff(() => svc.TaskHistory.bulkCreate(createdRows));
 
           // A reported completion carries its own trail row: the source's own word,
           // the operational status, and the fact that nobody in this session claims
@@ -570,7 +609,16 @@ async function handler(req) {
     const failedRows = of('failed');
 
     // Counts and the per-row report add up across chunks; the batch only finishes on the last one.
-    const before = previousBatch || {};
+    // A resumed run retries the rows an earlier attempt could not write, so its
+    // failures are not carried forward; everything it did write is kept.
+    const resuming = body?.resume === true && previousBatch && chunkIndex === 0;
+    const before = resuming
+      ? {
+        ...previousBatch,
+        failed_count: 0,
+        report: (Array.isArray(previousBatch.report) ? previousBatch.report : []).filter((entry) => entry.outcome !== 'failed'),
+      }
+      : (previousBatch || {});
     const total = (key, now) => (Number(before[key]) || 0) + now;
     const failedTotal = total('failed_count', failedRows.length);
     const writtenTotal = total('created_count', createdRows.length) + total('updated_count', updatedRows.length);

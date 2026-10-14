@@ -65,7 +65,7 @@ export function revisionRank(revision) {
 export const compareRevisions = (a, b) => revisionRank(a) - revisionRank(b);
 
 /** Where a drawing belongs: one villa, every villa of a type, a floor of a villa, or a common area. */
-export const scopeKey = (target = {}) => {
+export const scopeKey = (target: any = {}) => {
   if (target.villa_type) return `type:${String(target.villa_type).trim().toLowerCase()}`;
   return `loc:${target.location_id || ''}${target.floor_id ? `:${target.floor_id}` : ''}`;
 };
@@ -81,7 +81,7 @@ export const sameNumber = (a, b) => String(a || '').trim().toLowerCase() === Str
  *   needs_number   — no drawing number could be read
  */
 export function planDrawingIntake({ files = [], existing = [] }) {
-  const pool = existing.map((d) => ({ number: d.drawing_number, revision: d.revision, status: d.status, key: scopeKey(d), id: d.id }));
+  const pool: any[] = existing.map((d) => ({ number: d.drawing_number, revision: d.revision, status: d.status, key: scopeKey(d), id: d.id }));
   return files.map((file) => {
     if (!String(file.number || '').trim()) return { ...file, state: 'needs_number', note: 'Enter the drawing number.' };
     const key = scopeKey(file.target || {});
