@@ -225,6 +225,19 @@ export default function WorkImport() {
     if (linkId) setLinks((current) => ({ ...current, [rowNumber]: linkId }));
   };
 
+  const decideMany = (entries) => {
+    setDecisions((current) => {
+      const next = { ...current };
+      entries.forEach(([rowNumber, decision]) => { next[rowNumber] = decision; });
+      return next;
+    });
+    setLinks((current) => {
+      const next = { ...current };
+      entries.forEach(([rowNumber, , linkId]) => { if (linkId) next[rowNumber] = linkId; });
+      return next;
+    });
+  };
+
   const setReason = (rowNumber, text) => setReasons((current) => ({ ...current, [rowNumber]: text }));
 
   const setEdit = (rowNumber, field, value) =>
@@ -426,6 +439,7 @@ export default function WorkImport() {
                 onOverrideMany={applyOverrideMany}
                 onClearOverride={clearOverride}
                 onDecision={decide}
+                onDecisionMany={decideMany}
                 onReason={setReason}
                 onEdit={setEdit}
                 onLink={linkRow}

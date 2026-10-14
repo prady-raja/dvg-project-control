@@ -66,7 +66,10 @@ const batchRefFor = (date) => {
  */
 async function reconcileWithDetails({ svc, validated, ctx, links }) {
   const first = reconcileRows({ rows: validated.rows, ctx, links });
-  const ids = [...new Set(first.rows.map((row) => row.reconcile.match.task_id).filter(Boolean))];
+  const ids = [...new Set([
+    ...first.rows.map((row) => row.reconcile.match.task_id).filter(Boolean),
+    ...[...(ctx.alreadyImported?.values() || [])].map((prior) => prior.task_id),
+  ])];
   if (!ids.length) return first;
 
   const full = [];
@@ -76,6 +79,29 @@ async function reconcileWithDetails({ svc, validated, ctx, links }) {
   const byId = new Map(full.map((task) => [task.id, task]));
   ctx.tasks = ctx.tasks.map((task) => byId.get(task.id) || task);
   return reconcileRows({ rows: validated.rows, ctx, links });
+}
+
+/**
+ * Tasks written by earlier batches of the same file fingerprint, by source row.
+ * A row that two different tasks claim is marked ambiguous and never auto-matched.
+ */
+async function priorRowsOf(svc, ctx, projectId, checksum) {
+  const prior = new Map();
+  if (!checksum) return prior;
+  const batches = listAll(await svc.ImportBatch.filter({ project_id: projectId, source_checksum: checksum }, { limit: 200 }));
+  const batchRefById = new Map(batches.map((batch) => [batch.id, batch.batch_ref]));
+  ctx.tasks.forEach((task) => {
+    if (!task.import_batch_id || !batchRefById.has(task.import_batch_id)) return;
+    const rowNumber = Number(task.import_row_number);
+    if (!Number.isFinite(rowNumber) || rowNumber <= 0) return;
+    const existing = prior.get(rowNumber);
+    if (existing && existing.task_id !== task.id) {
+      existing.ambiguous = true;
+      return;
+    }
+    prior.set(rowNumber, { task_id: task.id, batch_id: task.import_batch_id, batch_ref: batchRefById.get(task.import_batch_id) });
+  });
+  return prior;
 }
 
 async function handler(req) {
@@ -133,6 +159,10 @@ async function handler(req) {
     if (file.total > MAX_IMPORT_ROWS) {
       throw fail(`That file has ${file.total} rows. One import takes up to ${MAX_IMPORT_ROWS}.`);
     }
+
+    // Work an earlier run of this same file (same project, same fingerprint) already
+    // wrote, keyed by source row. Read-only: it only lets a repeat run recognise it.
+    ctx.alreadyImported = await priorRowsOf(svc, ctx, projectId, checksum);
 
     const validated = validateImportRows({ rows: file.rows, ctx, overrides, fileName });
     const reconciled = await reconcileWithDetails({ svc, validated, ctx, links });
@@ -236,8 +266,9 @@ async function handler(req) {
     // A row that already holds the information needs no decision; a row that would
     // change an existing task is only written when a person accepts it.
     const plan = reconciled.rows.map((row) => {
-      const asked = decisionOf(decisions[row.row_number]);
       const outcome = row.reconcile.outcome;
+      // Written by an earlier run of this file: never written again, whatever was asked.
+      const asked = row.reconcile.match?.via === 'already_imported' ? 'unchanged' : decisionOf(decisions[row.row_number]);
       const fallback = outcome === 'create' ? 'import' : outcome === 'unchanged' ? 'unchanged' : '';
       return { row, decision: asked || fallback, outcome };
     });
