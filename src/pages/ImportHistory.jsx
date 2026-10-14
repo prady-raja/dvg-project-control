@@ -95,6 +95,11 @@ export default function ImportHistory() {
                 {batch.row_count} rows · {batch.created_count || 0} created · {batch.updated_count || 0} updated · {batch.unchanged_count || 0} already correct ·{' '}
                 {batch.skipped_count || 0} rejected · {batch.deferred_count || 0} deferred · {batch.failed_count || 0} failed
               </p>
+              {batch.status === 'Importing' && (
+                <p className="mt-1 text-xs text-amber-600">
+                  This import stopped part-way. Resume it with the same file: rows already written are recognised and skipped.
+                </p>
+              )}
               {batch.status === 'Undone' && (
                 <p className="mt-1 text-xs text-muted-foreground">Undone by {batch.undone_by_name} on {formatDateTime(batch.undone_at)}.</p>
               )}
@@ -102,6 +107,13 @@ export default function ImportHistory() {
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => downloadReconciliation(resultFromBatch(batch))}>
                   <Download className="h-3.5 w-3.5" /> Report
                 </Button>
+                {canUndo && batch.status === 'Importing' && (
+                  <Button size="sm" asChild>
+                    <Link to={`/import?project=${batch.project_id}&resume=${batch.id}`}>
+                      <Upload className="h-3.5 w-3.5" /> Resume this import
+                    </Link>
+                  </Button>
+                )}
                 {canUndo && ['Completed', 'Completed with exceptions'].includes(batch.status) && (batch.created_count || batch.updated_count) > 0 && (
                   <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setUndoing(batch)}>
                     <RotateCcw className="h-3.5 w-3.5" /> Undo batch

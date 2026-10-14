@@ -214,7 +214,8 @@ export async function runChunkedImport({ action, file, params = {}, onProgress }
   const total = chunks.length;
   const rowsInFile = chunks.reduce((sum, chunk) => sum + chunk.rowNumbers.length, 0);
   const results = [];
-  let batchId = '';
+  // A resumed import carries on under the batch an earlier attempt left in Importing.
+  let batchId = params.resume_batch_id || '';
   let batchRef = '';
 
   for (let index = 0; index < total; index += 1) {
@@ -238,6 +239,7 @@ export async function runChunkedImport({ action, file, params = {}, onProgress }
           edits: keyed(params.edits),
           expected: keyed(params.expected),
           batch_id: batchId,
+          resume: Boolean(params.resume_batch_id),
           chunk_index: index,
           chunk_total: total,
           total_rows: rowsInFile,

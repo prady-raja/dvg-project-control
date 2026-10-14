@@ -30,7 +30,7 @@ export default function CoverageGrid({ projectId, phaseId, date, canReport }) {
   return (
     <section className="rounded-xl border border-border bg-card p-4 print:hidden">
       <h2 className="font-display text-sm font-semibold">Report coverage</h2>
-      <p className="mt-1 text-xs text-muted-foreground">Working days only. Green: reported. Red: a blocker was reported. Dashed: nothing filed.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Working days only (the last 7 on a phone). Green: reported. Red: a blocker was reported. Dashed: nothing filed.</p>
       <DataState loading={isLoading} error={error} onRetry={refetch} empty={!!data && !data.rows?.length} emptyTitle="No villas to cover" emptyDescription="Villas appear here once they are on the register and active.">
         {data && (
           <>
@@ -43,23 +43,23 @@ export default function CoverageGrid({ projectId, phaseId, date, canReport }) {
                 <thead>
                   <tr>
                     <th className="sticky left-0 bg-card pr-3 text-left font-medium">Villa</th>
-                    {data.days.map((d) => <th key={d} className="px-0.5 text-center font-normal text-muted-foreground">{d.slice(8)}</th>)}
+                    {data.days.map((d, i) => <th key={d} className={cn('px-0.5 text-center font-normal text-muted-foreground', i < data.days.length - 7 && 'hidden sm:table-cell')}>{d.slice(8)}</th>)}
                     <th className="pl-3 text-left font-medium">Engineer</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="sticky left-0 bg-card pr-3 font-medium">Site diary</td>
-                    {data.site.map((d) => (
-                      <td key={d.day} className="px-0.5 text-center text-xs tnum" title={d.written ? `${d.heads} on site` : 'No diary'}>{d.written ? d.heads : '–'}</td>
+                    {data.site.map((d, i) => (
+                      <td key={d.day} className={cn('px-0.5 text-center text-xs tnum', i < data.site.length - 7 && 'hidden sm:table-cell')} title={d.written ? `${d.heads} on site` : 'No diary'}>{d.written ? d.heads : '–'}</td>
                     ))}
                     <td />
                   </tr>
                   {data.rows.map((row) => (
                     <tr key={row.location_id}>
                       <td className="sticky left-0 bg-card pr-3 font-mono"><button type="button" className="underline-offset-2 hover:underline" onClick={() => navigate(`/locations/${row.location_id}`)}>{row.villa}</button></td>
-                      {row.cells.map((c) => (
-                        <td key={c.day} className="px-0.5 text-center">
+                      {row.cells.map((c, i) => (
+                        <td key={c.day} className={cn('px-0.5 text-center', i < row.cells.length - 7 && 'hidden sm:table-cell')}>
                           <button
                             type="button"
                             disabled={c.state !== 'none' || !canReport}

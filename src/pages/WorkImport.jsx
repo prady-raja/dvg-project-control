@@ -23,6 +23,7 @@ import {
 import ColumnMappingPanel from '@/components/import/ColumnMappingPanel';
 import { clearReview, loadReview, prepareHeadings, saveMappingFor, saveReview } from '@/lib/importMapping';
 import { useScopeState } from '@/lib/ScopeContext';
+import { data as db } from '@/api/data';
 
 /**
  * Import Works — a reviewed Excel or CSV work list in, new tasks, agreed changes
@@ -50,6 +51,19 @@ export default function WorkImport() {
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(null);
   const [headings, setHeadings] = useState({ unrecognised: [], mapping: {} });
+  // An import left in "Importing" that the person chose to resume (?resume=<batch id>).
+  const [resumeBatch, setResumeBatch] = useState(null);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('resume');
+    if (!id) return;
+    db.readAll('ImportBatch', { id }, { max: 1 })
+      .then(({ items }) => setResumeBatch(items[0]?.status === 'Importing' ? items[0] : null))
+      .catch(() => setResumeBatch(null));
+  }, []);
+  const resumable = resumeBatch && file && resumeBatch.project_id === projectId && resumeBatch.source_checksum === file.checksum
+    ? resumeBatch
+    : null;
 
   const projects = useMemo(
     () => cat.projects.filter((project) => access.can(project.id, 'manage_project')),
@@ -289,6 +303,7 @@ export default function WorkImport() {
             (preview?.rows || []).map((row) => [row.row_number, row.reconcile?.match?.updated_date || '']),
           ),
           ai_status: preview?.ai?.note || '',
+          resume_batch_id: resumable?.id || '',
         },
         onProgress: setProgress,
       });
@@ -376,6 +391,14 @@ export default function WorkImport() {
           </>
         }
       />
+
+      {resumeBatch && !result && (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Resuming batch <span className="field-mono">{resumeBatch.batch_ref}</span>. Choose the same file again ({resumeBatch.source_file}):
+          rows already written are recognised and skipped.
+          {file && !resumable && ' This file does not match that import, so it will run as a new import.'}
+        </p>
+      )}
 
       {error && <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
 

@@ -20,6 +20,7 @@ import { applyTaskUpdate } from '../../shared/reconcileApply.ts';
 import { loadAiSettings, providerFor, usageToday } from '../../shared/ai.ts';
 import { withLog } from '../../shared/log.ts';
 import { addCounts } from '../../shared/importChunks.ts';
+import { bulkCreateOnce, withBackoff } from '../../shared/writeRetry.ts';
 
 /**
  * Work import — Excel or CSV in, reconciled and reviewed changes out.
@@ -508,7 +509,14 @@ async function handler(req) {
             }),
           );
 
-          const created = listAll(await svc.Task.bulkCreate(payloads));
+          // Rate limits are waited out; a retry first looks for rows already stored
+          // under this batch, so nothing is written twice.
+          const created = listAll(await bulkCreateOnce({
+            create: (remaining) => svc.Task.bulkCreate(remaining),
+            findStored: async () => listAll(await svc.Task.filter({ project_id: projectId, import_batch_id: batch.id }, { limit: 500 })),
+            payloads,
+            keyOf: (item) => item.import_row_number,
+          }));
           const byRef = new Map(created.map((task) => [task.task_ref, task]));
 
           await attachTaskRefs(
@@ -527,7 +535,7 @@ async function handler(req) {
             user,
             note: `Imported from ${fileName} (batch ${batchRef})`,
           });
-          if (createdRows.length) await svc.TaskHistory.bulkCreate(createdRows);
+          if (createdRows.length) await withBackoff(() => svc.TaskHistory.bulkCreate(createdRows));
 
           // A reported completion carries its own trail row: the source's own word,
           // the operational status, and the fact that nobody in this session claims
@@ -601,7 +609,16 @@ async function handler(req) {
     const failedRows = of('failed');
 
     // Counts and the per-row report add up across chunks; the batch only finishes on the last one.
-    const before = previousBatch || {};
+    // A resumed run retries the rows an earlier attempt could not write, so its
+    // failures are not carried forward; everything it did write is kept.
+    const resuming = body?.resume === true && previousBatch && chunkIndex === 0;
+    const before = resuming
+      ? {
+        ...previousBatch,
+        failed_count: 0,
+        report: (Array.isArray(previousBatch.report) ? previousBatch.report : []).filter((entry) => entry.outcome !== 'failed'),
+      }
+      : (previousBatch || {});
     const total = (key, now) => (Number(before[key]) || 0) + now;
     const failedTotal = total('failed_count', failedRows.length);
     const writtenTotal = total('created_count', createdRows.length) + total('updated_count', updatedRows.length);

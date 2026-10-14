@@ -9,7 +9,7 @@ export const needsAck = ({ location, project }) =>
   location?.possession_status === 'Handed Over' && project?.owner_signoff === 'Required';
 
 /** signed | awaiting | not_needed — for a done item in a villa. */
-export function signoffState(item, { location } = {}) {
+export function signoffState(item, { location }: any = {}) {
   if (item?.owner_ack_date) return 'signed';
   if (location?.possession_status !== 'Handed Over') return 'not_needed';
   return 'awaiting';

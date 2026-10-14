@@ -5,7 +5,7 @@ const INTERACTIVE = 'a, button, input, select, textarea, label, [role="button"],
 
 /**
  * Wrap a table to have it stack into cards on a phone (MVP gap, step 2). Each cell is
- * labelled from its column heading; the first three show and a tap opens the rest.
+ * labelled from its column heading; the first three show (plus the villa, whichever column it is) and a tap opens the rest.
  * On a desktop nothing changes. Clicks on links, buttons and fields inside a card do
  * their own job and never fold it.
  */
@@ -21,7 +21,11 @@ export default function StackTable({ children, className }) {
       const heads = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
       table.querySelectorAll('tbody tr').forEach((tr) => {
         const cells = Array.from(tr.children);
-        cells.forEach((td, i) => { if (heads[i] && !td.hasAttribute('data-label')) td.setAttribute('data-label', heads[i]); });
+        cells.forEach((td, i) => {
+          if (heads[i] && !td.hasAttribute('data-label')) td.setAttribute('data-label', heads[i]);
+          // Which villa a card is about is never folded away, wherever its column sits.
+          if (/^villa\b/i.test(heads[i] || '')) td.setAttribute('data-keep', '');
+        });
         if (cells.length > 3) tr.setAttribute('data-more', ''); else tr.removeAttribute('data-more');
       });
     });
