@@ -14,6 +14,9 @@ const PAGE = 100;
 const FILTERS = [
   'All rows',
   'Needing a decision',
+  'NO DECISION YET',
+  'REJECTED BY YOU',
+  'UPDATES YOU ACCEPTED',
   'CREATE NEW',
   'UPDATE EXISTING',
   'UNCHANGED',
@@ -82,6 +85,11 @@ export default function ImportRowTable({
     if (filter === 'Needing a decision') {
       return list.filter((row) => ['update', 'duplicate', 'clarify'].includes(row.reconcile?.outcome));
     }
+    if (filter === 'NO DECISION YET') {
+      return list.filter((row) => ['update', 'duplicate', 'clarify'].includes(row.reconcile?.outcome) && !decisions[row.row_number]);
+    }
+    if (filter === 'REJECTED BY YOU') return list.filter((row) => decisions[row.row_number] === 'skip');
+    if (filter === 'UPDATES YOU ACCEPTED') return list.filter((row) => decisions[row.row_number] === 'update');
     if (filter === 'DUPLICATE: DIFFERENT ROOM') return list.filter(isDifferentRoom);
     if (filter === 'WRITTEN EARLIER, NOW DIFFERENT') return list.filter((row) => row.reconcile?.match?.written_earlier);
     const key = {
@@ -92,7 +100,7 @@ export default function ImportRowTable({
       'CLARIFICATION REQUIRED': 'clarify',
     }[filter];
     return key ? list.filter((row) => row.reconcile?.outcome === key) : list;
-  }, [rows, filter]);
+  }, [rows, filter, decisions]);
   const visible = shown.slice(0, limit);
 
   // Same rows the single "Same task, no change" button is offered on: a matched task
