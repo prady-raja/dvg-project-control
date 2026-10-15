@@ -1,6 +1,7 @@
 import { todayIst } from '@/lib/format';
 import { base44 } from '@/api/base44Client';
 import { buildWorkbookFromSheets, buildWorkbookTemplate } from '@/lib/xlsxImport';
+import { parseCsv } from '@/lib/shared/workImport.ts';
 import { mergePreviews, mergeResults, restrictToRows, splitIntoChunks } from '@/lib/shared/importChunks.ts';
 
 /**
@@ -184,6 +185,67 @@ export async function downloadReconciledWorkbook(result) {
   const blob = await buildWorkbookFromSheets(result.workbook);
   const name = result.batch_ref ? `reconciled-work-${result.batch_ref}.xlsx` : 'reconciled-work-proposed.xlsx';
   downloadBlob(name, blob);
+}
+
+/**
+ * The rows of the uploaded file that are not on the register yet, as a workbook to
+ * upload in their place. A row is kept when the review reads it as CREATE NEW, or
+ * when the person decided to import it. Every other row is left out and listed on
+ * Left_Out with why. Kept rows stay on their original worksheet row and the rows
+ * between are left blank (the reader skips blanks without renumbering), so a task
+ * made from this file still points at the right line of the source.
+ */
+export function remainingRowsSheets({ file, preview, decisions = {} }) {
+  const parsed = parseCsv(file?.rawText || '');
+  if (parsed.length < 2) throw new Error('There are no rows to keep.');
+  const header = parsed[0];
+  const body = parsed.slice(1);
+  const numbers = (file.rowNumbers || []).length >= body.length ? file.rowNumbers : body.map((_, i) => i + 2);
+  const byNumber = new Map((preview?.rows || []).map((row) => [row.row_number, row]));
+
+  const kept = [];
+  const left = [];
+  body.forEach((cells, index) => {
+    const rowNumber = numbers[index];
+    const row = byNumber.get(rowNumber);
+    const rec = row?.reconcile || {};
+    if (row && (rec.outcome === 'create' || decisions[rowNumber] === 'import')) {
+      kept.push({ rowNumber, cells });
+      return;
+    }
+    left.push([
+      rowNumber,
+      rec.label || (row ? '' : 'Not previewed'),
+      rec.match?.task_ref || '',
+      rec.match?.batch_ref || '',
+      (rec.clarifications || [])[0] || rec.match?.reason || row?.duplicate?.reason || '',
+      cells[header.findIndex((h) => /task description|^name$/i.test(String(h).trim()))] || cells[6] || '',
+    ]);
+  });
+
+  const works = [];
+  works[0] = header;
+  const last = kept.reduce((max, item) => Math.max(max, item.rowNumber), 1);
+  for (let i = 1; i < last; i += 1) works[i] = [];
+  kept.forEach((item) => { works[item.rowNumber - 1] = item.cells; });
+
+  return {
+    kept: kept.length,
+    left: left.length,
+    sheets: {
+      Works: works,
+      Left_Out: [['Row in the original file', 'What the register says', 'Matching task', 'Imported in batch', 'Why', 'Task description'], ...left],
+    },
+  };
+}
+
+export async function downloadRemainingRows({ file, preview, decisions }) {
+  const result = remainingRowsSheets({ file, preview, decisions });
+  if (!result.kept) throw new Error('Every row in this file is already on the register or needs a decision, so there is nothing left to upload.');
+  const blob = await buildWorkbookFromSheets(result.sheets);
+  const stem = String(file.name || 'works').replace(/\.[^.]+$/, '');
+  downloadBlob(`${stem}-REMAINING-${result.kept}-rows.xlsx`, blob);
+  return result;
 }
 
 /** One call into the server function; the server decides everything else. */

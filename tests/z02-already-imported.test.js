@@ -37,4 +37,13 @@ describe('already imported', () => {
     const r = row({ values: { name: 'Plaster', status: 'Completed' }, resolved: { name: 'Plaster', status_value: 'Completed' } });
     expect(run(r, [task({ status: 'Not Started' })]).outcome).not.toBe('unchanged');
   });
+  it('says so when the same row was written earlier but no longer matches exactly', () => {
+    const r = row({ values: { name: 'Plaster', status: 'Completed' }, resolved: { name: 'Plaster', status_value: 'Completed' }, duplicate: { task_id: 't17', task_ref: 'IMG-B-0017', confidence: 'confident', others: [] } });
+    const rec = run(r, [task({ status: 'Not Started' })]);
+    expect(rec.match.written_earlier).toMatchObject({ task_ref: 'IMG-B-0017', batch_ref: 'IMP-1', changed: ['Status'] });
+  });
+  it('does not flag a similar task from another file', () => {
+    const rec = run(row({ duplicate: { task_id: 'old', task_ref: 'IMG-A-0001', confidence: 'possible', others: [] } }), [task(), task({ id: 'old', task_ref: 'IMG-A-0001', import_batch_id: 'b0', import_row_number: 9 })], new Map());
+    expect(rec.match.written_earlier).toBeUndefined();
+  });
 });

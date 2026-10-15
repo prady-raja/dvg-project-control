@@ -16,6 +16,7 @@ import {
   checksumOf,
   downloadExcelTemplate,
   downloadReconciledWorkbook,
+  downloadRemainingRows,
   downloadReconciliation,
   downloadTemplate,
   runChunkedImport,
@@ -354,6 +355,18 @@ export default function WorkImport() {
     }
   };
 
+  const remainingCount = (preview?.rows || []).filter(
+    (row) => row.reconcile?.outcome === 'create' || decisions[row.row_number] === 'import',
+  ).length;
+  const downloadRemaining = async () => {
+    setError('');
+    try {
+      await downloadRemainingRows({ file, preview, decisions });
+    } catch (caught) {
+      setError(caught.message);
+    }
+  };
+
   if (cat.loading || access.loading) return <Skeleton className="h-96 rounded-xl" />;
 
   const project = projects.find((item) => item.id === projectId);
@@ -445,6 +458,8 @@ export default function WorkImport() {
                 busy={busy}
                 onUseAi={() => previewFor(file, { useAi: true })}
                 onDownloadWorkbook={() => downloadReconciled(preview)}
+                onDownloadRemaining={downloadRemaining}
+                remainingCount={remainingCount}
                 onAcceptUpdates={acceptAllUpdates}
               />
 

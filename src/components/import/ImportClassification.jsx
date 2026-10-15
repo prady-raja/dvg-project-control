@@ -24,7 +24,7 @@ const Stat = ({ label, value, tone }) => (
  * already holds, which need a person's decision, and whether the model was able
  * to help with the unclear ones.
  */
-export default function ImportClassification({ reconciliation, ai, busy, onUseAi, onDownloadWorkbook, onAcceptUpdates }) {
+export default function ImportClassification({ reconciliation, ai, busy, onUseAi, onDownloadWorkbook, onDownloadRemaining, remainingCount = 0, onAcceptUpdates }) {
   if (!reconciliation) return null;
   const updates = reconciliation.update || 0;
 
@@ -54,6 +54,11 @@ export default function ImportClassification({ reconciliation, ai, busy, onUseAi
           <Button size="sm" variant="outline" className="gap-2" disabled={!!busy} onClick={onUseAi}>
             <Sparkles className="h-3.5 w-3.5" /> Interpret unclear rows
           </Button>
+          {onDownloadRemaining && (
+            <Button size="sm" className="gap-2" disabled={!!busy || !remainingCount} onClick={onDownloadRemaining}>
+              <Download className="h-3.5 w-3.5" /> Download the {remainingCount} rows still to upload
+            </Button>
+          )}
           {onDownloadWorkbook && (
             <Button size="sm" variant="ghost" className="gap-2" disabled={!!busy} onClick={onDownloadWorkbook}>
               <Download className="h-3.5 w-3.5" /> Reconciled workbook
