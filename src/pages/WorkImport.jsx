@@ -485,7 +485,7 @@ export default function WorkImport() {
 
               <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-1 py-3 backdrop-blur">
                 <p className="text-xs text-muted-foreground">
-                  {counts.created} new · {counts.updated} updated · {counts.unchanged} already correct · {counts.rejected}{' '}
+                  {counts.created} new · {counts.updated} updated · {counts.unchanged + counts.linked} already on the register · {counts.rejected}{' '}
                   rejected · {counts.deferred} deferred · {counts.attention} need a decision
                   {preview.file?.sheet && <> · worksheet <span className="field-mono">{preview.file.sheet}</span></>}
                   {preview.file?.unmapped?.length > 0 && <> · ignored columns: {preview.file.unmapped.join(', ')}</>}

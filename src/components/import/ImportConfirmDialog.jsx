@@ -34,7 +34,7 @@ export default function ImportConfirmDialog({ open, onOpenChange, counts, fileNa
         <div className="space-y-3 text-sm">
           <p className="rounded-lg border border-border bg-muted/40 p-3 font-medium">
             {counts.created} new task{counts.created === 1 ? '' : 's'} will be created, {counts.updated} agreed change
-            {counts.updated === 1 ? '' : 's'} applied to existing tasks, {counts.unchanged} row(s) already match the
+            {counts.updated === 1 ? '' : 's'} applied to existing tasks, {counts.unchanged + (counts.linked || 0)} row(s) already match the
             register, {counts.rejected} rejected, {counts.deferred} deferred, {counts.attention} still need a decision.
           </p>
           {counts.updated > 0 && (
