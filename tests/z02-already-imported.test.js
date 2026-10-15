@@ -46,4 +46,15 @@ describe('already imported', () => {
     const rec = run(row({ duplicate: { task_id: 'old', task_ref: 'IMG-A-0001', confidence: 'possible', others: [] } }), [task(), task({ id: 'old', task_ref: 'IMG-A-0001', import_batch_id: 'b0', import_row_number: 9 })], new Map());
     expect(rec.match.written_earlier).toBeUndefined();
   });
+  it('is still UNCHANGED when the other candidates are this same file\'s own tasks in other rooms', () => {
+    const tasks = [task(), task({ id: 't99', task_ref: 'IMG-B-0099', import_row_number: 20 })];
+    const map = new Map([[4, prior()], [20, prior({ task_id: 't99' })]]);
+    const dup = { task_id: 't99', task_ref: 'IMG-B-0099', confidence: 'possible', others: ['IMG-B-0017'] };
+    expect(run(row({ duplicate: dup }), tasks, map).outcome).toBe('unchanged');
+  });
+  it('stays a duplicate when another candidate comes from a different source', () => {
+    const tasks = [task(), task({ id: 'x', task_ref: 'IMG-A-0005', import_batch_id: 'other', import_row_number: 4 })];
+    const dup = { task_id: 't17', task_ref: 'IMG-B-0017', confidence: 'confident', others: ['IMG-A-0005'] };
+    expect(run(row({ duplicate: dup }), tasks).outcome).toBe('duplicate');
+  });
 });

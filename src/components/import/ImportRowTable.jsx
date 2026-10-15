@@ -330,7 +330,7 @@ export default function ImportRowTable({
                             ))}
                           </ul>
                         )}
-                        {rec.match?.written_earlier && (
+                        {rec.match?.written_earlier && rec.outcome !== 'unchanged' && (
                           <p className="mb-1 flex items-start gap-1 text-xs text-amber-700">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
                             <span>
@@ -352,7 +352,7 @@ export default function ImportRowTable({
                             </span>
                           </p>
                         )}
-                        {row.duplicate && !rec.clarifications?.length && rec.match?.via !== 'already_imported' && (
+                        {row.duplicate && !rec.clarifications?.length && rec.match?.via !== 'already_imported' && rec.outcome !== 'unchanged' && (
                           <p className="mb-1 flex items-start gap-1 text-xs text-amber-600">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
                             <span>
@@ -410,7 +410,7 @@ export default function ImportRowTable({
               {changes.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
               )}
-              {rec.match?.written_earlier && (
+              {rec.match?.written_earlier && rec.outcome !== 'unchanged' && (
                 <p className="mt-1 text-xs text-amber-700">
                   Already written by an earlier run of this file{rec.match.written_earlier.task_ref ? ` as ${rec.match.written_earlier.task_ref}` : ''}; importing as new would make a second copy.
                 </p>
