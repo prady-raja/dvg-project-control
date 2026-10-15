@@ -194,13 +194,17 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
       add('incomplete_predecessor', { task, detail: readiness.reasons.find((reason) => reason.code === 'predecessor').label, readiness: readiness.state });
     }
 
-    const key = `${task.location_id || 'site'}|${looseKey(task.discipline)}|${normalizeAreaName(task.name)}`;
+    // The same wording in two different rooms is two pieces of work, so the room
+    // (or floor, or the words the source used for a room not yet registered) is part of the key.
+    const rooms = [...(task.area_ids || [])].filter(Boolean).sort().join('+');
+    const place = rooms ? `rooms:${rooms}` : task.floor_id ? `floor:${task.floor_id}` : looseKey(task.source_location_text || task.area_label || '') || 'whole';
+    const key = `${task.location_id || 'site'}|${looseKey(task.discipline)}|${place}|${normalizeAreaName(task.name)}`;
     if (normalizeAreaName(task.name) && task.discipline) {
       if (seen.has(key)) {
         const first = seen.get(key);
-        add('possible_duplicate', { task, detail: `Same villa, discipline and wording as ${first.task_ref || 'another task'} — decide whether these are one piece of work.`, readiness: readiness.state });
+        add('possible_duplicate', { task, detail: `Same villa, room, discipline and wording as ${first.task_ref || 'another task'} — decide whether these are one piece of work.`, readiness: readiness.state });
         if (!first.flagged) {
-          add('possible_duplicate', { task: first, detail: `Same villa, discipline and wording as ${task.task_ref || 'another task'} — decide whether these are one piece of work.` });
+          add('possible_duplicate', { task: first, detail: `Same villa, room, discipline and wording as ${task.task_ref || 'another task'} — decide whether these are one piece of work.` });
           first.flagged = true;
         }
       } else {
