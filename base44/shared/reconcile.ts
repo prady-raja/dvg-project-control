@@ -207,11 +207,22 @@ function alreadyImportedFor({ row, ctx, match, linkedTaskId, clarifications }) {
   if (task.project_id && ctx.project?.id && task.project_id !== ctx.project.id) return null;
   if (row.issues.some((issue) => issue.code === 'duplicate_in_file' || issue.code === 'repeated_in_file')) return null;
   const dup = row.duplicate;
-  if (dup && (dup.in_file || dup.task_id !== task.id || (dup.others || []).length)) return null;
+  if (dup?.in_file) return null;
+  // Other candidates are fine only when they are this same file's own earlier tasks
+  // (the same wording in another room of the same list). A candidate from any other
+  // file or source means a person has to decide.
+  const sameFile = new Set([...ctx.alreadyImported.values()].map((item) => item.batch_id));
+  const refs = [dup?.task_id ? ctx.tasks.find((item) => item.id === dup.task_id)?.task_ref : '', ...(dup?.others || [])].filter(Boolean);
+  const outsider = refs.some((ref) => {
+    const other = ctx.tasks.find((item) => item.task_ref === ref);
+    return ref !== task.task_ref && (!other || !sameFile.has(other.import_batch_id));
+  });
+  if (outsider) return null;
   const stated = cleanText(row.values.task_ref);
   if (stated && looseKey(stated) !== looseKey(task.task_ref)) return null;
   if (linkedTaskId && linkedTaskId !== task.id) return null;
-  if (match.task && match.task.id !== task.id) return null;
+  // A task the file names or a person chose must be this very task; a guessed candidate was judged above.
+  if (match.task && match.task.id !== task.id && ['task_ref', 'chosen'].includes(match.via)) return null;
   if (changeSetFor(row, task).length) return null;
   return { task, prior };
 }
