@@ -321,6 +321,20 @@ export function reconcileRows({ rows, ctx, links = {}, byRef }) {
     else if (changes.length) outcome = 'update';
     else outcome = 'unchanged';
 
+    // The same row of this same file was written on an earlier run, yet the row no
+    // longer matches that task exactly (a room registered since, a remark edited).
+    // Said out loud, because importing it as new would make a second copy.
+    const earlier = ctx.alreadyImported?.get(row.row_number);
+    const earlierTask = earlier && !already ? ctx.tasks.find((item) => item.id === earlier.task_id) : null;
+    const writtenEarlier = earlier && !already
+      ? {
+        batch_id: earlier.batch_id,
+        batch_ref: earlier.batch_ref || '',
+        task_ref: earlierTask?.task_ref || '',
+        changed: earlierTask && task && earlierTask.id === task.id ? changes.map((change) => change.label) : [],
+      }
+      : null;
+
     const forecastChange = changes.some((change) => change.field === FORECAST_FIELD);
 
     return {
@@ -341,6 +355,7 @@ export function reconcileRows({ rows, ctx, links = {}, byRef }) {
             updated_date: task.updated_date || '',
             baseline_locked: task.baseline_locked === true,
             ...(already ? { batch_id: already.prior.batch_id, batch_ref: already.prior.batch_ref || '' } : {}),
+            ...(writtenEarlier ? { written_earlier: writtenEarlier } : {}),
           }
           : { task_id: '', task_ref: '', confidence: match.confidence, via: match.via, reason: match.reason },
         changes: changes.map((change) => ({

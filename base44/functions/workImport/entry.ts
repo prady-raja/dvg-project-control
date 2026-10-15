@@ -457,7 +457,12 @@ async function handler(req) {
       // tab left open while someone else changed the work, arrives with an "import"
       // decision against a row that is now a change to an existing task: that row is
       // refused and asked for again rather than written a second time.
-      if (rec.outcome !== 'create') {
+      // A person may deliberately import a POSSIBLE DUPLICATE as new work (a similar
+      // task in a different room is not the same work) — but never a row this very
+      // file already wrote on an earlier run, which would make a second copy.
+      const writtenByThisFile = ctx.alreadyImported?.has(row.row_number) === true;
+      const deliberateNew = rec.outcome === 'duplicate' && decision === 'import' && !writtenByThisFile && !row.duplicate?.in_file;
+      if (rec.outcome !== 'create' && !deliberateNew) {
         const note = `The register now reads this row as ${rec.label} — nothing was written. Review the row again and decide it as it now stands.`;
         report.push(entryFor(row, 'failed', { decision, note }));
         applied[row.row_number] = { outcome: 'failed', note };

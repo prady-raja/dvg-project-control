@@ -18,8 +18,15 @@ const FILTERS = [
   'UPDATE EXISTING',
   'UNCHANGED',
   'POSSIBLE DUPLICATE',
+  'DUPLICATE: DIFFERENT ROOM',
+  'WRITTEN EARLIER, NOW DIFFERENT',
   'CLARIFICATION REQUIRED',
 ];
+
+// A similar task in another room/area is not the same work. Never a repeat inside the file,
+// and never a row this same file already wrote on an earlier run.
+const isDifferentRoom = (row) => row.reconcile?.outcome === 'duplicate' && !row.blocking
+  && row.duplicate?.confidence === 'possible' && !row.duplicate?.in_file && !row.reconcile?.match?.written_earlier;
 
 const OUTCOME_TONE = {
   create: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -75,6 +82,8 @@ export default function ImportRowTable({
     if (filter === 'Needing a decision') {
       return list.filter((row) => ['update', 'duplicate', 'clarify'].includes(row.reconcile?.outcome));
     }
+    if (filter === 'DUPLICATE: DIFFERENT ROOM') return list.filter(isDifferentRoom);
+    if (filter === 'WRITTEN EARLIER, NOW DIFFERENT') return list.filter((row) => row.reconcile?.match?.written_earlier);
     const key = {
       'CREATE NEW': 'create',
       'UPDATE EXISTING': 'update',
@@ -88,14 +97,23 @@ export default function ImportRowTable({
 
   // Same rows the single "Same task, no change" button is offered on: a matched task
   // and nothing to change. Only a decision is set; nothing is written until import.
-  const bulkRows = useMemo(
-    () => (filter === 'POSSIBLE DUPLICATE'
-      ? shown.filter((row) => !row.blocking && !(row.reconcile?.changes || []).length && row.reconcile?.match?.task_id)
-      : []),
-    [shown, filter],
-  );
+  const bulk = useMemo(() => {
+    if (filter === 'POSSIBLE DUPLICATE') {
+      return {
+        kind: 'link',
+        label: 'Same task, no change for all shown',
+        rows: shown.filter((row) => !row.blocking && !(row.reconcile?.changes || []).length && row.reconcile?.match?.task_id),
+      };
+    }
+    if (filter === 'DUPLICATE: DIFFERENT ROOM') {
+      return { kind: 'import', label: 'Import as new for all shown', rows: shown };
+    }
+    return { kind: '', label: '', rows: [] };
+  }, [shown, filter]);
   const applyBulk = () => {
-    onDecisionMany?.(bulkRows.map((row) => [row.row_number, 'link', row.reconcile.match.task_id]));
+    onDecisionMany?.(bulk.rows.map((row) => (
+      bulk.kind === 'link' ? [row.row_number, 'link', row.reconcile.match.task_id] : [row.row_number, 'import', '']
+    )));
     setConfirmBulk(false);
   };
 
@@ -111,7 +129,7 @@ export default function ImportRowTable({
                   Accept update
                 </Button>
               )}
-              {!row.blocking && rec.outcome !== 'unchanged' && (
+              {!row.blocking && rec.outcome !== 'unchanged' && !rec.match?.written_earlier && (
                 <Button
                   size="sm"
                   variant={decision === 'import' ? 'default' : 'outline'}
@@ -217,9 +235,9 @@ export default function ImportRowTable({
           {shown.length} of {rows.length} row(s) shown · nothing is written until you confirm the import
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          {bulkRows.length > 0 && onDecisionMany && (
+          {bulk.rows.length > 0 && onDecisionMany && (
             <Button size="sm" variant="outline" onClick={() => setConfirmBulk(true)}>
-              Same task, no change for all shown
+              {bulk.label}
             </Button>
           )}
           <EnumSelect value={filter} onChange={(value) => { setFilter(value); setLimit(PAGE); }} options={FILTERS} size="sm" className="w-[240px]" />
@@ -228,8 +246,10 @@ export default function ImportRowTable({
       <ConfirmDialog
         open={confirmBulk}
         onOpenChange={setConfirmBulk}
-        title={`Apply to ${bulkRows.length} rows?`}
-        description="Sets “Same task, no change” on the rows shown. Nothing is written until you confirm the import, and you can change any row's decision before then."
+        title={`Apply to ${bulk.rows.length} rows?`}
+        description={bulk.kind === 'import'
+          ? 'Marks the rows shown to be created as new tasks, each in its own room. Nothing is written until you confirm the import, and you can change any row before then.'
+          : 'Sets “Same task, no change” on the rows shown. Nothing is written until you confirm the import, and you can change any row before then.'}
         confirmLabel="Apply"
         destructive={false}
         onConfirm={applyBulk}
@@ -310,6 +330,18 @@ export default function ImportRowTable({
                             ))}
                           </ul>
                         )}
+                        {rec.match?.written_earlier && (
+                          <p className="mb-1 flex items-start gap-1 text-xs text-amber-700">
+                            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>
+                              This row was already written by an earlier run of this file
+                              {rec.match.written_earlier.task_ref ? <> as <span className="field-mono">{rec.match.written_earlier.task_ref}</span></> : null}
+                              {rec.match.written_earlier.batch_ref ? <> (batch <span className="field-mono">{rec.match.written_earlier.batch_ref}</span>)</> : null}
+                              {rec.match.written_earlier.changed?.length ? <> but now differs in: {rec.match.written_earlier.changed.join(', ')}</> : null}
+                              . Importing it as new would make a second copy.
+                            </span>
+                          </p>
+                        )}
                         {rec.match?.via === 'already_imported' && (
                           <p className="mb-1 flex items-start gap-1 text-xs text-muted-foreground">
                             <Info className="mt-0.5 h-3 w-3 shrink-0" />
@@ -377,6 +409,11 @@ export default function ImportRowTable({
               </p>
               {changes.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">{changes.length} field change(s): {changes.map((item) => item.label).slice(0, 3).join(', ')}</p>
+              )}
+              {rec.match?.written_earlier && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Already written by an earlier run of this file{rec.match.written_earlier.task_ref ? ` as ${rec.match.written_earlier.task_ref}` : ''}; importing as new would make a second copy.
+                </p>
               )}
               {rec.match?.via === 'already_imported' && (
                 <p className="mt-1 text-xs text-muted-foreground">
