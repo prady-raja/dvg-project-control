@@ -869,6 +869,13 @@ function validateOneRow(row, ctx, override) {
     }
   }
 
+  // Without a floor or room the same wording on one villa cannot be told apart
+  // from a repeat, so Needs Attention cannot separate real duplicates from work
+  // that simply happens in many rooms. Say so while the file can still be fixed.
+  if (location && !floorText && !areaText && resolved.scope_hint !== 'Entire Villa') {
+    add('warning', 'no_room_text', `No floor or room is given for ${location.villa_code} — rows with the same wording on this villa cannot be told apart. Fill the room column (or set the scope to Entire Villa) before importing.`);
+  }
+
   if (location) {
     const described = describeScope({
       scope_type: resolved.scope_hint,
