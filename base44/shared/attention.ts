@@ -116,6 +116,7 @@ export const ATTENTION_CODES = {
   unverified_complete: { label: 'Executed but not verified', severity: 'incomplete' },
   incomplete_predecessor: { label: 'A recorded predecessor is not closed', severity: 'incomplete' },
   possible_duplicate: { label: 'Possibly the same work listed twice', severity: 'invalid' },
+  same_wording_no_room: { label: 'Same wording, no room recorded', severity: 'incomplete' },
   ambiguous_reference: { label: 'Ambiguous villa or plot reference', severity: 'invalid' },
   room_register_missing: { label: 'Villa has no rooms registered', severity: 'incomplete' },
   completed_with_open_work: { label: 'Villa marked Works Completed but work is still open', severity: 'invalid' },
@@ -197,14 +198,23 @@ export function attentionFor({ tasks = [], locations = [], areas = [], floors = 
     // The same wording in two different rooms is two pieces of work, so the room
     // (or floor, or the words the source used for a room not yet registered) is part of the key.
     const rooms = [...(task.area_ids || [])].filter(Boolean).sort().join('+');
-    const place = rooms ? `rooms:${rooms}` : task.floor_id ? `floor:${task.floor_id}` : looseKey(task.source_location_text || task.area_label || '') || 'whole';
-    const key = `${task.location_id || 'site'}|${looseKey(task.discipline)}|${place}|${normalizeAreaName(task.name)}`;
+    const knownPlace = rooms ? `rooms:${rooms}` : task.floor_id ? `floor:${task.floor_id}` : looseKey(task.source_location_text || task.area_label || '');
+    // No room, floor or room wording at all: the rows cannot be judged. Rows that
+    // carry their own distinct source reference are different work; the rest are
+    // reported as missing a room, not as an invalid duplicate.
+    const place = knownPlace || 'whole';
+    const sourceRef = looseKey(task.source_reference || '');
+    const key = `${task.location_id || 'site'}|${looseKey(task.discipline)}|${place}|${normalizeAreaName(task.name)}${knownPlace ? '' : `|${sourceRef}`}`;
     if (normalizeAreaName(task.name) && task.discipline) {
       if (seen.has(key)) {
         const first = seen.get(key);
-        add('possible_duplicate', { task, detail: `Same villa, room, discipline and wording as ${first.task_ref || 'another task'} — decide whether these are one piece of work.`, readiness: readiness.state });
+        const code = knownPlace ? 'possible_duplicate' : 'same_wording_no_room';
+        const detail = knownPlace
+          ? (other) => `Same villa, room, discipline and wording as ${other || 'another task'} — decide whether these are one piece of work.`
+          : (other) => `Same wording as ${other || 'another task'} on this villa and no room is recorded, so they cannot be told apart. Record the room on each.`;
+        add(code, { task, detail: detail(first.task_ref), readiness: readiness.state });
         if (!first.flagged) {
-          add('possible_duplicate', { task: first, detail: `Same villa, room, discipline and wording as ${task.task_ref || 'another task'} — decide whether these are one piece of work.` });
+          add(code, { task: first, detail: detail(task.task_ref) });
           first.flagged = true;
         }
       } else {

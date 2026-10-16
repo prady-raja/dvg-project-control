@@ -14,6 +14,7 @@ export const ATTENTION_CODES = {
   unverified_complete: { label: 'Executed but not verified', severity: 'incomplete' },
   incomplete_predecessor: { label: 'A recorded predecessor is not closed', severity: 'incomplete' },
   possible_duplicate: { label: 'Possibly the same work listed twice', severity: 'invalid' },
+  same_wording_no_room: { label: 'Same wording, no room recorded', severity: 'incomplete' },
   ambiguous_reference: { label: 'Ambiguous villa or plot reference', severity: 'invalid' },
   room_register_missing: { label: 'Villa has no rooms registered', severity: 'incomplete' },
   completed_with_open_work: { label: 'Villa marked Works Completed but work is still open', severity: 'invalid' },

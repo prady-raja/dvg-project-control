@@ -18,4 +18,15 @@ describe('possible duplicate', () => {
   it('is still raised for the same wording in the same room', () => {
     expect(dupes([task('1', { area_ids: ['r1'] }), task('2', { area_ids: ['r1'] })]).length).toBeGreaterThan(0);
   });
+  it('is not an invalid duplicate when no room is recorded; it asks for the room instead', () => {
+    const items = attentionFor({ tasks: [task('1'), task('2')], locations: [{ id: 'v1', villa_code: 'B-01' }], asOf: '2026-10-15' }).items;
+    expect(items.filter((i) => i.code === 'possible_duplicate')).toHaveLength(0);
+    const rooms = items.filter((i) => i.code === 'same_wording_no_room');
+    expect(rooms).toHaveLength(2);
+    expect(rooms.every((i) => i.severity === 'incomplete')).toBe(true);
+  });
+  it('treats rows with different source references as different work', () => {
+    const items = attentionFor({ tasks: [task('1', { source_reference: 'R-10' }), task('2', { source_reference: 'R-11' })], locations: [{ id: 'v1', villa_code: 'B-01' }], asOf: '2026-10-15' }).items;
+    expect(items.filter((i) => i.code === 'possible_duplicate' || i.code === 'same_wording_no_room')).toHaveLength(0);
+  });
 });
