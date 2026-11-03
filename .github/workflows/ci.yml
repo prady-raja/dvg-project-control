@@ -8,6 +8,14 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,6 +28,12 @@ jobs:
       - run: npm run check:bundle
       - run: npm test
       - run: npm run typecheck
+      # Supabase migrations apply cleanly and the row-level security policies behave (tests/supabase).
+      - run: scripts/test-supabase-rls.sh
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
       # Phone layout: no sideways scrolling, wide tables stack into cards. Uses a real browser.
       - run: npm i --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
       - run: npm run check:phone
